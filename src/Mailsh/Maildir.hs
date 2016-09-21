@@ -1,7 +1,9 @@
 module Mailsh.Maildir
   ( Maildir
+  , MaildirFile
   , openMaildir
   , listMaildir
+  , inMaildir
   , setFlag
   , unsetFlag
   , hasFlag
@@ -15,7 +17,7 @@ import System.FilePath
 data Maildir = Maildir { getMaildir :: FilePath }
   deriving (Show)
 
-type MID = String
+type MaildirFile = String
 
 curOf = (</> "cur") . getMaildir
 tmpOf = (</> "tmp") . getMaildir
@@ -32,11 +34,14 @@ openMaildir fp = do
 check :: Maildir -> IO ()
 check md = return () -- TODO move messages from 'new' to 'cur'
 
-listMaildir :: Maildir -> IO [MID]
+listMaildir :: Maildir -> IO [MaildirFile]
 listMaildir maildir =
-  filter (\x -> (x /= ".") && (x /= ".."))<$> getDirectoryContents (curOf maildir)
+  filter (\x -> (x /= ".") && (x /= "..")) <$> getDirectoryContents (curOf maildir)
 
-setFlag :: Char -> Maildir -> MID -> IO ()
+inMaildir :: MaildirFile -> Maildir -> FilePath
+inMaildir mid maildir = curOf maildir </> mid
+
+setFlag :: Char -> Maildir -> MaildirFile -> IO ()
 setFlag f maildir mid = do
   let (basename, flags') = break (== ',') mid
       flags              = tail flags'
@@ -44,7 +49,7 @@ setFlag f maildir mid = do
       newmid             = basename ++ "," ++ newflags
   renameFile (curOf maildir </> mid) (curOf maildir </> newmid)
 
-unsetFlag :: Char -> Maildir -> MID -> IO ()
+unsetFlag :: Char -> Maildir -> MaildirFile -> IO ()
 unsetFlag f maildir mid = do
   let (basename, flags') = break (== ',') mid
       flags              = tail flags'
@@ -52,7 +57,7 @@ unsetFlag f maildir mid = do
       newmid             = basename ++ "," ++ newflags
   renameFile (curOf maildir </> mid) (curOf maildir </> newmid)
 
-hasFlag :: Char -> Maildir -> MID -> Bool
+hasFlag :: Char -> Maildir -> MaildirFile -> Bool
 hasFlag f maildir mid =
   let (basename, flags') = break (== ',') mid
       flags              = tail flags'

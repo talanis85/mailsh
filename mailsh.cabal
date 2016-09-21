@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Mailsh.Types
                      , Mailsh.Filter
+                     , Mailsh.Operations
   other-modules:       Mailsh.Maildir
   build-depends:       base >= 4.7 && < 5
                      , mtl >= 2.2 && < 2.3
@@ -32,6 +33,7 @@ executable mailsh
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , mailsh
+                     , mtl >= 2.2 && < 2.3
                      , optparse-applicative >= 0.12 && < 1.0
   default-language:    Haskell2010
 

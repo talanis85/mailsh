@@ -1,14 +1,17 @@
 module Main where
 
 import Control.Monad
+import Control.Monad.Trans
 import Options.Applicative
+import System.Environment
 import Text.Printf
 
 import Mailsh.Types
 import Mailsh.Filter
+import Mailsh.Operations
 
 data Options = Options
-  { optCommand :: IO ()
+  { optCommand :: Mailsh ()
   }
 
 options :: Parser Options
@@ -22,19 +25,27 @@ options = Options <$> subparser
                                                        idm)
   )
 
-cmdRead :: MID -> IO ()
-cmdRead mid = printf "TODO: Read mail %d\n" mid
+cmdRead :: MID -> Mailsh ()
+cmdRead mid = do
+  messages <- mailshList
+  if length messages <= mid
+     then liftIO $ printf "No such message.\n"
+     else mailshGetContents (messages !! mid) >>= liftIO . putStrLn
 
-cmdCompose :: Recipient -> IO ()
-cmdCompose rcpt = printf "TODO: Compose mail to %s\n" rcpt
+cmdCompose :: Recipient -> Mailsh ()
+cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
 
-cmdReply :: ReplyStrategy -> MID -> IO ()
-cmdReply strat mid = printf "TODO: Reply to message %d with %s\n" mid (show strat)
+cmdReply :: ReplyStrategy -> MID -> Mailsh ()
+cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (show strat)
 
-cmdHeaders :: FilterExp -> IO ()
-cmdHeaders filter = printf "TODO: Show headers with filter '%s'\n" (show filter)
+cmdHeaders :: FilterExp -> Mailsh ()
+cmdHeaders filter = liftIO $ printf "TODO: Show headers with filter '%s'\n" (show filter)
 
 main :: IO ()
 main = do
   opts <- execParser (info options idm)
-  optCommand opts
+  maildirpath <- lookupEnv "MAILDIR"
+  case maildirpath of
+    Nothing -> printf "Error: No maildir set\n"
+    Just maildirpath -> do
+      runMailshWithMaildir (optCommand opts) maildirpath
