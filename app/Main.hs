@@ -23,10 +23,10 @@ options = Options <$> subparser
   )
 
 cmdRead :: MID -> IO ()
-cmdRead mid = printf "TODO: Read mail %d\n"
+cmdRead mid = printf "TODO: Read mail %d\n" mid
 
 cmdCompose :: Recipient -> IO ()
-cmdCompose rcpt = printf "TODO: Compose mail to %s\n"
+cmdCompose rcpt = printf "TODO: Compose mail to %s\n" rcpt
 
 cmdReply :: ReplyStrategy -> MID -> IO ()
 cmdReply strat mid = printf "TODO: Reply to message %d with %s\n" mid (show strat)
