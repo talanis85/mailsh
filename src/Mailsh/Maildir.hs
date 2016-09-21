@@ -41,20 +41,23 @@ listMaildir maildir =
 inMaildir :: MaildirFile -> Maildir -> FilePath
 inMaildir mid maildir = curOf maildir </> mid
 
+breakFlags :: MaildirFile -> (String, String)
+breakFlags f =
+  let (basename, flags') = break (== ',') f
+  in (basename, tail flags')
+
 setFlag :: Char -> Maildir -> MaildirFile -> IO ()
 setFlag f maildir mid = do
-  let (basename, flags') = break (== ',') mid
-      flags              = tail flags'
-      newflags           = nub (insert f flags)
-      newmid             = basename ++ "," ++ newflags
+  let (basename, flags) = breakFlags mid
+      newflags          = nub (insert f flags)
+      newmid            = basename ++ "," ++ newflags
   renameFile (curOf maildir </> mid) (curOf maildir </> newmid)
 
 unsetFlag :: Char -> Maildir -> MaildirFile -> IO ()
 unsetFlag f maildir mid = do
-  let (basename, flags') = break (== ',') mid
-      flags              = tail flags'
-      newflags           = delete f flags
-      newmid             = basename ++ "," ++ newflags
+  let (basename, flags) = breakFlags mid
+      newflags          = delete f flags
+      newmid            = basename ++ "," ++ newflags
   renameFile (curOf maildir </> mid) (curOf maildir </> newmid)
 
 hasFlag :: Char -> Maildir -> MaildirFile -> Bool
