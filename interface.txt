@@ -1,0 +1,27 @@
+$ m new
+
+Show all new mail headers. Alias to 'm headers :n'.
+
+$ m read <mid>
+
+Display message <mid> and mark as read.
+
+$ m compose <recipient>
+
+Compose a new message.
+
+$ m reply <mid>
+
+Reply to message <mid>.
+
+$ m group-reply <mid>
+
+Group-reply to message <mid>. Alias to 'm reply --group <mid>'.
+
+$ m thread <mid>
+
+Show all headers of <mid>'s thread. Alias to 'm headers thread:<mid>'
+
+$ m headers [filter-expression]
+
+Show all headers matching <filter-expression>.
