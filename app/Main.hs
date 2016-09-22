@@ -4,11 +4,13 @@ import Control.Monad
 import Control.Monad.Trans
 import Options.Applicative
 import System.Environment
+import System.IO
 import Text.Printf
 
 import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
+import Mailsh.Printer
 
 data Options = Options
   { optCommand :: MaildirM ()
@@ -16,7 +18,8 @@ data Options = Options
 
 options :: Parser Options
 options = Options <$> subparser
-  (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")) idm)
+  (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
+                                          <*> pure utf8Passthrough) idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
@@ -25,12 +28,14 @@ options = Options <$> subparser
                                                        idm)
   )
 
-cmdRead :: MessageNumber -> MaildirM ()
-cmdRead msg = do
+cmdRead :: MessageNumber -> Printer -> MaildirM ()
+cmdRead msg printer = do
   messages <- listMaildir
   if length messages <= msg
      then liftIO $ printf "No such message.\n"
-     else absoluteMaildirFile (messages !! msg) >>= liftIO . readFile >>= liftIO . putStrLn
+     else do
+       fp <- absoluteMaildirFile (messages !! msg)
+       outputWithPrinter printer fp
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
