@@ -1,5 +1,6 @@
 module Mailsh.Message
   ( parseHeaders
+  , filterHeaders
   ) where
 
 import Prelude hiding (takeWhile)
@@ -11,10 +12,10 @@ import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 
-parseHeaders :: Parser [(T.Text, T.Text)]
+parseHeaders :: Parser [(String, String)]
 parseHeaders = many parseHeader
 
-parseHeader :: Parser (T.Text, T.Text)
+parseHeader :: Parser (String, String)
 parseHeader = do
   key <- takeWhile1 (notInClass "\n:")
   skipWhile (inClass ": ")
@@ -28,5 +29,9 @@ parseHeader = do
         satisfy (inClass "\n")
         cont key (value <> B.pack [32] <> value') <|> final key (value <> B.pack [32] <> value')
       final key value =
-        return (TE.decodeUtf8 key, TE.decodeUtf8 value)
+        return (T.unpack (TE.decodeUtf8 key), T.unpack (TE.decodeUtf8 value))
 
+filterHeaders :: [String] -> [(String, String)] -> [(String, String)]
+filterHeaders flt = filter f
+  where
+    f x = fst x `elem` flt

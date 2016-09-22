@@ -1,8 +1,9 @@
 module Mailsh.Printer
   ( Printer (Printer)
   , outputWithPrinter
-  , utf8Passthrough
-  , headersOnly
+  , utf8Printer
+  , headersOnlyPrinter
+  , simplePrinter
   ) where
 
 import Pipes
@@ -12,7 +13,7 @@ import qualified Pipes.Prelude as P
 import qualified Pipes.Text.IO as PTIO
 import qualified Pipes.Parse as PP
 import qualified Data.ByteString as B
-import qualified Data.Text as T
+import Data.List
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as TIO
 import System.IO
@@ -34,16 +35,40 @@ outputWithPrinter printer fp =
 forAllM :: (Monad m) => (a -> m ()) -> PP.Parser a m ()
 forAllM f = PP.foldAllM (const f) (return ()) (const (return ()))
 
-utf8Passthrough :: Printer'
-utf8Passthrough = forAllM (liftIO . TIO.putStr . TE.decodeUtf8)
-
-headersOnly :: Printer'
-headersOnly = do
+headers :: PP.Parser B.ByteString IO [(String, String)]
+headers = do
   headers <- PA.parse parseHeaders
   case headers of
-    Nothing -> parserError "No headers"
-    Just (Left err) -> parserError (show err)
-    Just (Right headers) -> do
-      mapM_ (liftIO . printHeader) headers
-  where
-    printHeader (key, value) = printf "%s: %s\n" key value
+    Nothing -> return []
+    Just (Left err) -> return [("Error", show err)]
+    Just (Right headers) -> return headers
+
+printHeader :: (String, String) -> IO ()
+printHeader (key, value) = printf "%s: %s\n" key value
+
+utf8Printer :: PP.Parser B.ByteString IO ()
+utf8Printer = forAllM (liftIO . TIO.putStr . TE.decodeUtf8)
+
+headersOnlyPrinter :: PP.Parser B.ByteString IO ()
+headersOnlyPrinter = do
+  hs <- headers
+  mapM_ (liftIO . printHeader) hs
+
+simplePrinter :: PP.Parser B.ByteString IO ()
+simplePrinter = do
+  hs <- headers
+  mapM_ (liftIO . printHeader) $ filterHeaders ["From", "To", "Cc", "Bcc", "Reply-To"] hs
+  case lookup "Content-Type" hs of
+    Nothing -> utf8Printer
+    Just ct -> mimePrinter ct
+
+mimePrinter :: String -> PP.Parser B.ByteString IO ()
+mimePrinter ct
+  | "text/html" `isPrefixOf` ct = textHtmlPrinter
+  | otherwise                   = textPlainPrinter
+
+textPlainPrinter :: PP.Parser B.ByteString IO ()
+textPlainPrinter = utf8Printer
+
+textHtmlPrinter :: PP.Parser B.ByteString IO ()
+textHtmlPrinter = liftIO $ putStrLn "HTML message not shown"

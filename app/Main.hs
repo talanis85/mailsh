@@ -31,11 +31,12 @@ options = Options <$> subparser
       printerOption = option printerReader (   short 'p'
                                             <> long "printer"
                                             <> metavar "PRINTER"
-                                            <> value (Printer utf8Passthrough)
+                                            <> value (Printer utf8Printer)
                                            )
       printerReader = eitherReader $ \s -> case s of
-        "headers-only" -> Right (Printer headersOnly)
-        "passthrough"  -> Right (Printer utf8Passthrough)
+        "headers-only" -> Right (Printer headersOnlyPrinter)
+        "passthrough"  -> Right (Printer utf8Printer)
+        "simple"       -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
 
 cmdRead :: MessageNumber -> Printer -> MaildirM ()
