@@ -19,7 +19,7 @@ data Options = Options
 options :: Parser Options
 options = Options <$> subparser
   (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
-                                          <*> pure (Printer utf8Passthrough)) idm)
+                                          <*> printerOption) idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
@@ -27,6 +27,16 @@ options = Options <$> subparser
                                                        (metavar "FILTER" <> value filterAll))
                                                        idm)
   )
+    where
+      printerOption = option printerReader (   short 'p'
+                                            <> long "printer"
+                                            <> metavar "PRINTER"
+                                            <> value (Printer utf8Passthrough)
+                                           )
+      printerReader = eitherReader $ \s -> case s of
+        "headers-only" -> Right (Printer headersOnly)
+        "passthrough"  -> Right (Printer utf8Passthrough)
+        _              -> Left "Invalid printer"
 
 cmdRead :: MessageNumber -> Printer -> MaildirM ()
 cmdRead msg printer = do
