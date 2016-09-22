@@ -8,10 +8,10 @@ import Text.Printf
 
 import Mailsh.Types
 import Mailsh.Filter
-import Mailsh.Operations
+import Mailsh.Maildir
 
 data Options = Options
-  { optCommand :: Mailsh ()
+  { optCommand :: MaildirM ()
   }
 
 options :: Parser Options
@@ -25,20 +25,20 @@ options = Options <$> subparser
                                                        idm)
   )
 
-cmdRead :: MID -> Mailsh ()
-cmdRead mid = do
-  messages <- mailshList
-  if length messages <= mid
+cmdRead :: MessageNumber -> MaildirM ()
+cmdRead msg = do
+  messages <- listMaildir
+  if length messages <= msg
      then liftIO $ printf "No such message.\n"
-     else mailshGetContents (messages !! mid) >>= liftIO . putStrLn
+     else absoluteMaildirFile (messages !! msg) >>= liftIO . readFile >>= liftIO . putStrLn
 
-cmdCompose :: Recipient -> Mailsh ()
+cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
 
-cmdReply :: ReplyStrategy -> MID -> Mailsh ()
+cmdReply :: ReplyStrategy -> MessageNumber -> MaildirM ()
 cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (show strat)
 
-cmdHeaders :: FilterExp -> Mailsh ()
+cmdHeaders :: FilterExp -> MaildirM ()
 cmdHeaders filter = liftIO $ printf "TODO: Show headers with filter '%s'\n" (show filter)
 
 main :: IO ()
@@ -48,4 +48,7 @@ main = do
   case maildirpath of
     Nothing -> printf "Error: No maildir set\n"
     Just maildirpath -> do
-      runMailshWithMaildir (optCommand opts) maildirpath
+      result <- withMaildirPath (optCommand opts) maildirpath
+      case result of
+        Left err -> printf "Error: %s\n" err
+        Right () -> return ()
