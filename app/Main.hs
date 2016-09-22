@@ -19,7 +19,7 @@ data Options = Options
 options :: Parser Options
 options = Options <$> subparser
   (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
-                                          <*> pure utf8Passthrough) idm)
+                                          <*> pure (Printer utf8Passthrough)) idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
