@@ -38,4 +38,5 @@ utf8Printer = utf8decoder
 headersOnlyPrinter :: Printer' ()
 headersOnlyPrinter = do
   hs <- headers
-  mapM_ (liftIO . printHeader) hs
+  filter <- proptHeaders <$> lift ask
+  mapM_ (liftIO . printHeader) $ filterHeaders filter hs
