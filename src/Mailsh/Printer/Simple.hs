@@ -7,6 +7,8 @@ import qualified Pipes.Prelude as P
 import qualified Pipes.Parse as PP
 import qualified Data.ByteString as B
 import Data.List
+import System.Process
+import System.IO
 
 import Mailsh.Printer.Utils
 import Mailsh.Message
@@ -28,4 +30,12 @@ textPlainPrinter :: PP.Parser B.ByteString IO ()
 textPlainPrinter = utf8decoder
 
 textHtmlPrinter :: PP.Parser B.ByteString IO ()
-textHtmlPrinter = liftIO $ putStrLn "HTML message not shown"
+textHtmlPrinter = do
+  (Just inH, _, _, procH) <- liftIO $
+    createProcess_ "html viewer" (shell "w3m -T text/html") { std_in = CreatePipe }
+  feedToHandle inH
+  void $ liftIO $ waitForProcess procH
+    where
+      feedToHandle h = PP.foldAllM (const (liftIO . B.hPut h))
+                                   (return ())
+                                   (const (hClose h))

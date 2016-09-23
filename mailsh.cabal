@@ -36,6 +36,7 @@ library
                      , pipes-parse >= 3.0 && <= 3.1
                      , attoparsec >= 0.13 && <= 0.14
                      , pipes-attoparsec >= 0.5 && <= 0.6
+                     , process >= 1.4 && <= 1.5
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
