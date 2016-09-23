@@ -19,7 +19,8 @@ data Options = Options
 options :: Parser Options
 options = Options <$> subparser
   (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
-                                          <*> printerOption) idm)
+                                          <*> printerOption
+                                          <*> pure defaultPrinterOptions) idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
@@ -39,14 +40,14 @@ options = Options <$> subparser
         "simple"       -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
 
-cmdRead :: MessageNumber -> Printer -> MaildirM ()
-cmdRead msg printer = do
+cmdRead :: MessageNumber -> Printer -> PrinterOptions -> MaildirM ()
+cmdRead msg printer propts = do
   messages <- listMaildir
   if length messages <= msg
      then liftIO $ printf "No such message.\n"
      else do
        fp <- absoluteMaildirFile (messages !! msg)
-       outputWithPrinter printer fp
+       outputWithPrinter printer propts fp
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt

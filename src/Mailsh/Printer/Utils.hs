@@ -15,11 +15,12 @@ import qualified Data.Text.IO as TIO
 import Text.Printf
 
 import Mailsh.Message
+import Mailsh.Printer.Types
 
 forAllM :: (Monad m) => (a -> m ()) -> PP.Parser a m ()
 forAllM f = PP.foldAllM (const f) (return ()) (const (return ()))
 
-headers :: PP.Parser B.ByteString IO [(String, String)]
+headers :: Printer' [(String, String)]
 headers = do
   headers <- PA.parse parseHeaders
   case headers of
@@ -30,5 +31,5 @@ headers = do
 printHeader :: (String, String) -> IO ()
 printHeader (key, value) = printf "%s: %s\n" key value
 
-utf8decoder :: PP.Parser B.ByteString IO ()
+utf8decoder :: Printer' ()
 utf8decoder = forAllM (liftIO . TIO.putStr . TE.decodeUtf8)

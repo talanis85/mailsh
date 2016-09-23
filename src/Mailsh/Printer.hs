@@ -4,8 +4,10 @@ module Mailsh.Printer
   , utf8Printer
   , headersOnlyPrinter
   , module Mailsh.Printer.Simple
+  , module Mailsh.Printer.Types
   ) where
 
+import Control.Monad.Reader
 import Pipes
 import qualified Pipes.Attoparsec as PA
 import qualified Pipes.ByteString as PB
@@ -19,24 +21,21 @@ import qualified Data.Text.IO as TIO
 import System.IO
 import Text.Printf
 
-import Mailsh.Printer.Utils
 import Mailsh.Printer.Simple
-
--- | We need this because type aliases and RankNTypes dont seem to mix nicely.
-type Printer' = PP.Parser B.ByteString IO ()
-newtype Printer = Printer { getPrinter :: Printer' }
+import Mailsh.Printer.Types
+import Mailsh.Printer.Utils
 
 parserError s = liftIO (putStrLn ("Error: " ++ s))
 
-outputWithPrinter :: (MonadIO m) => Printer -> FilePath -> m ()
-outputWithPrinter printer fp =
+outputWithPrinter :: (MonadIO m) => Printer -> PrinterOptions -> FilePath -> m ()
+outputWithPrinter printer propts fp =
   liftIO $ withFile fp ReadMode $ \hIn ->
-    void $ PP.execStateT (getPrinter printer) (PB.fromHandle hIn)
+    void $ runReaderT (PP.execStateT (getPrinter printer) (PB.fromHandle hIn)) propts
 
-utf8Printer :: PP.Parser B.ByteString IO ()
+utf8Printer :: Printer' ()
 utf8Printer = utf8decoder
 
-headersOnlyPrinter :: PP.Parser B.ByteString IO ()
+headersOnlyPrinter :: Printer' ()
 headersOnlyPrinter = do
   hs <- headers
   mapM_ (liftIO . printHeader) hs
