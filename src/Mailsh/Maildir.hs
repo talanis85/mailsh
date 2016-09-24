@@ -13,30 +13,41 @@ module Mailsh.Maildir
   ) where
 
 import Control.Monad
-import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.Reader
+import Control.Monad.State
 import Data.List
+import qualified Data.Map as Map
 import System.Directory
 import System.FilePath
-
-data Maildir = Maildir { getMaildir :: FilePath }
-  deriving (Show)
-
-newtype MaildirM a = MaildirM { _runMaildirM :: ExceptT String (ReaderT Maildir IO) a }
-  deriving (Functor, Applicative, Monad, MonadReader Maildir, MonadError String, MonadIO)
-
-runMaildirM :: MaildirM a -> Maildir -> IO (Either String a)
-runMaildirM m = runReaderT (runExceptT (_runMaildirM m))
-
-withMaildirPath :: MaildirM a -> FilePath -> IO (Either String a)
-withMaildirPath m p = do
-  maildir <- openMaildir p
-  runMaildirM m maildir
 
 -- | A unique message id in a maildir. This is the file name without flags.
 type MID = String
 -- | The physical file name of a message.
 type MaildirFile = String
+
+data Maildir = Maildir { getMaildir :: FilePath }
+  deriving (Show)
+
+data MaildirCache = MaildirCache
+  { mdcList :: Maybe (Map.Map MID MaildirFile)
+  }
+
+mkMaildirCache :: MaildirCache
+mkMaildirCache = MaildirCache
+  { mdcList = Nothing
+  }
+
+newtype MaildirM a = MaildirM { _runMaildirM :: ExceptT String (StateT MaildirCache (ReaderT Maildir IO)) a }
+  deriving (Functor, Applicative, Monad, MonadReader Maildir, MonadError String, MonadState MaildirCache, MonadIO)
+
+runMaildirM :: MaildirM a -> Maildir -> IO (Either String a)
+runMaildirM m = runReaderT (evalStateT (runExceptT (_runMaildirM m)) mkMaildirCache)
+
+withMaildirPath :: MaildirM a -> FilePath -> IO (Either String a)
+withMaildirPath m p = do
+  maildir <- openMaildir p
+  runMaildirM m maildir
 
 curOf = (</> "cur") . getMaildir
 tmpOf = (</> "tmp") . getMaildir
@@ -52,16 +63,40 @@ breakFlags f =
 midOf :: MaildirFile -> MID
 midOf = fst . breakFlags
 
--- | Get a 'MaildirFile' from a 'MID'
-getMaildirFile :: MID -> MaildirM MaildirFile
-getMaildirFile mid = do
+clearCache :: MaildirM ()
+clearCache = modify (\s -> s { mdcList = Nothing })
+
+updateCache :: MaildirM ()
+updateCache = do
   maildir <- ask
   fileList <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
     <$> getDirectoryContents (curOf maildir)
-  let match = filter (isPrefixOf mid) fileList
-  case match of
-    [] -> throwError ("No such message: " ++ mid)
-    (x:_) -> return x
+  let listMap = Map.fromList (map (\x -> (midOf x, x)) fileList)
+  modify (\s -> s { mdcList = Just listMap })
+
+cachedMap :: MaildirM (Map.Map MID MaildirFile)
+cachedMap = do
+  l <- mdcList <$> get
+  case l of
+    Nothing -> updateCache >> cachedMap
+    Just l  -> return l
+
+cachedList :: MaildirM [(MID, MaildirFile)]
+cachedList = Map.toAscList <$> cachedMap
+
+cachedMIDs :: MaildirM [MID]
+cachedMIDs = map fst <$> cachedList
+
+cachedFiles :: MaildirM [MaildirFile]
+cachedFiles = map snd <$> cachedList
+
+-- | Get a 'MaildirFile' from a 'MID'
+getMaildirFile :: MID -> MaildirM MaildirFile
+getMaildirFile mid = do
+  m <- cachedMap
+  case Map.lookup mid m of
+    Nothing -> throwError ("No such message: " ++ mid)
+    Just x  -> return x
 
 -- | Open a maildir and does all the garbage collection the maildir
 --   spec requires.
@@ -75,12 +110,7 @@ openMaildir fp = do
 
 -- | Get all messages in the maildir in ascending order.
 listMaildir :: MaildirM [MID]
-listMaildir = do
-  maildir <- ask
-  liftIO $ sort
-    <$> map midOf
-    <$> filter (\x -> (x /= ".") && (x /= ".."))
-    <$> getDirectoryContents (curOf maildir)
+listMaildir = cachedMIDs
 
 -- | Get the absolute 'FilePath' of a message.
 --   Users should be aware that the returned path might be invalid
@@ -99,6 +129,7 @@ setFlag f mid = do
       newflags          = nub (insert f flags)
       newfile           = basename ++ "," ++ newflags
   liftIO $ renameFile (curOf maildir </> file) (curOf maildir </> newfile)
+  clearCache
 
 unsetFlag :: Char -> MID -> MaildirM ()
 unsetFlag f mid = do
@@ -108,6 +139,7 @@ unsetFlag f mid = do
       newflags          = delete f flags
       newfile           = basename ++ "," ++ newflags
   liftIO $ renameFile (curOf maildir </> file) (curOf maildir </> newfile)
+  clearCache
 
 hasFlag :: Char -> MID -> MaildirM Bool
 hasFlag f mid = do
