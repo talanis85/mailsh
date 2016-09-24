@@ -5,6 +5,7 @@ module Mailsh.Types
   , MessageNumber
   , ReplyStrategy (..)
   , Flag (..)
+  , flagToChar
   , Flags
   , flagD, flagR, flagS, flagT, flagF
   , module Data.Fix
@@ -21,8 +22,15 @@ type MessageNumber = Int
 data ReplyStrategy = SingleReply | GroupReply
   deriving (Show)
 
-data Flag = FlagOld | FlagNew | FlagReplied
+data Flag = FlagD | FlagR | FlagS | FlagT | FlagF
   deriving (Show)
+
+flagToChar :: Flag -> Char
+flagToChar FlagD = 'D'
+flagToChar FlagR = 'R'
+flagToChar FlagS = 'S'
+flagToChar FlagT = 'T'
+flagToChar FlagF = 'F'
 
 data Flags = Flags
   { _flagD :: Bool

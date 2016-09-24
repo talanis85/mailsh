@@ -25,7 +25,7 @@ options = Options <$> subparser
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
   <> command "headers"  (info (cmdHeaders <$> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value filterAll))
+                                                       (metavar "FILTER" <> value filterUnseen))
                                                        idm)
   )
     where
@@ -56,7 +56,10 @@ cmdReply :: ReplyStrategy -> MessageNumber -> MaildirM ()
 cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (show strat)
 
 cmdHeaders :: FilterExp -> MaildirM ()
-cmdHeaders filter = liftIO $ printf "TODO: Show headers with filter '%s'\n" (show filter)
+cmdHeaders filter = do
+  messages <- zip [0..] <$> listMaildir
+  filtered <- filterM (runFilter filter . snd) messages
+  mapM_ (liftIO . putStrLn . show) filtered
 
 main :: IO ()
 main = do

@@ -21,6 +21,7 @@ import qualified Data.Text.IO as TIO
 import System.IO
 import Text.Printf
 
+import Mailsh.Message
 import Mailsh.Printer.Simple
 import Mailsh.Printer.Types
 import Mailsh.Printer.Utils
