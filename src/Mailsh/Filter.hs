@@ -22,11 +22,23 @@ data FilterExpF a
   -- ...
   deriving (Functor, Foldable, Traversable, Show)
 
+filterAnd :: FilterExp -> FilterExp -> FilterExp
+filterAnd a b = Fix (FilterAnd a b)
+
+filterOr :: FilterExp -> FilterExp -> FilterExp
+filterOr a b = Fix (FilterOr a b)
+
+filterNot :: FilterExp -> FilterExp
+filterNot a = Fix (FilterNot a)
+
+filterFlag :: Flag -> FilterExp
+filterFlag f = Fix (FilterFlag f)
+
 filterAll :: FilterExp
-filterAll = ana (const FilterAll) undefined
+filterAll = Fix FilterAll
 
 filterUnseen :: FilterExp
-filterUnseen = Fix (FilterNot (Fix (FilterFlag FlagS)))
+filterUnseen = filterNot (filterFlag FlagS) `filterAnd` filterNot (filterFlag FlagT)
 
 parseFilterExp :: String -> Either String FilterExp
 parseFilterExp str = Right filterAll
