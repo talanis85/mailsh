@@ -103,10 +103,20 @@ getMaildirFile mid = do
 openMaildir :: FilePath -> IO Maildir
 openMaildir fp = do
   let md = Maildir fp
-  return md
   -- TODO check if maildir exists
   -- TODO remove old files from tmp
-  -- TODO move messages from 'new' to 'cur'
+  updateNew md
+  return md
+
+-- | Move messages from 'new' to 'cur'
+updateNew :: Maildir -> IO ()
+updateNew maildir = do
+  newFiles <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
+    <$> getDirectoryContents (newOf maildir)
+  mapM_ moveNewFile newFiles
+    where
+      moveNewFile filename = renameFile (newOf maildir </> filename)
+                                        (curOf maildir </> (filename ++ ":2,"))
 
 -- | Get all messages in the maildir in ascending order.
 listMaildir :: MaildirM [MID]
