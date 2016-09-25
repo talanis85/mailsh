@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad
 import Control.Monad.Trans
+import Data.Maybe
 import Options.Applicative
 import System.Environment
 import System.IO
@@ -11,6 +12,7 @@ import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
 import Mailsh.Printer
+import Mailsh.Message
 
 data Options = Options
   { optCommand :: MaildirM ()
@@ -57,9 +59,22 @@ cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (
 
 cmdHeaders :: FilterExp -> MaildirM ()
 cmdHeaders filter = do
-  messages <- zip [0..] <$> listMaildir
+  messages <- zip ([0..] :: [Int]) <$> listMaildir
   filtered <- filterM (runFilter filter . snd) messages
-  mapM_ (liftIO . putStrLn . show) filtered
+  mapM_ printMessageHeader filtered
+    where
+      printMessageHeader (n, mid) = do
+        fp <- absoluteMaildirFile mid
+        headers <- liftIO $ getMessageFileHeaders fp
+        let format = case headers of
+              Nothing -> "Invalid message format"
+              Just headers -> formatHeaderLine headers
+        liftIO $ printf "%04d: %s\n" n format
+      formatHeaderLine hs =
+        let date = fromMaybe "" (lookup "Date" hs)
+            subject = fromMaybe "" (lookup "Subject" hs)
+            from = fromMaybe "" (lookup "From" hs)
+        in printf "%s\n      %s" from (take 50 subject)
 
 main :: IO ()
 main = do

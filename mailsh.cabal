@@ -19,8 +19,8 @@ library
                      , Mailsh.Filter
                      , Mailsh.Maildir
                      , Mailsh.Printer
-  other-modules:       Mailsh.Message
-                     , Mailsh.Printer.Simple
+                     , Mailsh.Message
+  other-modules:       Mailsh.Printer.Simple
                      , Mailsh.Printer.Types
                      , Mailsh.Printer.Utils
   build-depends:       base >= 4.7 && < 5
