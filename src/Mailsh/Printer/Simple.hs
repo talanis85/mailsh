@@ -17,17 +17,16 @@ import Mailsh.Message
 
 simplePrinter :: Printer' ()
 simplePrinter = do
-  hs <- headers
+  hs <- parseHeaders
   filter <- proptHeaders <$> lift ask
-  mapM_ (liftIO . printHeader) $ filterHeaders filter hs
-  case lookup "Content-Type" hs of
+  mapM_ (liftIO . putStrLn . showField) $ filterFields filter hs
+  case lookupContentType hs of
     Nothing -> textPlainPrinter
     Just ct -> mimePrinter ct
 
 mimePrinter :: String -> Printer' ()
-mimePrinter ct
-  | "text/html" `isPrefixOf` ct = textHtmlPrinter
-  | otherwise                   = textPlainPrinter
+mimePrinter "text/html" = textHtmlPrinter
+mimePrinter _           = textPlainPrinter
 
 textPlainPrinter :: Printer' ()
 textPlainPrinter = utf8decoder

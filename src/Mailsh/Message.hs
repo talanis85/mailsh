@@ -1,47 +1,85 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Mailsh.Message
-  ( parseHeaders
-  , filterHeaders
+  ( Field
+  , IsField (IsField)
+  , _OptionalField, _From, _Sender, _ReturnPath, _ReplyTo
+  , _To, _Cc, _Bcc, _MessageID, _InReplyTo, _References
+  , _Subject, _Comments, _Keywords, _Date
+  -- , _Resent*
+  , _Received, _ObsReceived
+  , lookupField, filterFields
+  , lookupContentType
+  , showField
+  , parseHeaders
   , getMessageFileHeaders
+  , formatNameAddr
   ) where
 
-import Prelude hiding (takeWhile)
-
 import Control.Applicative
-import Data.Attoparsec.ByteString
-import qualified Data.Attoparsec.ByteString.Lazy as APL
+import Control.Lens
+import qualified Data.Attoparsec.ByteString as AP
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
+import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Pipes
+import qualified Pipes.Attoparsec as PA
+import qualified Pipes.ByteString as PB
+import qualified Pipes.Parse as PP
+import qualified Text.ParserCombinators.Parsec as Parsec
+import qualified Text.ParserCombinators.Parsec.Rfc2822 as EH
+import Text.ParserCombinators.Parsec.Rfc2822 (Field (..))
+import System.IO
 
-type Header = (String, String)
+makePrisms ''Field
 
-parseHeaders :: Parser [Header]
-parseHeaders = many parseHeader
+data IsField = forall a. IsField (Prism' Field a)
 
-parseHeader :: Parser Header
-parseHeader = do
-  key <- takeWhile1 (notInClass "\n:")
-  skipWhile (inClass ": ")
-  value <- takeWhile (notInClass "\n")
-  satisfy (inClass "\n")
-  cont key value <|> final key value
-    where
-      cont key value = do
-        takeWhile1 (inClass " \t")
-        value' <- takeWhile (notInClass "\n")
-        satisfy (inClass "\n")
-        cont key (value <> B.pack [32] <> value') <|> final key (value <> B.pack [32] <> value')
-      final key value =
-        return (T.unpack (TE.decodeUtf8 key), T.unpack (TE.decodeUtf8 value))
+lookupField :: Prism' Field a -> [Field] -> [a]
+lookupField p = mapMaybe (^? p)
 
-filterHeaders :: [String] -> [Header] -> [Header]
-filterHeaders flt = filter f
+isn't' :: IsField -> Field -> Bool
+isn't' (IsField x) f = isn't x f
+
+filterFields :: [IsField] -> [Field] -> [Field]
+filterFields f = filter (\x -> or (map (not . flip isn't' x) f))
+
+lookupContentType :: [Field] -> Maybe String
+lookupContentType = listToMaybe . mapMaybe isContentType . lookupField _OptionalField
   where
-    f x = fst x `elem` flt
+    isContentType ("Content-Type", v) = Just (takeWhile (/= ' ') v)
+    isContentType _ = Nothing
 
-getMessageFileHeaders :: FilePath -> IO (Maybe [Header])
-getMessageFileHeaders fp = do
-  f <- BL.readFile fp
-  return $ APL.maybeResult (APL.parse parseHeaders f)
+parseHeaders :: (Monad m) => PP.Parser B.ByteString m [Field]
+parseHeaders = do
+  headerPart' <- PA.parse $ do
+    lines <- many $ do
+      x <- AP.takeWhile1 (AP.notInClass "\n")
+      nl <- AP.take 1
+      return (x <> nl)
+    let fixNL 10 = B.pack [13, 10]
+        fixNL x  = B.pack [x]
+    return (B.concatMap fixNL (mconcat lines))
+    -- TODO clean this up
+  case headerPart' of
+    Nothing -> return []
+    Just (Left err) -> return []
+    Just (Right headerPart) ->
+      case Parsec.parse EH.fields "" (T.unpack (TE.decodeUtf8 headerPart)) of
+        Left err -> error (show err) >> return []
+        Right fields -> return fields
+
+getMessageFileHeaders :: FilePath -> IO [Field]
+getMessageFileHeaders fp =
+  withFile fp ReadMode $ \hIn ->
+    PP.evalStateT parseHeaders (PB.fromHandle hIn)
+
+showField :: Field -> String
+showField = show
+
+formatNameAddr :: EH.NameAddr -> String
+formatNameAddr na = case EH.nameAddr_name na of
+                      Nothing -> EH.nameAddr_addr na
+                      Just name -> name ++ " <" ++ EH.nameAddr_addr na ++ ">"

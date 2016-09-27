@@ -6,6 +6,8 @@ import Data.Maybe
 import Options.Applicative
 import System.Environment
 import System.IO
+import System.Time
+import System.Locale
 import Text.Printf
 
 import Mailsh.Types
@@ -66,15 +68,15 @@ cmdHeaders filter = do
       printMessageHeader (n, mid) = do
         fp <- absoluteMaildirFile mid
         headers <- liftIO $ getMessageFileHeaders fp
-        let format = case headers of
-              Nothing -> "Invalid message format"
-              Just headers -> formatHeaderLine headers
-        liftIO $ printf "%04d: %s\n" n format
+        liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
+      formatHeaderLine :: [Field] -> String
       formatHeaderLine hs =
-        let date = fromMaybe "" (lookup "Date" hs)
-            subject = fromMaybe "" (lookup "Subject" hs)
-            from = fromMaybe "" (lookup "From" hs)
-        in printf "%s\n      %s" from (take 50 subject)
+        let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"
+                                   <$> listToMaybe (lookupField _Date hs))
+            subject = fromMaybe "" (listToMaybe (lookupField _Subject hs))
+            from    = fromMaybe "" (formatNameAddr
+                                   <$> listToMaybe (mconcat (lookupField _From hs)))
+        in printf "%s\n      %s\n      %s" date from (take 50 subject)
 
 main :: IO ()
 main = do
