@@ -36,7 +36,7 @@ options = Options <$> subparser
       printerOption = option printerReader (   short 'p'
                                             <> long "printer"
                                             <> metavar "PRINTER"
-                                            <> value (Printer utf8Printer)
+                                            <> value (Printer simplePrinter)
                                            )
       printerReader = eitherReader $ \s -> case s of
         "headers-only" -> Right (Printer headersOnlyPrinter)
