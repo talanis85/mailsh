@@ -8,8 +8,8 @@ module Mailsh.Message
   , _Subject, _Comments, _Keywords, _Date
   -- , _Resent*
   , _Received, _ObsReceived
-  , lookupField, filterFields
-  , lookupContentType
+  , lookupField, lookupOptionalField, filterFields
+  , simpleContentType
   , showField
   , parseHeaders
   , getMessageFileHeaders
@@ -46,11 +46,13 @@ isn't' (IsField x) f = isn't x f
 filterFields :: [IsField] -> [Field] -> [Field]
 filterFields f = filter (\x -> or (map (not . flip isn't' x) f))
 
-lookupContentType :: [Field] -> Maybe String
-lookupContentType = listToMaybe . mapMaybe isContentType . lookupField _OptionalField
-  where
-    isContentType ("Content-Type", v) = Just (takeWhile (/= ' ') v)
-    isContentType _ = Nothing
+lookupOptionalField :: String -> [Field] -> [String]
+lookupOptionalField key = map (dropWhile (== ' ') . snd)
+                        . filter ((== key) . fst)
+                        . lookupField _OptionalField
+
+simpleContentType :: String -> String
+simpleContentType = takeWhile (\x -> x /= ' ' && x /= ';')
 
 parseHeaders :: (Monad m) => PP.Parser B.ByteString m [Field]
 parseHeaders = do
