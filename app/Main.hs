@@ -72,10 +72,10 @@ cmdHeaders filter = do
       formatHeaderLine :: [Field] -> String
       formatHeaderLine hs =
         let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"
-                                   <$> listToMaybe (lookupField _Date hs))
-            subject = fromMaybe "" (listToMaybe (lookupField _Subject hs))
+                                   <$> listToMaybe (lookupField fDate hs))
+            subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
             from    = fromMaybe "" (formatNameAddr
-                                   <$> listToMaybe (mconcat (lookupField _From hs)))
+                                   <$> listToMaybe (mconcat (lookupField fFrom hs)))
         in printf "%s\n      %s\n      %s" date from (take 50 subject)
 
 main :: IO ()

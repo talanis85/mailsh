@@ -40,4 +40,4 @@ headersOnlyPrinter :: Printer' ()
 headersOnlyPrinter = do
   hs <- parseHeaders
   filter <- proptHeaders <$> lift ask
-  mapM_ (liftIO . putStrLn . showField) $ filterFields filter hs
+  liftIO $ putStrLn $ formatHeaders filter hs

@@ -1,16 +1,23 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Mailsh.Message
   ( Field
+  , AField (..)
   , IsField (IsField)
-  , _OptionalField, _From, _Sender, _ReturnPath, _ReplyTo
-  , _To, _Cc, _Bcc, _MessageID, _InReplyTo, _References
-  , _Subject, _Comments, _Keywords, _Date
+  , fOptionalField, fFrom, fSender, fReturnPath, fReplyTo
+  , fTo, fCc, fBcc
+  -- , fMessageID, fInReplyTo, fReferences
+  , fSubject
+  -- , fComments, fKeywords
+  , fDate
   -- , _Resent*
-  , _Received, _ObsReceived
+  -- , fReceived, fObsReceived
   , lookupField, lookupOptionalField, filterFields
+  , ShowField (..)
   , simpleContentType
-  , showField
   , parseHeaders
   , getMessageFileHeaders
   , formatNameAddr
@@ -20,6 +27,7 @@ import Control.Applicative
 import Control.Lens
 import qualified Data.Attoparsec.ByteString as AP
 import qualified Data.ByteString as B
+import Data.List
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
@@ -35,24 +43,72 @@ import System.IO
 
 makePrisms ''Field
 
-data IsField = forall a. IsField (Prism' Field a)
+{-
+type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
+type Prism s t a b = forall p f. (Choice p, Applicative f) => p a (f b) -> p s (f t)
+type Traversal s t a b = forall f. (Applicative f) => (String -> f String) -> String -> f String
+type Getting r s a = (a -> Const r a) -> s -> Const r s 
 
-lookupField :: Prism' Field a -> [Field] -> [a]
-lookupField p = mapMaybe (^? p)
+Prism' Field String
+= Prism Field Field String String
+= forall p f. (Choice p, Applicative f) => p String (f String) -> p Field (f Field)
+
+Lens' String String
+= Lens String String String String
+= forall f. (Functor f) => (String -> f String) -> String -> f String
+
+Prism' String String
+= Prism String String String String
+= forall p f. (Choice p, Applicative f) => p String (f String) -> p String (f String)
+
+-}
+
+fOptionalField name = AField name _OptionalField
+fFrom               = AField "From"        (_From . below mimeDecodeNameAddr)
+fSender             = AField "Sender"      (_Sender . mimeDecodeNameAddr)
+fReturnPath         = AField "ReturnPath"  (_ReturnPath)
+fReplyTo            = AField "ReplyTo"     (_ReplyTo . below mimeDecodeNameAddr)
+fTo                 = AField "To"          (_To . below mimeDecodeNameAddr)
+fCc                 = AField "Cc"          (_Cc . below mimeDecodeNameAddr)
+fBcc                = AField "Bcc"         (_Bcc . below mimeDecodeNameAddr)
+fSubject            = AField "Subject"     (_Subject . mimeDecodeString)
+fDate               = AField "Date"        (_Date)
+
+data AField a = AField
+  { fieldName :: String
+  , fieldPrism :: Prism' Field a
+  }
+
+data IsField = forall a. (ShowField a) => IsField (AField a)
+
+class ShowField a where
+  showFieldValue :: a -> String
+
+instance ShowField [Char] where showFieldValue = id
+instance ShowField EH.NameAddr where showFieldValue = formatNameAddr
+instance ShowField [EH.NameAddr] where showFieldValue = mconcat . intersperse "," . map formatNameAddr
+
+lookupField :: AField a -> [Field] -> [a]
+lookupField f = mapMaybe (^? (fieldPrism f))
 
 isn't' :: IsField -> Field -> Bool
-isn't' (IsField x) f = isn't x f
+isn't' (IsField x) = isn't (fieldPrism x)
 
 filterFields :: [IsField] -> [Field] -> [Field]
 filterFields f = filter (\x -> or (map (not . flip isn't' x) f))
 
 lookupOptionalField :: String -> [Field] -> [String]
 lookupOptionalField key = map (dropWhile (== ' ') . snd)
-                        . filter ((== key) . fst)
-                        . lookupField _OptionalField
+                        . lookupField (fOptionalField key)
 
 simpleContentType :: String -> String
 simpleContentType = takeWhile (\x -> x /= ' ' && x /= ';')
+
+mimeDecodeString :: Prism' String String
+mimeDecodeString = id -- TODO write the actual decoder
+
+mimeDecodeNameAddr :: Prism' EH.NameAddr EH.NameAddr
+mimeDecodeNameAddr = id -- TODO write the actual decoder
 
 parseHeaders :: (Monad m) => PP.Parser B.ByteString m [Field]
 parseHeaders = do
@@ -77,9 +133,6 @@ getMessageFileHeaders :: FilePath -> IO [Field]
 getMessageFileHeaders fp =
   withFile fp ReadMode $ \hIn ->
     PP.evalStateT parseHeaders (PB.fromHandle hIn)
-
-showField :: Field -> String
-showField = show
 
 formatNameAddr :: EH.NameAddr -> String
 formatNameAddr na = case EH.nameAddr_name na of

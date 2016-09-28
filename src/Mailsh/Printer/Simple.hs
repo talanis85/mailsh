@@ -2,12 +2,12 @@ module Mailsh.Printer.Simple
   ( simplePrinter
   ) where
 
+import Control.Lens
 import Control.Monad.Reader
 import Pipes
 import qualified Pipes.Prelude as P
 import qualified Pipes.Parse as PP
 import qualified Data.ByteString as B
-import Data.List
 import Data.Maybe
 import System.Process
 import System.IO
@@ -20,7 +20,7 @@ simplePrinter :: Printer' ()
 simplePrinter = do
   hs <- parseHeaders
   filter <- proptHeaders <$> lift ask
-  mapM_ (liftIO . putStrLn . showField) $ filterFields filter hs
+  liftIO $ putStrLn $ formatHeaders filter hs
   case simpleContentType <$> listToMaybe (lookupOptionalField "Content-Type" hs) of
     Nothing -> textPlainPrinter
     Just ct -> seePrinter ct
