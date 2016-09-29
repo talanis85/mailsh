@@ -65,7 +65,7 @@ Prism' String String
 
 -}
 
-fOptionalField name = AField name _OptionalField
+fOptionalField name = AField name          (_OptionalField . isOptionalField name)
 fFrom               = AField "From"        (_From . below mimeDecodeNameAddr)
 fSender             = AField "Sender"      (_Sender . mimeDecodeNameAddr)
 fReturnPath         = AField "ReturnPath"  (_ReturnPath)
@@ -75,6 +75,9 @@ fCc                 = AField "Cc"          (_Cc . below mimeDecodeNameAddr)
 fBcc                = AField "Bcc"         (_Bcc . below mimeDecodeNameAddr)
 fSubject            = AField "Subject"     (_Subject . mimeDecodeString)
 fDate               = AField "Date"        (_Date)
+
+isOptionalField :: String -> Prism' (String, String) String
+isOptionalField key = prism' (\x -> (key, x)) (\(key', x) -> if key' == key then Just x else Nothing)
 
 data AField a = AField
   { fieldName :: String
@@ -100,7 +103,7 @@ filterFields :: [IsField] -> [Field] -> [Field]
 filterFields f = filter (\x -> or (map (not . flip isn't' x) f))
 
 lookupOptionalField :: String -> [Field] -> [String]
-lookupOptionalField key = map (dropWhile (== ' ') . snd)
+lookupOptionalField key = map (dropWhile (== ' '))
                         . lookupField (fOptionalField key)
 
 simpleContentType :: String -> String
