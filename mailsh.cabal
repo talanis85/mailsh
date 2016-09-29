@@ -23,24 +23,27 @@ library
   other-modules:       Mailsh.Printer.Simple
                      , Mailsh.Printer.Types
                      , Mailsh.Printer.Utils
-  build-depends:       base >= 4.7 && < 5
-                     , mtl >= 2.2 && < 2.3
-                     , lens >= 4.14 && < 5
-                     , data-fix >= 0.0.3 && < 1.0
-                     , directory >= 1.2 && < 3.0
-                     , filepath >= 1.4 && < 2.0
-                     , bytestring >=0.10.8 && <= 0.11
-                     , text >= 1.2 && <= 1.3
-                     , pipes >= 4.1 && <= 4.2
-                     , pipes-bytestring >= 2.1 && <= 2.2
-                     , pipes-text >= 0.0.2 && <= 0.1
-                     , pipes-parse >= 3.0 && <= 3.1
-                     , attoparsec >= 0.13 && <= 0.14
-                     , pipes-attoparsec >= 0.5 && <= 0.6
-                     , process >= 1.4 && <= 1.5
-                     , containers >= 0.5 && <= 0.6
-                     , hsemail >= 1.7 && < 1.8
-                     , parsec >= 3.1 && < 3.2
+                     , Mailsh.Message.Rfc2047
+  build-depends:       base
+                     , mtl
+                     , lens
+                     , data-fix
+                     , directory
+                     , filepath
+                     , bytestring
+                     , text
+                     , pipes
+                     , pipes-bytestring
+                     , pipes-text
+                     , pipes-parse
+                     , attoparsec
+                     , pipes-attoparsec
+                     , process
+                     , containers
+                     , hsemail
+                     , parsec
+                     , base64-string
+                     , encoding
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
@@ -50,10 +53,10 @@ executable mailsh
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , mailsh
-                     , mtl >= 2.2 && < 2.3
-                     , optparse-applicative >= 0.12 && < 1.0
-                     , old-time >= 1.1 && < 1.2
-                     , old-locale >= 1.0 && < 1.1
+                     , mtl
+                     , optparse-applicative
+                     , old-time
+                     , old-locale
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
