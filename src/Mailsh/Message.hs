@@ -36,10 +36,12 @@ import Pipes
 import qualified Pipes.Attoparsec as PA
 import qualified Pipes.ByteString as PB
 import qualified Pipes.Parse as PP
-import qualified Text.ParserCombinators.Parsec as Parsec
+import qualified Text.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Rfc2822 as EH
 import Text.ParserCombinators.Parsec.Rfc2822 (Field (..))
 import System.IO
+
+import Mailsh.Message.Rfc2047
 
 makePrisms ''Field
 
@@ -105,10 +107,11 @@ simpleContentType :: String -> String
 simpleContentType = takeWhile (\x -> x /= ' ' && x /= ';')
 
 mimeDecodeString :: Prism' String String
-mimeDecodeString = id -- TODO write the actual decoder
+mimeDecodeString = prism' id (Just . parseRfc2047)
 
 mimeDecodeNameAddr :: Prism' EH.NameAddr EH.NameAddr
-mimeDecodeNameAddr = id -- TODO write the actual decoder
+mimeDecodeNameAddr = prism' id $
+  \na -> Just $ na { EH.nameAddr_name = parseRfc2047 <$> EH.nameAddr_name na }
 
 parseHeaders :: (Monad m) => PP.Parser B.ByteString m [Field]
 parseHeaders = do
@@ -138,3 +141,4 @@ formatNameAddr :: EH.NameAddr -> String
 formatNameAddr na = case EH.nameAddr_name na of
                       Nothing -> EH.nameAddr_addr na
                       Just name -> name ++ " <" ++ EH.nameAddr_addr na ++ ">"
+
