@@ -19,11 +19,16 @@ library
                      , Mailsh.Filter
                      , Mailsh.Maildir
                      , Mailsh.Printer
-                     , Mailsh.Message
+                     , Mailsh.Parse
+                     , Network.Email
   other-modules:       Mailsh.Printer.Simple
                      , Mailsh.Printer.Types
                      , Mailsh.Printer.Utils
-                     , Mailsh.Message.Rfc2047
+                     , Network.Email.Rfc2234
+                     , Network.Email.Rfc2822
+                     , Network.Email.Types
+                     , Network.Email.Message
+                     , Data.Attoparsec.ByteString.Char8.Utils
   build-depends:       base
                      , mtl
                      , lens
@@ -40,10 +45,9 @@ library
                      , pipes-attoparsec
                      , process
                      , containers
-                     , hsemail
-                     , parsec
-                     , base64-string
+                     , old-time
                      , encoding
+                     , base64-string
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 

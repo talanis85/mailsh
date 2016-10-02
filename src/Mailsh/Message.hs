@@ -38,7 +38,7 @@ import qualified Pipes.ByteString as PB
 import qualified Pipes.Parse as PP
 import qualified Text.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Rfc2822 as EH
-import Text.ParserCombinators.Parsec.Rfc2822 (Field (..))
+import Network.Email
 import System.IO
 
 import Mailsh.Message.Rfc2047
@@ -144,4 +144,3 @@ formatNameAddr :: EH.NameAddr -> String
 formatNameAddr na = case EH.nameAddr_name na of
                       Nothing -> EH.nameAddr_addr na
                       Just name -> name ++ " <" ++ EH.nameAddr_addr na ++ ">"
-

@@ -14,7 +14,9 @@ import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
 import Mailsh.Printer
-import Mailsh.Message
+import Mailsh.Parse
+
+import Network.Email
 
 data Options = Options
   { optCommand :: MaildirM ()
@@ -67,8 +69,10 @@ cmdHeaders filter = do
     where
       printMessageHeader (n, mid) = do
         fp <- absoluteMaildirFile mid
-        headers <- liftIO $ getMessageFileHeaders fp
-        liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
+        headers <- liftIO $ parseFile fp parseHeaders
+        case headers of
+          Nothing -> liftIO $ printf "%04d: --- Error parsing headers ---"
+          Just headers -> liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
       formatHeaderLine :: [Field] -> String
       formatHeaderLine hs =
         let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"

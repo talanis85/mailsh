@@ -21,10 +21,11 @@ import qualified Data.Text.IO as TIO
 import System.IO
 import Text.Printf
 
-import Mailsh.Message
 import Mailsh.Printer.Simple
 import Mailsh.Printer.Types
 import Mailsh.Printer.Utils
+
+import Network.Email
 
 parserError s = liftIO (putStrLn ("Error: " ++ s))
 
@@ -38,6 +39,6 @@ utf8Printer = utf8decoder
 
 headersOnlyPrinter :: Printer' ()
 headersOnlyPrinter = do
-  hs <- parseHeaders
+  hs <- ignoreError <$> PA.parse parseHeaders
   filter <- proptHeaders <$> lift ask
   liftIO $ putStrLn $ formatHeaders filter hs
