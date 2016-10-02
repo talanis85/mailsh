@@ -2,6 +2,7 @@ module Mailsh.Printer.Utils
   ( forAllM
   , utf8decoder
   , formatHeaders
+  , parseOrFail
   , ignoreEither
   , ignoreMaybe
   , ignoreError
@@ -11,6 +12,8 @@ import Control.Monad.Trans
 import Data.List
 import qualified Pipes.Text.IO as PTIO
 import qualified Pipes.Parse as PP
+import qualified Pipes.Attoparsec as PA
+import qualified Data.Attoparsec.ByteString as AP
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as TIO
 
@@ -28,6 +31,14 @@ formatHeaders filter hs = unlines $ map (formatHeader hs) filter
   where
     formatHeader hs (IsField f) = unlines $ map (formatSingleHeader (fieldName f)) (lookupField f hs)
     formatSingleHeader name value = name ++ ": " ++ showFieldValue value
+
+parseOrFail :: Monoid a => AP.Parser a -> Printer' a
+parseOrFail p = do
+  r <- PA.parse p
+  case r of
+    Nothing -> return mempty
+    Just (Left err) -> fail (show err)
+    Just (Right v) -> return v
 
 ignoreEither :: Monoid b => Either a b -> b
 ignoreEither (Right v) = v

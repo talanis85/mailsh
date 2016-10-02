@@ -20,7 +20,7 @@ import Network.Email
 
 simplePrinter :: Printer' ()
 simplePrinter = do
-  hs <- ignoreError <$> PA.parse parseHeaders
+  hs <- parseOrFail parseHeaders
   filter <- proptHeaders <$> lift ask
   liftIO $ putStrLn $ formatHeaders filter hs
   case simpleContentType <$> listToMaybe (lookupOptionalField "Content-Type" hs) of

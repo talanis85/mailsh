@@ -24,6 +24,7 @@ import Text.Printf
 import Mailsh.Printer.Simple
 import Mailsh.Printer.Types
 import Mailsh.Printer.Utils
+import Mailsh.Parse
 
 import Network.Email
 
@@ -32,7 +33,7 @@ parserError s = liftIO (putStrLn ("Error: " ++ s))
 outputWithPrinter :: (MonadIO m) => Printer -> PrinterOptions -> FilePath -> m ()
 outputWithPrinter printer propts fp =
   liftIO $ withFile fp ReadMode $ \hIn ->
-    void $ runReaderT (PP.execStateT (getPrinter printer) (PB.fromHandle hIn)) propts
+    void $ runReaderT (PP.execStateT (getPrinter printer) (PB.fromHandle hIn >-> P.map fixCrlfS)) propts
 
 utf8Printer :: Printer' ()
 utf8Printer = utf8decoder
