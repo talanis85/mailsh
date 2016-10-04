@@ -24,6 +24,7 @@ import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
 import qualified Data.ByteString.Char8 as B
 import Network.Email.Rfc2234 hiding ( quoted_pair, quoted_string )
+import Network.Email.Rfc2047
 import Network.Email.Types
 
 -- Customize hlint ...
@@ -49,14 +50,14 @@ unfold           = between (optional cfws) (optional cfws)
 header          :: String -> Parser b -> Parser b
 header n p       = let nameString = caseString (n ++ ":")
                    in
-                   between nameString crlf p <?> (n ++ " header line")
+                   between (nameString >> fws) crlf p <?> (n ++ " header line")
 
 -- |Like 'header', but allows the obsolete white-space rules.
 
 obs_header      :: String -> Parser b -> Parser b
 obs_header n p   = let nameString = caseString n >> many wsp >> char ':'
                    in
-                   between nameString crlf p <?> ("obsolete " ++ n ++ " header line")
+                   between (nameString >> fws) crlf p <?> ("obsolete " ++ n ++ " header line")
 
 
 -- ** Primitive Tokens (section 3.2.1)
@@ -219,9 +220,9 @@ utext           = no_ws_ctl <|> satisfy (\c -> ord c `elem` [33..126])
 
 unstructured    :: Parser String
 unstructured    = do r1 <- option [] fws
-                     r2 <- many (do r3 <- utext
+                     r2 <- many (do r3 <- (mconcat <$> try encoded_word `sepBy1` fws) <|> (return <$> utext)
                                     r4 <- option [] fws
-                                    return (r3 : r4))
+                                    return (r3 ++ r4))
                      return (r1 ++ concat r2)
                   <?> "unstructured text"
 
@@ -924,8 +925,8 @@ obs_utext       = obs_text
 -- allows dots between tokens.
 
 obs_phrase      :: Parser [String]
-obs_phrase      = do r1 <- word
-                     r2 <- many $ choice [ word
+obs_phrase      = do r1 <- try encoded_word <|> word
+                     r2 <- many $ choice [ try encoded_word <|> word
                                          , return <$> char '.'
                                          , do { _ <- cfws; return [] }
                                          ]

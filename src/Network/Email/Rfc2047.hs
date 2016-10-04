@@ -6,6 +6,7 @@ import Control.Applicative
 import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
+import Data.Encoding
 
 import Network.Email.Charset
 
@@ -29,12 +30,12 @@ encoding :: Parser EncodingType
 encoding = (oneOf "Qq" >> return QuotedPrintable)
        <|> (oneOf "Bb" >> return Base64)
 
-encoded_text :: DynEncoding -> EncodingType -> Parser T.Text
+encoded_text :: DynEncoding -> EncodingType -> Parser String
 encoded_text charset encoding = do
   enctext <- many1 (noneOf "?")
   let dectext = case encoding of
         QuotedPrintable -> QuotedPrintable.decode enctext
         Base64          -> Base64.decodeToString enctext
-  case stringDecodeExplicit dectext of
+  case decodeStringExplicit charset dectext of
     Left err   -> fail $ "Decoding error: " ++ show err
     Right text -> return text
