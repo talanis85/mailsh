@@ -34,8 +34,14 @@ encoded_text :: DynEncoding -> EncodingType -> Parser String
 encoded_text charset encoding = do
   enctext <- many1 (noneOf "?")
   let dectext = case encoding of
-        QuotedPrintable -> QuotedPrintable.decode enctext
+        QuotedPrintable -> replaceUnderscores (QuotedPrintable.decode enctext)
         Base64          -> Base64.decodeToString enctext
   case decodeStringExplicit charset dectext of
     Left err   -> fail $ "Decoding error: " ++ show err
     Right text -> return text
+
+replaceUnderscores :: String -> String
+replaceUnderscores = map f
+  where
+    f '_' = ' '
+    f x = x
