@@ -8,6 +8,10 @@ module Mailsh.Filter
   , runFilter
   ) where
 
+import Data.Attoparsec.ByteString.Char8
+import Data.Attoparsec.Expr
+import qualified Data.ByteString.Char8 as B
+
 import Mailsh.Maildir
 import Mailsh.Types
 
@@ -41,7 +45,9 @@ filterUnseen :: FilterExp
 filterUnseen = filterNot (filterFlag FlagS) `filterAnd` filterNot (filterFlag FlagT)
 
 parseFilterExp :: String -> Either String FilterExp
-parseFilterExp str = Right filterAll
+parseFilterExp str = case parseOnly (filterExpP <* endOfInput) (B.pack str) of
+                      Left err -> Left ("Filter parse error: " ++ show err)
+                      Right v -> Right v
 
 runFilter :: FilterExp -> MID -> MaildirM Bool
 runFilter f m = cataM (check m) f
@@ -51,3 +57,20 @@ runFilter f m = cataM (check m) f
     check m (FilterNot a)   = return (not a)
     check m (FilterFlag f)  = hasFlag (flagToChar f) m
     check m (FilterAll)     = return True
+
+filterExpP :: Parser FilterExp
+filterExpP = buildExpressionParser
+  [ [ Prefix (char '~' >> return filterNot)            ]
+  , [ Infix  (char '&' >> return filterAnd) AssocRight ]
+  , [ Infix  (char '|' >> return filterOr ) AssocRight ]
+  ] filterTermP <?> "filter expression"
+
+filterTermP :: Parser FilterExp
+filterTermP = choice
+  [ char 'a' >> return filterAll
+  , char 'd' >> return (filterFlag FlagD)
+  , char 'r' >> return (filterFlag FlagR)
+  , char 's' >> return (filterFlag FlagS)
+  , char 't' >> return (filterFlag FlagT)
+  , char 'f' >> return (filterFlag FlagF)
+  ] <?> "filter term"
