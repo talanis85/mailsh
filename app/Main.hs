@@ -74,29 +74,48 @@ cmdHeaders limit filter = do
   messages <- zip ([0..] :: [Int]) <$> listMaildir
   filtered <- filterM (runFilter filter . snd) messages
   case limit of
-    Nothing -> mapM_ printMessageHeader filtered
-    Just l  -> mapM_ printMessageHeader (drop (length filtered - l) filtered)
-    where
-      printMessageHeader (n, mid) = do
-        fp <- absoluteMaildirFile mid
-        headers <- liftIO $ parseFile fp parseHeaders
-        case headers of
-          Nothing -> liftIO $ printf "%04d: --- Error parsing headers ---"
-          Just headers -> liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
-      formatHeaderLine :: [Field] -> String
-      formatHeaderLine hs =
-        let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"
-                                   <$> listToMaybe (lookupField fDate hs))
-            subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
-            from    = fromMaybe "" (formatNameAddr
-                                   <$> listToMaybe (mconcat (lookupField fFrom hs)))
-        in printf "%s\n      %s\n      %s" date from (take 50 subject)
+    Nothing -> mapM_ (uncurry printMessageOverview) filtered
+    Just l  -> mapM_ (uncurry printMessageOverview) (drop (length filtered - l) filtered)
 
 cmdTrash :: MessageNumber -> MaildirM ()
-cmdTrash = getMID >=> setFlag 'T'
+cmdTrash msg = do
+  mid <- getMID msg
+  setFlag 'T' mid
+  headers <- getHeaders mid
+  liftIO $ printf "Trashed message.\n"
+  printMessageOverview msg mid
 
 cmdRecover :: MessageNumber -> MaildirM ()
-cmdRecover = getMID >=> unsetFlag 'T'
+cmdRecover msg = do
+  mid <- getMID msg
+  unsetFlag 'T' mid
+  liftIO $ printf "Recovered message.\n"
+  printMessageOverview msg mid
+
+printMessageOverview :: MessageNumber -> MID -> MaildirM ()
+printMessageOverview n mid = do
+  fp <- absoluteMaildirFile mid
+  headers <- liftIO $ parseFile fp parseHeaders
+  case headers of
+    Nothing -> liftIO $ printf "%04d: --- Error parsing headers ---"
+    Just headers -> liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
+  where
+    formatHeaderLine :: [Field] -> String
+    formatHeaderLine hs =
+      let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"
+                                 <$> listToMaybe (lookupField fDate hs))
+          subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
+          from    = fromMaybe "" (formatNameAddr
+                                 <$> listToMaybe (mconcat (lookupField fFrom hs)))
+      in printf "%s\n      %s\n      %s" date from (take 50 subject)
+
+getHeaders :: MID -> MaildirM [Field]
+getHeaders mid = do
+  fp <- absoluteMaildirFile mid
+  headers <- liftIO $ parseFile fp parseHeaders
+  case headers of
+    Nothing -> throwError "Error parsing headers."
+    Just headers -> return headers
 
 getMID :: MessageNumber -> MaildirM MID
 getMID msg = do
