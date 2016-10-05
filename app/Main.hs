@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad
+import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Maybe
 import Options.Applicative
@@ -33,6 +34,8 @@ options = Options <$> subparser
   <> command "headers"  (info (cmdHeaders <$> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value filterUnseen))
                                                        idm)
+  <> command "trash"    (info (cmdTrash   <$> argument auto (metavar "MID")) idm)
+  <> command "recover"  (info (cmdRecover <$> argument auto (metavar "MID")) idm)
   )
     where
       printerOption = option printerReader (   short 'p'
@@ -81,6 +84,19 @@ cmdHeaders filter = do
             from    = fromMaybe "" (formatNameAddr
                                    <$> listToMaybe (mconcat (lookupField fFrom hs)))
         in printf "%s\n      %s\n      %s" date from (take 50 subject)
+
+cmdTrash :: MessageNumber -> MaildirM ()
+cmdTrash = getMID >=> setFlag 'T'
+
+cmdRecover :: MessageNumber -> MaildirM ()
+cmdRecover = getMID >=> unsetFlag 'T'
+
+getMID :: MessageNumber -> MaildirM MID
+getMID msg = do
+  messages <- listMaildir
+  if length messages <= msg
+     then throwError "No such message."
+     else return (messages !! msg)
 
 main :: IO ()
 main = do
