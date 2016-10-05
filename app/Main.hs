@@ -19,6 +19,8 @@ import Mailsh.Parse
 
 import Network.Email
 
+type Limit = Int
+
 data Options = Options
   { optCommand :: MaildirM ()
   }
@@ -27,13 +29,16 @@ options :: Parser Options
 options = Options <$> subparser
   (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
                                           <*> printerOption
-                                          <*> pure defaultPrinterOptions) idm)
+                                          <*> pure defaultPrinterOptions)
+                              idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> argument auto (metavar "MID")) idm)
-  <> command "headers"  (info (cmdHeaders <$> argument (eitherReader parseFilterExp)
+  <> command "headers"  (info (cmdHeaders <$> option (Just <$> auto)
+                                                     (short 'l' <> metavar "LIMIT" <> value Nothing)
+                                          <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value filterUnseen))
-                                                       idm)
+                              idm)
   <> command "trash"    (info (cmdTrash   <$> argument auto (metavar "MID")) idm)
   <> command "recover"  (info (cmdRecover <$> argument auto (metavar "MID")) idm)
   )
@@ -64,11 +69,13 @@ cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
 cmdReply :: ReplyStrategy -> MessageNumber -> MaildirM ()
 cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (show strat)
 
-cmdHeaders :: FilterExp -> MaildirM ()
-cmdHeaders filter = do
+cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
+cmdHeaders limit filter = do
   messages <- zip ([0..] :: [Int]) <$> listMaildir
   filtered <- filterM (runFilter filter . snd) messages
-  mapM_ printMessageHeader filtered
+  case limit of
+    Nothing -> mapM_ printMessageHeader filtered
+    Just l  -> mapM_ printMessageHeader (drop (length filtered - l) filtered)
     where
       printMessageHeader (n, mid) = do
         fp <- absoluteMaildirFile mid
