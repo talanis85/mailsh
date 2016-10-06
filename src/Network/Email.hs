@@ -23,5 +23,10 @@ simpleContentType t = mimeType t ++ "/" ++ mimeSubtype t
 parseHeaders :: P.Parser [Field]
 parseHeaders = fields
 
-parseMessage :: [Field] -> P.Parser T.Text
-parseMessage = encoded_message
+parseMessage :: [Field] -> P.Parser Body
+parseMessage headers =
+  let contentType =
+        fromMaybe defaultMimeType (listToMaybe (lookupField fContentType headers))
+      contentTransferEncoding =
+        fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
+  in encoded_message contentType contentTransferEncoding

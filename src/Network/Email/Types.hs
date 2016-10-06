@@ -2,11 +2,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
-  ( NameAddr (..)
-  , GenericMessage (..)
-  , MimeType (..)
+  ( Body (..)
+  , bodies
+  , NameAddr (..)
+  , MimeType (..), defaultMimeType
   , EncodingType (..)
-  , Message
   , Field (..)
   , AField (..)
   , IsField (IsField)
@@ -18,7 +18,7 @@ module Network.Email.Types
   , fDate
   -- , _Resent*
   -- , fReceived, fObsReceived
-  , fContentType
+  , fContentType, fContentTransferEncoding
   , lookupField, lookupOptionalField, filterFields
   , ShowField (..)
   , formatNameAddr, formatNameAddrShort
@@ -30,6 +30,13 @@ import qualified Data.Map as Map
 import Data.Maybe
 import System.Time
 
+data Body = BodyLeaf MimeType String | BodyTree [Body]
+  deriving (Show)
+
+bodies :: Body -> [(MimeType, String)]
+bodies (BodyLeaf t s) = [(t, s)]
+bodies (BodyTree bs)  = concatMap bodies bs
+
 -- |A NameAddr is composed of an optional realname a mandatory
 -- e-mail 'address'.
 
@@ -37,14 +44,6 @@ data NameAddr = NameAddr { nameAddr_name :: Maybe String
                          , nameAddr_addr :: String
                          }
                 deriving (Show,Eq)
-
--- |This data type repesents a parsed Internet Message as defined in
--- this RFC. It consists of an arbitrary number of header lines,
--- represented in the 'Field' data type, and a message body, which may
--- be empty.
-
-data GenericMessage a = Message [Field] a deriving Show
-type Message = GenericMessage String
 
 -- |This data type represents any of the header fields defined in this
 -- RFC. Each of the various instances contains with the return value
@@ -85,6 +84,13 @@ data MimeType = MimeType
   , mimeParams :: Map.Map String String
   }
 
+defaultMimeType :: MimeType
+defaultMimeType = MimeType
+  { mimeType = "application"
+  , mimeSubtype = "octet-stream"
+  , mimeParams = mempty
+  }
+
 instance Show MimeType where
   show t = mimeType t ++ "/" ++ mimeSubtype t ++ concat (map showParam (Map.toList (mimeParams t)))
     where showParam (k,v) = ";" ++ k ++ "=" ++ v
@@ -105,6 +111,7 @@ fBcc                = AField "Bcc"         _Bcc
 fSubject            = AField "Subject"     _Subject
 fDate               = AField "Date"        _Date
 fContentType        = AField "Content-Type" _ContentType
+fContentTransferEncoding = AField "Content-Transfer-Encoding" _ContentTransferEncoding
 
 isOptionalField :: String -> Prism' (String, String) String
 isOptionalField key = prism' (\x -> (key, x)) (\(key', x) -> if key' == key then Just x else Nothing)

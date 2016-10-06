@@ -32,11 +32,11 @@ formatHeaders filter hs = unlines $ map (formatHeader hs) filter
     formatHeader hs (IsField f) = unlines $ map (formatSingleHeader (fieldName f)) (lookupField f hs)
     formatSingleHeader name value = name ++ ": " ++ showFieldValue value
 
-parseOrFail :: Monoid a => AP.Parser a -> Printer' a
+parseOrFail :: AP.Parser a -> Printer' a
 parseOrFail p = do
   r <- PA.parse p
   case r of
-    Nothing -> return mempty
+    Nothing -> fail "No data"
     Just (Left err) -> fail (show err)
     Just (Right v) -> return v
 

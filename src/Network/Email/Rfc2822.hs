@@ -538,6 +538,14 @@ dtext           = no_ws_ctl
 
 -- * Overall message syntax (section 3.5)
 
+-- |This data type repesents a parsed Internet Message as defined in
+-- this RFC. It consists of an arbitrary number of header lines,
+-- represented in the 'Field' data type, and a message body, which may
+-- be empty.
+
+data GenericMessage a = Message [Field] a deriving Show
+type Message = GenericMessage String
+
 -- |Parse a complete message as defined by this RFC and it broken down
 -- into the separate header fields and the message body. Header lines,
 -- which contain syntax errors, will not cause the parser to abort.
@@ -829,6 +837,9 @@ received        = header "Received" (do r1 <- name_val_list
                                         r2 <- date_time
                                         return (r1,r2))
 
+unquote         :: String -> String
+unquote         = filter (/= '\"')
+
 content_type    :: Parser MimeType
 content_type    = header "Content-Type" mime_type
 
@@ -851,8 +862,8 @@ mime_param      = do char ';'
                      many fws
                      key <- many1 alpha
                      char '='
-                     value <- many1 (satisfy (notInClass ";\r\n"))
-                     return (key, value)
+                     value <- word
+                     return (key, unquote value)
 
 content_transfer_encoding :: Parser EncodingType
 content_transfer_encoding = header "Content-Transfer-Encoding" $ choice
