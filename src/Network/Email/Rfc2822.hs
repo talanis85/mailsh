@@ -603,6 +603,7 @@ fields          = many (    try (do { r <- from; return (From r) })
                         <|> try (do { r <- resent_msg_id; return (ResentMessageID r) })
                         <|> try (do { r <- received; return (Received r) })
                         <|> try (do { r <- content_type; return (ContentType r) })
+                        <|> try (do { r <- content_transfer_encoding; return (ContentTransferEncoding r) })
                          -- catch all
                         <|> (do { (name,cont) <- optional_field; return (OptionalField name cont) })
                        )
@@ -852,6 +853,13 @@ mime_param      = do char ';'
                      char '='
                      value <- many1 (satisfy (notInClass ";\r\n"))
                      return (key, value)
+
+content_transfer_encoding :: Parser EncodingType
+content_transfer_encoding = header "Content-Transfer-Encoding" $ choice
+  [ string (B.pack "8bit") >> return EightBit
+  , string (B.pack "base64") >> return Base64
+  , string (B.pack "quoted-printable") >> return QuotedPrintable
+  ]
 
 name_val_list   :: Parser [(String,String)]
 name_val_list   = do optional cfws

@@ -9,12 +9,10 @@ import Data.Attoparsec.ByteString.Char8.Utils
 import Data.Encoding
 
 import Network.Email.Charset
+import Network.Email.Types
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
-data EncodingType = Base64 | QuotedPrintable
-  deriving (Show)
- 
 encoded_word :: Parser String
 encoded_word = do
   char '=' >> char '?'

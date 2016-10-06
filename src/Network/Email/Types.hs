@@ -5,6 +5,7 @@ module Network.Email.Types
   ( NameAddr (..)
   , GenericMessage (..)
   , MimeType (..)
+  , EncodingType (..)
   , Message
   , Field (..)
   , AField (..)
@@ -75,6 +76,7 @@ data Field      = OptionalField       String String
                 | Received            ([(String,String)], CalendarTime)
                 | ObsReceived         [(String,String)]
                 | ContentType         MimeType
+                | ContentTransferEncoding EncodingType
                 deriving (Show)
 
 data MimeType = MimeType
@@ -86,6 +88,9 @@ data MimeType = MimeType
 instance Show MimeType where
   show t = mimeType t ++ "/" ++ mimeSubtype t ++ concat (map showParam (Map.toList (mimeParams t)))
     where showParam (k,v) = ";" ++ k ++ "=" ++ v
+
+data EncodingType = EightBit | Base64 | QuotedPrintable
+  deriving (Show)
 
 makePrisms ''Field
 
