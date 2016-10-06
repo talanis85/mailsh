@@ -14,6 +14,7 @@ import Text.Printf
 import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
+import Mailsh.MessageNumber
 import Mailsh.Printer
 import Mailsh.Parse
 
@@ -56,22 +57,19 @@ options = Options <$> subparser
 
 cmdRead :: MessageNumber -> Printer -> PrinterOptions -> MaildirM ()
 cmdRead msg printer propts = do
-  messages <- listMaildir
-  if length messages <= msg
-     then liftIO $ printf "No such message.\n"
-     else do
-       fp <- absoluteMaildirFile (messages !! msg)
-       outputWithPrinter printer propts fp
+  mid <- getMID msg
+  fp <- absoluteMaildirFile mid
+  outputWithPrinter printer propts fp
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
 
 cmdReply :: ReplyStrategy -> MessageNumber -> MaildirM ()
-cmdReply strat mid = liftIO $ printf "TODO: Reply to message %d with %s\n" mid (show strat)
+cmdReply strat msg = liftIO $ printf "TODO: Reply to message %s with %s\n" (show msg) (show strat)
 
 cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
 cmdHeaders limit filter = do
-  messages <- zip ([0..] :: [Int]) <$> listMaildir
+  messages <- checksumListing <$> listMaildir
   filtered <- filterM (runFilter filter . snd) messages
   case limit of
     Nothing -> mapM_ (uncurry printMessageOverview) filtered
@@ -97,8 +95,8 @@ printMessageOverview n mid = do
   fp <- absoluteMaildirFile mid
   headers <- liftIO $ parseFile fp parseHeaders
   case headers of
-    Nothing -> liftIO $ printf "%04d: --- Error parsing headers ---"
-    Just headers -> liftIO $ printf "%04d: %s\n" n (formatHeaderLine headers)
+    Nothing -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
+    Just headers -> liftIO $ printf "%6s: %s\n" (show n) (formatHeaderLine headers)
   where
     formatHeaderLine :: [Field] -> String
     formatHeaderLine hs =
@@ -107,7 +105,7 @@ printMessageOverview n mid = do
           subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
           from    = fromMaybe "" (formatNameAddr
                                  <$> listToMaybe (mconcat (lookupField fFrom hs)))
-      in printf "%s\n      %s\n      %s" date from (take 50 subject)
+      in printf "%s\n        %s\n        %s" date from (take 50 subject)
 
 getHeaders :: MID -> MaildirM [Field]
 getHeaders mid = do
@@ -120,9 +118,9 @@ getHeaders mid = do
 getMID :: MessageNumber -> MaildirM MID
 getMID msg = do
   messages <- listMaildir
-  if length messages <= msg
-     then throwError "No such message."
-     else return (messages !! msg)
+  case lookupMessage msg messages of
+    Nothing -> throwError "No such message."
+    Just mid -> return mid
 
 main :: IO ()
 main = do

@@ -18,6 +18,7 @@ library
   exposed-modules:     Mailsh.Types
                      , Mailsh.Filter
                      , Mailsh.Maildir
+                     , Mailsh.MessageNumber
                      , Mailsh.Printer
                      , Mailsh.Parse
                      , Network.Email
