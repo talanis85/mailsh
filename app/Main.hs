@@ -5,6 +5,7 @@ import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Maybe
 import Options.Applicative
+import System.Console.Terminal.Size
 import System.Environment
 import System.IO
 import System.Time
@@ -72,39 +73,50 @@ cmdHeaders limit filter = do
   messages <- checksumListing <$> listMaildir
   filtered <- filterM (runFilter filter . snd) messages
   case limit of
-    Nothing -> mapM_ (uncurry printMessageOverview) filtered
-    Just l  -> mapM_ (uncurry printMessageOverview) (drop (length filtered - l) filtered)
+    Nothing -> mapM_ (uncurry printMessageSingle) filtered
+    Just l  -> mapM_ (uncurry printMessageSingle) (drop (length filtered - l) filtered)
 
 cmdTrash :: MessageNumber -> MaildirM ()
 cmdTrash msg = do
   mid <- getMID msg
   setFlag 'T' mid
   liftIO $ printf "Trashed message.\n"
-  printMessageOverview msg mid
+  printMessageSingle msg mid
 
 cmdRecover :: MessageNumber -> MaildirM ()
 cmdRecover msg = do
   mid <- getMID msg
   unsetFlag 'T' mid
   liftIO $ printf "Recovered message.\n"
-  printMessageOverview msg mid
+  printMessageSingle msg mid
 
-printMessageOverview :: MessageNumber -> MID -> MaildirM ()
-printMessageOverview n mid = do
+printMessageSingle :: MessageNumber -> MID -> MaildirM ()
+printMessageSingle = printMessageWith (\msg hs -> printWithWidth (formatMessageSingle msg hs))
+
+printMessageWith :: (MessageNumber -> [Field] -> IO ()) -> MessageNumber -> MID -> MaildirM ()
+printMessageWith f n mid = do
   fp <- absoluteMaildirFile mid
   headers <- liftIO $ parseFile fp parseHeaders
   case headers of
     Nothing -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
-    Just headers -> liftIO $ printf "%6s: %s\n" (show n) (formatHeaderLine headers)
+    Just headers -> liftIO $ f n headers
+
+printWithWidth :: (Int -> String) -> IO ()
+printWithWidth f = do
+  (Window _ w) <- fromMaybe (Window 80 80) <$> size
+  putStrLn (f w)
+
+formatMessageSingle :: MessageNumber -> [Field] -> Int -> String
+formatMessageSingle msg hs width = printf "%5s %18s %16s %s"
+                                          (show msg)
+                                          (take 18 from)
+                                          (take 16 date)
+                                          (take (width - (5 + 18 + 16 + 4)) subject)
   where
-    formatHeaderLine :: [Field] -> String
-    formatHeaderLine hs =
-      let date    = fromMaybe "" (formatCalendarTime defaultTimeLocale "%d.%m.%Y %H:%M"
-                                 <$> listToMaybe (lookupField fDate hs))
-          subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
-          from    = fromMaybe "" (formatNameAddr
-                                 <$> listToMaybe (mconcat (lookupField fFrom hs)))
-      in printf "%s\n        %s\n        %s" date from (take 50 subject)
+    from = fromMaybe "" (formatNameAddrShort <$> listToMaybe (mconcat (lookupField fFrom hs)))
+    subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
+    date = fromMaybe "" (formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
+                         <$> listToMaybe (lookupField fDate hs))
 
 getHeaders :: MID -> MaildirM [Field]
 getHeaders mid = do

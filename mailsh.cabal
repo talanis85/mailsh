@@ -66,6 +66,7 @@ executable mailsh
                      , optparse-applicative
                      , old-time
                      , old-locale
+                     , terminal-size
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 

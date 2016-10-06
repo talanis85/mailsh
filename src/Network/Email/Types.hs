@@ -18,7 +18,7 @@ module Network.Email.Types
   -- , fReceived, fObsReceived
   , lookupField, lookupOptionalField, filterFields
   , ShowField (..)
-  , formatNameAddr
+  , formatNameAddr, formatNameAddrShort
   ) where
 
 import Control.Lens
@@ -120,3 +120,8 @@ formatNameAddr :: NameAddr -> String
 formatNameAddr na = case nameAddr_name na of
                       Nothing -> nameAddr_addr na
                       Just name -> name ++ " <" ++ nameAddr_addr na ++ ">"
+
+formatNameAddrShort :: NameAddr -> String
+formatNameAddrShort na = case nameAddr_name na of
+                           Nothing -> nameAddr_addr na
+                           Just name -> name
