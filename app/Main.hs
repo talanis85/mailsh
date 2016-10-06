@@ -91,32 +91,44 @@ cmdRecover msg = do
   printMessageSingle msg mid
 
 printMessageSingle :: MessageNumber -> MID -> MaildirM ()
-printMessageSingle = printMessageWith (\msg hs -> printWithWidth (formatMessageSingle msg hs))
+printMessageSingle = printMessageWith $
+  \msg flags hs -> printWithWidth (formatMessageSingle msg flags hs)
 
-printMessageWith :: (MessageNumber -> [Field] -> IO ()) -> MessageNumber -> MID -> MaildirM ()
+printMessageWith :: (MessageNumber -> String -> [Field] -> IO ())
+                 -> MessageNumber -> MID -> MaildirM ()
 printMessageWith f n mid = do
   fp <- absoluteMaildirFile mid
   headers <- liftIO $ parseFile fp parseHeaders
+  flags <- getFlags mid
   case headers of
     Nothing -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
-    Just headers -> liftIO $ f n headers
+    Just headers -> liftIO $ f n flags headers
 
 printWithWidth :: (Int -> String) -> IO ()
 printWithWidth f = do
   (Window _ w) <- fromMaybe (Window 80 80) <$> size
   putStrLn (f w)
 
-formatMessageSingle :: MessageNumber -> [Field] -> Int -> String
-formatMessageSingle msg hs width = printf "%5s %18s %16s %s"
-                                          (show msg)
-                                          (take 18 from)
-                                          (take 16 date)
-                                          (take (width - (5 + 18 + 16 + 4)) subject)
+formatMessageSingle :: MessageNumber -> String -> [Field] -> Int -> String
+formatMessageSingle msg flags hs width = printf "%c %5s %18s %16s %s"
+                                         (flagSummary flags)
+                                         (show msg)
+                                         (take 18 from)
+                                         (take 16 date)
+                                         (take (width - (1 + 5 + 18 + 16 + 5)) subject)
   where
     from = fromMaybe "" (formatNameAddrShort <$> listToMaybe (mconcat (lookupField fFrom hs)))
     subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
     date = fromMaybe "" (formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
                          <$> listToMaybe (lookupField fDate hs))
+
+flagSummary :: String -> Char
+flagSummary flags
+  | 'T' `elem` flags                        = 'T'
+  | 'F' `elem` flags                        = 'F'
+  | 'R' `elem` flags                        = 'R'
+  | 'S' `elem` flags && 'T' `notElem` flags = 'O'
+  | otherwise                               = 'N'
 
 getHeaders :: MID -> MaildirM [Field]
 getHeaders mid = do

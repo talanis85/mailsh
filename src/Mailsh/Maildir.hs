@@ -10,6 +10,7 @@ module Mailsh.Maildir
   , setFlag
   , unsetFlag
   , hasFlag
+  , getFlags
   ) where
 
 import Control.Monad
@@ -156,3 +157,8 @@ hasFlag f mid = do
   file <- getMaildirFile mid
   let (basename, flags) = breakFlags file
   return (f `elem` flags)
+
+getFlags :: MID -> MaildirM String
+getFlags mid = do
+  file <- getMaildirFile mid
+  return (snd (breakFlags file))
