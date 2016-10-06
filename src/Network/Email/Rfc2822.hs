@@ -18,6 +18,7 @@ import System.Time
 import Data.Char ( ord )
 import Data.List ( intercalate )
 import Data.Maybe ( catMaybes )
+import qualified Data.Map as Map
 import Control.Applicative
 import Control.Monad ( liftM, void )
 import Data.Attoparsec.ByteString.Char8
@@ -601,6 +602,7 @@ fields          = many (    try (do { r <- from; return (From r) })
                         <|> try (do { r <- resent_bcc; return (ResentBcc r) })
                         <|> try (do { r <- resent_msg_id; return (ResentMessageID r) })
                         <|> try (do { r <- received; return (Received r) })
+                        <|> try (do { r <- content_type; return (ContentType r) })
                          -- catch all
                         <|> (do { (name,cont) <- optional_field; return (OptionalField name cont) })
                        )
@@ -825,6 +827,31 @@ received        = header "Received" (do r1 <- name_val_list
                                         _ <- char ';'
                                         r2 <- date_time
                                         return (r1,r2))
+
+content_type    :: Parser MimeType
+content_type    = header "Content-Type" mime_type
+
+mime_type       :: Parser MimeType
+mime_type       = do t <- many1 alpha
+                     char '/'
+                     st <- many1 alpha
+                     params <- mime_params
+                     return MimeType
+                       { mimeType = t
+                       , mimeSubtype = st
+                       , mimeParams = params
+                       }
+
+mime_params     :: Parser (Map.Map String String)
+mime_params     = Map.fromList <$> many mime_param
+
+mime_param      :: Parser (String, String)
+mime_param      = do char ';'
+                     many fws
+                     key <- many1 alpha
+                     char '='
+                     value <- many1 (satisfy (notInClass ";\r\n"))
+                     return (key, value)
 
 name_val_list   :: Parser [(String,String)]
 name_val_list   = do optional cfws

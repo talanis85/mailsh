@@ -23,7 +23,7 @@ simplePrinter = do
   hs <- parseOrFail parseHeaders
   filter <- proptHeaders <$> lift ask
   liftIO $ putStrLn $ formatHeaders filter hs
-  case simpleContentType <$> listToMaybe (lookupOptionalField "Content-Type" hs) of
+  case simpleContentType <$> listToMaybe (lookupField fContentType hs) of
     Nothing -> textPlainPrinter
     Just ct -> mimePrinter ct
 

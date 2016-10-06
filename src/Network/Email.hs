@@ -17,8 +17,8 @@ import Network.Email.Message
 import Network.Email.Types
 import System.IO
 
-simpleContentType :: String -> String
-simpleContentType = takeWhile (\x -> x /= ' ' && x /= ';')
+simpleContentType :: MimeType -> String
+simpleContentType t = mimeType t ++ "/" ++ mimeSubtype t
 
 parseHeaders :: P.Parser [Field]
 parseHeaders = fields

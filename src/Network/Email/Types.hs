@@ -4,6 +4,7 @@
 module Network.Email.Types
   ( NameAddr (..)
   , GenericMessage (..)
+  , MimeType (..)
   , Message
   , Field (..)
   , AField (..)
@@ -16,6 +17,7 @@ module Network.Email.Types
   , fDate
   -- , _Resent*
   -- , fReceived, fObsReceived
+  , fContentType
   , lookupField, lookupOptionalField, filterFields
   , ShowField (..)
   , formatNameAddr, formatNameAddrShort
@@ -23,6 +25,7 @@ module Network.Email.Types
 
 import Control.Lens
 import Data.List
+import qualified Data.Map as Map
 import Data.Maybe
 import System.Time
 
@@ -71,7 +74,18 @@ data Field      = OptionalField       String String
                 | ResentReplyTo       [NameAddr]
                 | Received            ([(String,String)], CalendarTime)
                 | ObsReceived         [(String,String)]
+                | ContentType         MimeType
                 deriving (Show)
+
+data MimeType = MimeType
+  { mimeType :: String
+  , mimeSubtype :: String
+  , mimeParams :: Map.Map String String
+  }
+
+instance Show MimeType where
+  show t = mimeType t ++ "/" ++ mimeSubtype t ++ concat (map showParam (Map.toList (mimeParams t)))
+    where showParam (k,v) = ";" ++ k ++ "=" ++ v
 
 makePrisms ''Field
 
@@ -85,6 +99,7 @@ fCc                 = AField "Cc"          _Cc
 fBcc                = AField "Bcc"         _Bcc
 fSubject            = AField "Subject"     _Subject
 fDate               = AField "Date"        _Date
+fContentType        = AField "Content-Type" _ContentType
 
 isOptionalField :: String -> Prism' (String, String) String
 isOptionalField key = prism' (\x -> (key, x)) (\(key', x) -> if key' == key then Just x else Nothing)
