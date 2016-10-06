@@ -25,7 +25,6 @@ simplePrinter = do
   liftIO $ putStrLn $ formatHeaders filter hs
   msg <- parseOrFail (parseMessage hs)
   let (t, body) = head (bodies msg)
-  liftIO $ putStrLn $ "Content-Type: " ++ show t
   liftIO $ putStrLn body
 
 mimePrinter :: String -> Printer' ()

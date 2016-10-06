@@ -27,9 +27,9 @@ utf8decoder :: Printer' ()
 utf8decoder = forAllM (liftIO . TIO.putStr . TE.decodeUtf8)
 
 formatHeaders :: [IsField] -> [Field] -> String
-formatHeaders filter hs = unlines $ map (formatHeader hs) filter
+formatHeaders filter hs = unlines $ concatMap (formatHeader hs) filter
   where
-    formatHeader hs (IsField f) = unlines $ map (formatSingleHeader (fieldName f)) (lookupField f hs)
+    formatHeader hs (IsField f) = map (formatSingleHeader (fieldName f)) (lookupField f hs)
     formatSingleHeader name value = name ++ ": " ++ showFieldValue value
 
 parseOrFail :: AP.Parser a -> Printer' a
