@@ -79,7 +79,6 @@ cmdTrash :: MessageNumber -> MaildirM ()
 cmdTrash msg = do
   mid <- getMID msg
   setFlag 'T' mid
-  headers <- getHeaders mid
   liftIO $ printf "Trashed message.\n"
   printMessageOverview msg mid
 
