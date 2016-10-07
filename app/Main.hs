@@ -6,6 +6,7 @@ import Control.Monad.Trans
 import Data.Maybe
 import Options.Applicative
 import System.Console.Terminal.Size
+import System.Directory
 import System.Environment
 import System.IO
 import System.Time
@@ -22,6 +23,7 @@ import Mailsh.Parse
 import Network.Email
 
 type Limit = Int
+type MessageNumber' = MaildirM MessageNumber
 
 data Options = Options
   { optCommand :: MaildirM ()
@@ -29,23 +31,23 @@ data Options = Options
 
 options :: Parser Options
 options = Options <$> subparser
-  (  command "read"     (info (cmdRead    <$> argument auto (metavar "MID")
+  (  command "read"     (info (cmdRead    <$> midArgument
                                           <*> printerOption
                                           <*> pure defaultPrinterOptions)
                               idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
-                                          <*> argument auto (metavar "MID")) idm)
+                                          <*> midArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> option (Just <$> auto)
                                                      (short 'l' <> metavar "LIMIT" <> value Nothing)
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value filterUnseen))
                               idm)
-  <> command "trash"    (info (cmdTrash   <$> argument auto (metavar "MID")) idm)
-  <> command "recover"  (info (cmdRecover <$> argument auto (metavar "MID")) idm)
-  <> command "unread"   (info (cmdUnread  <$> argument auto (metavar "MID")) idm)
-  <> command "flag"     (info (cmdFlag    <$> argument auto (metavar "MID")) idm)
-  <> command "unflag"   (info (cmdUnflag  <$> argument auto (metavar "MID")) idm)
+  <> command "trash"    (info (cmdTrash   <$> midArgument) idm)
+  <> command "recover"  (info (cmdRecover <$> midArgument) idm)
+  <> command "unread"   (info (cmdUnread  <$> midArgument) idm)
+  <> command "flag"     (info (cmdFlag    <$> midArgument) idm)
+  <> command "unflag"   (info (cmdUnflag  <$> midArgument) idm)
   )
     where
       printerOption = option printerReader (   short 'p'
@@ -59,8 +61,27 @@ options = Options <$> subparser
         "default"      -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
 
-cmdRead :: MessageNumber -> Printer -> PrinterOptions -> MaildirM ()
-cmdRead msg printer propts = do
+midArgument :: Parser MessageNumber'
+midArgument = argument (setRecentMessageNumber <$> auto)
+                       (metavar "MID" <> value getRecentMessageNumber)
+
+getRecentMessageNumber :: MessageNumber'
+getRecentMessageNumber = read <$> liftIO (readHomeFile ".recentmessage")
+  where
+    readHomeFile f = do
+      d <- getHomeDirectory
+      readFile (d ++ "/" ++ f)
+
+setRecentMessageNumber :: MessageNumber -> MessageNumber'
+setRecentMessageNumber n = liftIO (writeHomeFile ".recentmessage" (show n)) >> return n
+  where
+    writeHomeFile f s = do
+      d <- getHomeDirectory
+      writeFile (d ++ "/" ++ f) s
+
+cmdRead :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
+cmdRead msg' printer propts = do
+  msg <- msg'
   mid <- getMID msg
   fp <- absoluteMaildirFile mid
   outputWithPrinter printer propts fp
@@ -68,8 +89,10 @@ cmdRead msg printer propts = do
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
 
-cmdReply :: ReplyStrategy -> MessageNumber -> MaildirM ()
-cmdReply strat msg = liftIO $ printf "TODO: Reply to message %s with %s\n" (show msg) (show strat)
+cmdReply :: ReplyStrategy -> MessageNumber' -> MaildirM ()
+cmdReply strat msg' = do
+  msg <- msg'
+  liftIO $ printf "TODO: Reply to message %s with %s\n" (show msg) (show strat)
 
 cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
 cmdHeaders limit filter = do
@@ -79,23 +102,24 @@ cmdHeaders limit filter = do
     Nothing -> mapM_ (uncurry printMessageSingle) filtered
     Just l  -> mapM_ (uncurry printMessageSingle) (drop (length filtered - l) filtered)
 
-cmdTrash :: MessageNumber -> MaildirM ()
+cmdTrash :: MessageNumber' -> MaildirM ()
 cmdTrash = modifyMessage (setFlag 'T') "Trashed message."
 
-cmdRecover :: MessageNumber -> MaildirM ()
+cmdRecover :: MessageNumber' -> MaildirM ()
 cmdRecover = modifyMessage (unsetFlag 'T') "Recovered message."
 
-cmdUnread :: MessageNumber -> MaildirM ()
+cmdUnread :: MessageNumber' -> MaildirM ()
 cmdUnread = modifyMessage (unsetFlag 'S') "Marked message as unread."
 
-cmdFlag :: MessageNumber -> MaildirM ()
+cmdFlag :: MessageNumber' -> MaildirM ()
 cmdFlag = modifyMessage (setFlag 'F') "Flagged message."
 
-cmdUnflag :: MessageNumber -> MaildirM ()
+cmdUnflag :: MessageNumber' -> MaildirM ()
 cmdUnflag = modifyMessage (unsetFlag 'F') "Unflagged message."
 
-modifyMessage :: (MID -> MaildirM ()) -> String -> MessageNumber -> MaildirM ()
-modifyMessage f notice msg = do
+modifyMessage :: (MID -> MaildirM ()) -> String -> MessageNumber' -> MaildirM ()
+modifyMessage f notice msg' = do
+  msg <- msg'
   mid <- getMID msg
   f mid
   liftIO $ putStrLn notice
