@@ -25,34 +25,19 @@ simplePrinter = do
   liftIO $ putStrLn $ formatHeaders filter hs
   msg <- parseOrFail (parseMessage hs)
   let (t, body) = head (bodies msg)
-  liftIO $ putStrLn body
+  liftIO $ mimeOut t body
 
-mimePrinter :: String -> Printer' ()
-mimePrinter mimeType = case mimeType of
-                        "text/html" -> w3mPrinter
-                        _           -> textPlainPrinter
+mimeOut :: MimeType -> String -> IO ()
+mimeOut mimeType = case simpleContentType mimeType of
+                     "text/html" -> w3mOut
+                     _           -> textPlainOut
 
-seePrinter :: String -> Printer' ()
-seePrinter mimeType = do
-  (Just inH, _, _, procH) <- liftIO $
-    createProcess_ "see" (shell ("see " ++ mimeType ++ ":-")) { std_in = CreatePipe }
-  feedToHandle inH
-  void $ liftIO $ waitForProcess procH
-    where
-      feedToHandle h = PP.foldAllM (const (liftIO . B.hPut h))
-                                   (return ())
-                                   (const (liftIO (hClose h)))
-
-w3mPrinter :: Printer' ()
-w3mPrinter = do
+w3mOut :: String -> IO ()
+w3mOut s = do
   (Just inH, _, _, procH) <- liftIO $
     createProcess_ "see" (shell "w3m | cat") { std_in = CreatePipe }
-  feedToHandle inH
-  void $ liftIO $ waitForProcess procH
-    where
-      feedToHandle h = PP.foldAllM (const (liftIO . B.hPut h))
-                                   (return ())
-                                   (const (liftIO (hClose h)))
+  hPutStrLn inH s
+  void $ waitForProcess procH
 
-textPlainPrinter :: Printer' ()
-textPlainPrinter = utf8decoder
+textPlainOut :: String -> IO ()
+textPlainOut = putStrLn
