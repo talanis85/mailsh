@@ -43,6 +43,9 @@ options = Options <$> subparser
                               idm)
   <> command "trash"    (info (cmdTrash   <$> argument auto (metavar "MID")) idm)
   <> command "recover"  (info (cmdRecover <$> argument auto (metavar "MID")) idm)
+  <> command "unread"   (info (cmdUnread  <$> argument auto (metavar "MID")) idm)
+  <> command "flag"     (info (cmdFlag    <$> argument auto (metavar "MID")) idm)
+  <> command "unflag"   (info (cmdUnflag  <$> argument auto (metavar "MID")) idm)
   )
     where
       printerOption = option printerReader (   short 'p'
@@ -77,17 +80,25 @@ cmdHeaders limit filter = do
     Just l  -> mapM_ (uncurry printMessageSingle) (drop (length filtered - l) filtered)
 
 cmdTrash :: MessageNumber -> MaildirM ()
-cmdTrash msg = do
-  mid <- getMID msg
-  setFlag 'T' mid
-  liftIO $ printf "Trashed message.\n"
-  printMessageSingle msg mid
+cmdTrash = modifyMessage (setFlag 'T') "Trashed message."
 
 cmdRecover :: MessageNumber -> MaildirM ()
-cmdRecover msg = do
+cmdRecover = modifyMessage (unsetFlag 'T') "Recovered message."
+
+cmdUnread :: MessageNumber -> MaildirM ()
+cmdUnread = modifyMessage (unsetFlag 'S') "Marked message as unread."
+
+cmdFlag :: MessageNumber -> MaildirM ()
+cmdFlag = modifyMessage (setFlag 'F') "Flagged message."
+
+cmdUnflag :: MessageNumber -> MaildirM ()
+cmdUnflag = modifyMessage (unsetFlag 'F') "Unflagged message."
+
+modifyMessage :: (MID -> MaildirM ()) -> String -> MessageNumber -> MaildirM ()
+modifyMessage f notice msg = do
   mid <- getMID msg
-  unsetFlag 'T' mid
-  liftIO $ printf "Recovered message.\n"
+  f mid
+  liftIO $ putStrLn notice
   printMessageSingle msg mid
 
 printMessageSingle :: MessageNumber -> MID -> MaildirM ()
