@@ -97,6 +97,7 @@ cmdRead msg' printer propts = do
   mid <- getMID msg
   fp <- absoluteMaildirFile mid
   outputWithPrinter printer propts fp
+  setFlag 'S' mid
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
