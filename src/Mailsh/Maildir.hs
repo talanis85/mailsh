@@ -57,14 +57,14 @@ newOf = (</> "new") . getMaildir
 -- | Split a 'MaildirFile' into a 'MID' and its flags.
 breakFlags :: MaildirFile -> (MID, String)
 breakFlags f =
-  let (basename, flags') = break (== ',') f
-  in (basename, tail flags')
+  let (rflags, rbasename) = break (== ',') (reverse f)
+  in (reverse (tail rbasename), reverse rflags)
 
 -- | Split a 'MaildirFile' into basename and version+flags
 breakVersion :: MaildirFile -> (String, String)
 breakVersion f =
-  let (basename, rest) = break (== ':') f
-  in (basename, tail rest)
+  let (rflags, rbasename) = break (== ':') (reverse f)
+  in (reverse (tail rbasename), reverse rflags)
 
 -- | Get a 'MID' from a 'MaildirFile'
 midOf :: MaildirFile -> MID
