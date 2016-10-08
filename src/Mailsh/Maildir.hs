@@ -60,6 +60,12 @@ breakFlags f =
   let (basename, flags') = break (== ',') f
   in (basename, tail flags')
 
+-- | Split a 'MaildirFile' into basename and version+flags
+breakVersion :: MaildirFile -> (String, String)
+breakVersion f =
+  let (basename, rest) = break (== ':') f
+  in (basename, tail rest)
+
 -- | Get a 'MID' from a 'MaildirFile'
 midOf :: MaildirFile -> MID
 midOf = fst . breakFlags
@@ -117,7 +123,7 @@ updateNew maildir = do
   mapM_ moveNewFile newFiles
     where
       moveNewFile filename = renameFile (newOf maildir </> filename)
-                                        (curOf maildir </> (filename ++ ":2,"))
+                                        (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
 
 -- | Get all messages in the maildir in ascending order.
 listMaildir :: MaildirM [MID]
