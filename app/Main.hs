@@ -38,8 +38,7 @@ options = Options <$> subparser
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
-  <> command "headers"  (info (cmdHeaders <$> option (Just <$> auto)
-                                                     (short 'l' <> metavar "LIMIT" <> value Nothing)
+  <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value filterUnseen))
                               idm)
@@ -60,6 +59,9 @@ options = Options <$> subparser
         "raw"          -> Right (Printer utf8Printer)
         "default"      -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
+
+maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
+maybeOption r m = option (Just <$> r) (m <> value Nothing)
 
 msgArgument :: Parser MessageNumber'
 msgArgument = argument (setRecentMessageNumber <$> auto)
