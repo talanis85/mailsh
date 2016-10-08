@@ -89,7 +89,7 @@ getNextMessageNumber :: MessageNumber'
 getNextMessageNumber = do
   messages <- checksumListing <$> listMaildir
   filtered <- filterM (runFilter filterUnseen . snd) messages
-  return $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
+  setRecentMessageNumber $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
 
 cmdRead :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
 cmdRead msg' printer propts = do
