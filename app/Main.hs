@@ -35,6 +35,7 @@ options = Options <$> subparser
                                           <*> printerOption
                                           <*> pure defaultPrinterOptions)
                               idm)
+  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
                                           <*> printerOption
                                           <*> pure defaultPrinterOptions)
@@ -98,6 +99,13 @@ cmdRead msg' printer propts = do
   fp <- absoluteMaildirFile mid
   outputWithPrinter printer propts fp
   setFlag 'S' mid
+
+cmdCat :: MessageNumber' -> MaildirM ()
+cmdCat msg' = do
+  msg <- msg'
+  mid <- getMID msg
+  fp <- absoluteMaildirFile mid
+  outputWithPrinter (Printer utf8Printer) defaultPrinterOptions fp
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
