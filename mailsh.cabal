@@ -49,6 +49,7 @@ library
                      , process
                      , containers
                      , old-time
+                     , old-locale
                      , encoding
                      , base64-string
                      , mime

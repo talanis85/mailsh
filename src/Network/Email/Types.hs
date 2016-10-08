@@ -29,6 +29,7 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import System.Time
+import System.Locale
 
 data Body = BodyLeaf MimeType String | BodyTree [Body]
   deriving (Show)
@@ -126,9 +127,14 @@ data IsField = forall a. (ShowField a) => IsField (AField a)
 class ShowField a where
   showFieldValue :: a -> String
 
-instance ShowField [Char] where showFieldValue = id
-instance ShowField NameAddr where showFieldValue = formatNameAddr
-instance ShowField [NameAddr] where showFieldValue = mconcat . intersperse "," . map formatNameAddr
+instance ShowField [Char] where
+  showFieldValue = id
+instance ShowField NameAddr where
+  showFieldValue = formatNameAddr
+instance ShowField [NameAddr] where
+  showFieldValue = mconcat . intersperse "," . map formatNameAddr
+instance ShowField CalendarTime where
+  showFieldValue = formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
 
 lookupField :: AField a -> [Field] -> [a]
 lookupField f = mapMaybe (^? (fieldPrism f))
