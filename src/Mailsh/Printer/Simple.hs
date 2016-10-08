@@ -22,7 +22,9 @@ simplePrinter :: Printer' ()
 simplePrinter = do
   hs <- parseOrFail parseHeaders
   filter <- proptHeaders <$> lift ask
-  liftIO $ putStrLn $ formatHeaders filter hs
+  liftIO $ putStrLn $ replicate 78 '-'
+  liftIO $ putStr $ formatHeaders filter hs
+  liftIO $ putStrLn $ replicate 78 '-'
   msg <- parseOrFail (parseMessage hs)
   let (t, body) = head (bodies msg)
   liftIO $ mimeOut t body
@@ -34,6 +36,7 @@ mimeOut mimeType = case simpleContentType mimeType of
 
 w3mOut :: String -> IO ()
 w3mOut s = do
+  hFlush stdout
   (Just inH, _, _, procH) <- liftIO $
     createProcess_ "see" (shell "w3m -T text/html | cat") { std_in = CreatePipe }
   hPutStrLn inH s
