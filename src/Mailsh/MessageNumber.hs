@@ -1,5 +1,6 @@
 module Mailsh.MessageNumber
   ( MessageNumber
+  , invalidMessageNumber
   , checksumMessages
   , checksumListing
   , lookupMessage
@@ -20,6 +21,9 @@ instance Show MessageNumber where
 
 instance Read MessageNumber where
   readPrec = lift messageNumberP
+
+invalidMessageNumber :: MessageNumber
+invalidMessageNumber = MessageNumber 0 '_'
 
 messageNumberP :: ReadP MessageNumber
 messageNumberP = MessageNumber <$> numberP <*> checksumP
@@ -44,7 +48,7 @@ checksumListing mids = zip (checksumMessages mids) mids
 
 lookupMessage :: MessageNumber -> [MID] -> Maybe MID
 lookupMessage (MessageNumber n c) mids =
-  if length mids < n
+  if n < 1 || length mids < n
      then Nothing
      else let mid = mids !! (n - 1)
               c'  = genChecksum' mid

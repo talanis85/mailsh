@@ -35,6 +35,10 @@ options = Options <$> subparser
                                           <*> printerOption
                                           <*> pure defaultPrinterOptions)
                               idm)
+  <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
+                                          <*> printerOption
+                                          <*> pure defaultPrinterOptions)
+                              idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
@@ -80,6 +84,12 @@ setRecentMessageNumber n = liftIO (writeHomeFile ".recentmessage" (show n)) >> r
     writeHomeFile f s = do
       d <- getHomeDirectory
       writeFile (d ++ "/" ++ f) s
+
+getNextMessageNumber :: MessageNumber'
+getNextMessageNumber = do
+  messages <- checksumListing <$> listMaildir
+  filtered <- filterM (runFilter filterUnseen . snd) messages
+  return $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
 
 cmdRead :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
 cmdRead msg' printer propts = do
