@@ -11,6 +11,7 @@ import System.Environment
 import System.IO
 import System.Time
 import System.Locale
+import System.Process
 import Text.Printf
 
 import Mailsh.Types
@@ -112,7 +113,19 @@ cmdCat msg' printer propts = do
   outputWithPrinter printer propts fp
 
 cmdCompose :: Recipient -> MaildirM ()
-cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
+cmdCompose rcpt = do
+  (tempf, temph) <- liftIO $ openTempFile "/tmp" "message" -- TODO: dont hardcode "/tmp"
+  liftIO $ hPutStrLn temph "From: "
+  liftIO $ hPutStrLn temph $ "To: " ++ rcpt
+  liftIO $ hClose temph
+  liftIO $ editFile tempf
+  result <- liftIO $ parseFile tempf $ do
+    headers <- parseHeaders
+    body <- parseMessage headers
+    return (headers, body)
+  case result of
+    Nothing -> throwError "Could not parse message"
+    Just (headers, body) -> sendMessage headers body
 
 cmdReply :: ReplyStrategy -> MessageNumber' -> MaildirM ()
 cmdReply strat msg' = do
@@ -204,6 +217,9 @@ getMID msg = do
   case lookupMessage msg messages of
     Nothing -> throwError "No such message."
     Just mid -> return mid
+
+editFile :: FilePath -> IO ()
+editFile fp = callCommand ("vim " ++ fp) -- TODO: dont hardcode vim
 
 main :: IO ()
 main = do

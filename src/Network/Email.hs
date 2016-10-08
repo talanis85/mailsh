@@ -3,6 +3,8 @@ module Network.Email
   , simpleContentType
   , parseHeaders
   , parseMessage
+  , renderMessage
+  , sendMessage
   ) where
 
 import Control.Applicative
@@ -16,6 +18,7 @@ import Network.Email.Rfc2234 (crlf)
 import Network.Email.Rfc2822
 import Network.Email.Message
 import Network.Email.Types
+import Network.Email.Render
 import System.IO
 
 simpleContentType :: MimeType -> String
