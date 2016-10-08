@@ -21,7 +21,8 @@ data PrinterOptions = PrinterOptions
 
 defaultPrinterOptions :: PrinterOptions
 defaultPrinterOptions = PrinterOptions
-  { proptHeaders = [ IsField fTo, IsField fFrom, IsField fSubject, IsField fCc, IsField fBcc
-                   , IsField fReplyTo
+  { proptHeaders = [ IsField fDate, IsField fTo, IsField fFrom
+                   , IsField fCc, IsField fBcc, IsField fReplyTo
+                   , IsField fSubject
                    ]
   }
