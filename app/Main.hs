@@ -32,12 +32,15 @@ data Options = Options
 options :: Parser Options
 options = Options <$> subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> printerOption
+                                          <*> printerOption (Printer simplePrinter)
                                           <*> pure defaultPrinterOptions)
                               idm)
-  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
+  <> command "cat"      (info (cmdCat     <$> msgArgument
+                                          <*> printerOption (Printer utf8Printer)
+                                          <*> pure defaultPrinterOptions)
+                              idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
-                                          <*> printerOption
+                                          <*> printerOption (Printer simplePrinter)
                                           <*> pure defaultPrinterOptions)
                               idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
@@ -54,11 +57,12 @@ options = Options <$> subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   )
     where
-      printerOption = option printerReader (   short 'p'
-                                            <> long "printer"
-                                            <> metavar "PRINTER"
-                                            <> value (Printer simplePrinter)
-                                           )
+      printerOption def =
+        option printerReader (   short 'p'
+                              <> long "printer"
+                              <> metavar "PRINTER"
+                              <> value def
+                             )
       printerReader = eitherReader $ \s -> case s of
         "headers"      -> Right (Printer headersOnlyPrinter)
         "raw"          -> Right (Printer utf8Printer)
@@ -100,12 +104,12 @@ cmdRead msg' printer propts = do
   outputWithPrinter printer propts fp
   setFlag 'S' mid
 
-cmdCat :: MessageNumber' -> MaildirM ()
-cmdCat msg' = do
+cmdCat :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
+cmdCat msg' printer propts = do
   msg <- msg'
   mid <- getMID msg
   fp <- absoluteMaildirFile mid
-  outputWithPrinter (Printer utf8Printer) defaultPrinterOptions fp
+  outputWithPrinter printer propts fp
 
 cmdCompose :: Recipient -> MaildirM ()
 cmdCompose rcpt = liftIO $ printf "TODO: Compose mail to %s\n" rcpt
