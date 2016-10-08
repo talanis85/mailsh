@@ -35,7 +35,7 @@ mimeOut mimeType = case simpleContentType mimeType of
 w3mOut :: String -> IO ()
 w3mOut s = do
   (Just inH, _, _, procH) <- liftIO $
-    createProcess_ "see" (shell "w3m | cat") { std_in = CreatePipe }
+    createProcess_ "see" (shell "w3m -T text/html | cat") { std_in = CreatePipe }
   hPutStrLn inH s
   void $ waitForProcess procH
 
