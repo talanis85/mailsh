@@ -12,6 +12,7 @@ import Data.List
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
+import Network.Email.Rfc2234 (crlf)
 import Network.Email.Rfc2822
 import Network.Email.Message
 import Network.Email.Types
@@ -21,7 +22,10 @@ simpleContentType :: MimeType -> String
 simpleContentType t = mimeType t ++ "/" ++ mimeSubtype t
 
 parseHeaders :: P.Parser [Field]
-parseHeaders = fields
+parseHeaders = do
+  r <- fields
+  crlf
+  return r
 
 parseMessage :: [Field] -> P.Parser Body
 parseMessage headers =
