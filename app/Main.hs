@@ -31,23 +31,23 @@ data Options = Options
 
 options :: Parser Options
 options = Options <$> subparser
-  (  command "read"     (info (cmdRead    <$> midArgument
+  (  command "read"     (info (cmdRead    <$> msgArgument
                                           <*> printerOption
                                           <*> pure defaultPrinterOptions)
                               idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
-                                          <*> midArgument) idm)
+                                          <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> option (Just <$> auto)
                                                      (short 'l' <> metavar "LIMIT" <> value Nothing)
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value filterUnseen))
                               idm)
-  <> command "trash"    (info (cmdTrash   <$> midArgument) idm)
-  <> command "recover"  (info (cmdRecover <$> midArgument) idm)
-  <> command "unread"   (info (cmdUnread  <$> midArgument) idm)
-  <> command "flag"     (info (cmdFlag    <$> midArgument) idm)
-  <> command "unflag"   (info (cmdUnflag  <$> midArgument) idm)
+  <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
+  <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
+  <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
+  <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
+  <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   )
     where
       printerOption = option printerReader (   short 'p'
@@ -61,9 +61,9 @@ options = Options <$> subparser
         "default"      -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
 
-midArgument :: Parser MessageNumber'
-midArgument = argument (setRecentMessageNumber <$> auto)
-                       (metavar "MID" <> value getRecentMessageNumber)
+msgArgument :: Parser MessageNumber'
+msgArgument = argument (setRecentMessageNumber <$> auto)
+                       (metavar "MESSAGE" <> value getRecentMessageNumber)
 
 getRecentMessageNumber :: MessageNumber'
 getRecentMessageNumber = read <$> liftIO (readHomeFile ".recentmessage")
