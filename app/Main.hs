@@ -40,7 +40,7 @@ options = Options <$> subparser
                                           <*> pure defaultPrinterOptions)
                               idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
-                                          <*> printerOption (Printer simplePrinter)
+                                          <*> printerOption (Printer headersOnlyPrinter)
                                           <*> pure defaultPrinterOptions)
                               idm)
   <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)

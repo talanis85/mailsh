@@ -42,4 +42,4 @@ headersOnlyPrinter :: Printer' ()
 headersOnlyPrinter = do
   hs <- ignoreError <$> PA.parse parseHeaders
   filter <- proptHeaders <$> lift ask
-  liftIO $ putStrLn $ formatHeaders filter hs
+  liftIO $ putStr $ formatHeaders filter hs
