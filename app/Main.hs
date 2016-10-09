@@ -1,9 +1,11 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Main where
 
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Maybe
+import Development.GitRev
 import Options.Applicative
 import System.Console.Terminal.Size
 import System.Directory
@@ -30,8 +32,19 @@ data Options = Options
   { optCommand :: MaildirM ()
   }
 
-options :: Parser Options
-options = Options <$> (subparser
+options :: ParserInfo Options
+options = Options <$> info (helper <*> commandP)
+  (  fullDesc
+  <> progDesc "Manage maildirs from the shell"
+  <> header "mailsh - A console maildir tool"
+  <> footer ("Version: " ++ version)
+  )
+
+version :: String
+version = $(gitBranch) ++ "@" ++ $(gitHash)
+
+commandP :: Parser (MaildirM ())
+commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
                                           <*> printerOption (Printer simplePrinter)
                                           <*> pure defaultPrinterOptions)
@@ -59,7 +72,7 @@ options = Options <$> (subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
-                                 (metavar "FILTER" <> value filterUnseen)))
+                                 (metavar "FILTER" <> value filterUnseen))
     where
       printerOption def =
         option printerReader (   short 'p'
@@ -242,7 +255,7 @@ editFile fp = do
 
 main :: IO ()
 main = do
-  opts <- execParser (info options idm)
+  opts <- execParser options
   maildirpath <- lookupEnv "MAILDIR"
   case maildirpath of
     Nothing -> printf "Error: No maildir set\n"
