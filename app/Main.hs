@@ -117,8 +117,6 @@ cmdCat msg' printer propts = do
 
 cmdCompose :: Bool -> Recipient -> MaildirM ()
 cmdCompose nosend rcpt = do
-  tempdir <- liftIO getTemporaryDirectory
-  (tempf, temph) <- liftIO $ openTempFile tempdir "message"
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseString parseNameAddr)
@@ -126,13 +124,7 @@ cmdCompose nosend rcpt = do
         [ mkField fFrom <$> return <$> from
         , mkField fTo   <$> parseString parseNameAddrs rcpt
         ]
-  liftIO $ hPutStrLn temph $ formatHeaders [IsField fFrom, IsField fTo] initialHeaders
-  liftIO $ hClose temph
-  liftIO $ editFile tempf
-  result <- liftIO $ parseFile tempf $ do
-    headers <- parseHeaders
-    body <- parseMessage mimeTextPlain headers
-    return (headers, body)
+  result <- liftIO $ composeWithHeaders initialHeaders
   case result of
     Nothing -> throwError "Could not parse message"
     Just (headers, body) -> do
@@ -144,6 +136,18 @@ cmdReply :: ReplyStrategy -> MessageNumber' -> MaildirM ()
 cmdReply strat msg' = do
   msg <- msg'
   liftIO $ printf "TODO: Reply to message %s with %s\n" (show msg) (show strat)
+
+composeWithHeaders :: [Field] -> IO (Maybe ([Field], Body))
+composeWithHeaders headers = do
+  tempdir <- liftIO getTemporaryDirectory
+  (tempf, temph) <- liftIO $ openTempFile tempdir "message"
+  hPutStrLn temph $ formatHeaders [IsField fFrom, IsField fTo] headers
+  hClose temph
+  editFile tempf
+  parseFile tempf $ do
+    headers <- parseHeaders
+    body <- parseMessage mimeTextPlain headers
+    return (headers, body)
 
 cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
 cmdHeaders limit filter = do
