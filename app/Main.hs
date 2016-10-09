@@ -31,7 +31,7 @@ data Options = Options
   }
 
 options :: Parser Options
-options = Options <$> subparser
+options = Options <$> (subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
                                           <*> printerOption (Printer simplePrinter)
                                           <*> pure defaultPrinterOptions)
@@ -56,7 +56,9 @@ options = Options <$> subparser
   <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
   <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
-  )
+  ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
+                    <*> argument (eitherReader parseFilterExp)
+                                 (metavar "FILTER" <> value filterUnseen)))
     where
       printerOption def =
         option printerReader (   short 'p'
