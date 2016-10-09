@@ -117,7 +117,8 @@ cmdCat msg' printer propts = do
 
 cmdCompose :: Bool -> Recipient -> MaildirM ()
 cmdCompose nosend rcpt = do
-  (tempf, temph) <- liftIO $ openTempFile "/tmp" "message" -- TODO: dont hardcode "/tmp"
+  tempdir <- liftIO getTemporaryDirectory
+  (tempf, temph) <- liftIO $ openTempFile tempdir "message"
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseString parseNameAddr)
