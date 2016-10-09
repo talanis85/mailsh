@@ -1,7 +1,6 @@
 module Mailsh.Printer.Utils
   ( forAllM
   , utf8decoder
-  , formatHeaders
   , parseOrFail
   , ignoreEither
   , ignoreMaybe
@@ -25,12 +24,6 @@ forAllM f = PP.foldAllM (const f) (return ()) (const (return ()))
 
 utf8decoder :: Printer' ()
 utf8decoder = forAllM (liftIO . TIO.putStr . TE.decodeUtf8)
-
-formatHeaders :: [IsField] -> [Field] -> String
-formatHeaders filter hs = unlines $ concatMap (formatHeader hs) filter
-  where
-    formatHeader hs (IsField f) = map (formatSingleHeader (fieldName f)) (lookupField f hs)
-    formatSingleHeader name value = name ++ ": " ++ showFieldValue value
 
 parseOrFail :: AP.Parser a -> Printer' a
 parseOrFail p = do

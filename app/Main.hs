@@ -118,8 +118,14 @@ cmdCat msg' printer propts = do
 cmdCompose :: Bool -> Recipient -> MaildirM ()
 cmdCompose nosend rcpt = do
   (tempf, temph) <- liftIO $ openTempFile "/tmp" "message" -- TODO: dont hardcode "/tmp"
-  liftIO $ hPutStrLn temph "From: "
-  liftIO $ hPutStrLn temph $ "To: " ++ rcpt
+  from <- do
+    x <- liftIO (lookupEnv "MAILFROM")
+    return (x >>= parseString parseNameAddr)
+  let initialHeaders = catMaybes
+        [ mkField fFrom <$> return <$> from
+        , mkField fTo   <$> parseString parseNameAddrs rcpt
+        ]
+  liftIO $ hPutStrLn temph $ formatHeaders [IsField fFrom, IsField fTo] initialHeaders
   liftIO $ hClose temph
   liftIO $ editFile tempf
   result <- liftIO $ parseFile tempf $ do

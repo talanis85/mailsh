@@ -20,6 +20,7 @@ module Network.Email.Types
   -- , _Resent*
   -- , fReceived, fObsReceived
   , fContentType, fContentTransferEncoding
+  , mkField
   , lookupField, lookupOptionalField, filterFields
   , ShowField (..)
   , formatNameAddr, formatNameAddrShort
@@ -149,6 +150,9 @@ lookupField f = mapMaybe (^? (fieldPrism f))
 
 isn't' :: IsField -> Field -> Bool
 isn't' (IsField x) = isn't (fieldPrism x)
+
+mkField :: AField a -> a -> Field
+mkField f v = v ^. re (fieldPrism f)
 
 filterFields :: [IsField] -> [Field] -> [Field]
 filterFields f = filter (\x -> or (map (not . flip isn't' x) f))

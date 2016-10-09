@@ -1,5 +1,6 @@
 module Mailsh.Parse
   ( parseFile
+  , parseString
   , fixCrlfL
   , fixCrlfS
   ) where
@@ -7,10 +8,14 @@ module Mailsh.Parse
 import Data.Attoparsec.ByteString.Lazy
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy.Char8 as BChar8
 import Data.Word
 
 parseFile :: FilePath -> Parser a -> IO (Maybe a)
 parseFile fp p = maybeResult <$> parse p <$> fixCrlfL <$> B.readFile fp
+
+parseString :: Parser a -> String -> Maybe a
+parseString p s = maybeResult (parse p (BChar8.pack s))
 
 fixCrlfL :: B.ByteString -> B.ByteString
 fixCrlfL = B.concatMap fixCrlf'

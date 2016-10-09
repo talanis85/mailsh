@@ -4,6 +4,9 @@ module Network.Email
   , simpleContentType
   , parseHeaders
   , parseMessage
+  , parseNameAddr
+  , parseNameAddrs
+  , formatHeaders
   ) where
 
 import Control.Applicative
@@ -36,3 +39,15 @@ parseMessage defMime headers =
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
   in encoded_message contentType contentTransferEncoding
+
+parseNameAddr :: P.Parser NameAddr
+parseNameAddr = name_addr
+
+parseNameAddrs :: P.Parser [NameAddr]
+parseNameAddrs = mailbox_list
+
+formatHeaders :: [IsField] -> [Field] -> String
+formatHeaders filter hs = unlines $ concatMap (formatHeader hs) filter
+  where
+    formatHeader hs (IsField f) = map (formatSingleHeader (fieldName f)) (lookupField f hs)
+    formatSingleHeader name value = name ++ ": " ++ showFieldValue value
