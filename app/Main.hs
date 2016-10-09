@@ -123,11 +123,15 @@ cmdCompose rcpt = do
   liftIO $ editFile tempf
   result <- liftIO $ parseFile tempf $ do
     headers <- parseHeaders
-    body <- parseMessage headers
+    body <- parseMessage mimeTextPlain headers
     return (headers, body)
   case result of
     Nothing -> throwError "Could not parse message"
-    Just (headers, body) -> sendMessage headers body
+    Just (headers, body) -> do
+      sendMessage headers body
+      liftIO $ putStrLn "Sent message:"
+      msg <- renderMessageS headers body
+      liftIO $ putStrLn msg
 
 cmdReply :: ReplyStrategy -> MessageNumber' -> MaildirM ()
 cmdReply strat msg' = do

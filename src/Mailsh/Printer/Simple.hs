@@ -25,7 +25,7 @@ simplePrinter = do
   liftIO $ putStrLn $ replicate 78 '-'
   liftIO $ putStr $ formatHeaders filter hs
   liftIO $ putStrLn $ replicate 78 '-'
-  msg <- parseOrFail (parseMessage hs)
+  msg <- parseOrFail (parseMessage mimeTextPlain hs)
   let (t, body) = head (bodies msg)
   liftIO $ mimeOut t body
 

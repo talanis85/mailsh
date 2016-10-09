@@ -5,7 +5,8 @@ module Network.Email.Types
   ( Body (..)
   , bodies
   , NameAddr (..)
-  , MimeType (..), defaultMimeType
+  , MimeType (..)
+  , mimeApplicationOctetStream, mimeTextPlain
   , EncodingType (..)
   , Field (..)
   , AField (..)
@@ -85,10 +86,17 @@ data MimeType = MimeType
   , mimeParams :: Map.Map String String
   }
 
-defaultMimeType :: MimeType
-defaultMimeType = MimeType
+mimeApplicationOctetStream :: MimeType
+mimeApplicationOctetStream = MimeType
   { mimeType = "application"
   , mimeSubtype = "octet-stream"
+  , mimeParams = mempty
+  }
+
+mimeTextPlain :: MimeType
+mimeTextPlain = MimeType
+  { mimeType = "text"
+  , mimeSubtype = "plain"
   , mimeParams = mempty
   }
 

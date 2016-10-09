@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Network.Email.Render
   ( renderMessage
+  , renderMessageS
   , sendMessage
   ) where
 
@@ -16,6 +17,9 @@ renderMessage :: (MonadIO m, MonadError String m) => [Field] -> Body -> m B.Byte
 renderMessage fields body = do
   m <- genMail fields body
   liftIO $ renderMail' m
+
+renderMessageS :: (MonadIO m, MonadError String m) => [Field] -> Body -> m String
+renderMessageS fields body = B.unpack <$> renderMessage fields body
 
 sendMessage :: (MonadIO m, MonadError String m) => [Field] -> Body -> m ()
 sendMessage fields body = do

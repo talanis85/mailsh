@@ -1,10 +1,9 @@
 module Network.Email
   ( module Network.Email.Types
+  , module Network.Email.Render
   , simpleContentType
   , parseHeaders
   , parseMessage
-  , renderMessage
-  , sendMessage
   ) where
 
 import Control.Applicative
@@ -30,10 +29,10 @@ parseHeaders = do
   crlf
   return r
 
-parseMessage :: [Field] -> P.Parser Body
-parseMessage headers =
+parseMessage :: MimeType -> [Field] -> P.Parser Body
+parseMessage defMime headers =
   let contentType =
-        fromMaybe defaultMimeType (listToMaybe (lookupField fContentType headers))
+        fromMaybe defMime (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
   in encoded_message contentType contentTransferEncoding

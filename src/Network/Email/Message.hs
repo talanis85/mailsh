@@ -53,7 +53,7 @@ bodyP :: Parser Body
 bodyP = do
   headers <- fields
   let contentType =
-        fromMaybe defaultMimeType (listToMaybe (lookupField fContentType headers))
+        fromMaybe mimeApplicationOctetStream (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
   encoded_message contentType contentTransferEncoding
