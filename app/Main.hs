@@ -256,11 +256,8 @@ editFile fp = do
 main :: IO ()
 main = do
   opts <- execParser options
-  maildirpath <- lookupEnv "MAILDIR"
-  case maildirpath of
-    Nothing -> printf "Error: No maildir set\n"
-    Just maildirpath -> do
-      result <- withMaildirPath (optCommand opts) maildirpath
-      case result of
-        Left err -> printf "Error: %s\n" err
-        Right () -> return ()
+  maildirpath <- getCurrentDirectory
+  result <- withMaildirPath (optCommand opts) maildirpath
+  case result of
+    Left err -> printf "Error: %s\n" err
+    Right () -> return ()

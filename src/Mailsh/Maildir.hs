@@ -48,7 +48,9 @@ runMaildirM m = runReaderT (evalStateT (runExceptT (_runMaildirM m)) mkMaildirCa
 withMaildirPath :: MaildirM a -> FilePath -> IO (Either String a)
 withMaildirPath m p = do
   maildir <- openMaildir p
-  runMaildirM m maildir
+  case maildir of
+    Left err -> return (Left err)
+    Right maildir -> runMaildirM m maildir
 
 curOf = (</> "cur") . getMaildir
 tmpOf = (</> "tmp") . getMaildir
@@ -112,13 +114,16 @@ getMaildirFile mid = do
 
 -- | Open a maildir and does all the garbage collection the maildir
 --   spec requires.
-openMaildir :: FilePath -> IO Maildir
+openMaildir :: FilePath -> IO (Either String Maildir)
 openMaildir fp = do
-  let md = Maildir fp
-  -- TODO check if maildir exists
-  -- TODO remove old files from tmp
-  updateNew md
-  return md
+  valid <- and <$> mapM (doesDirectoryExist . (fp </>)) ["cur", "new", "tmp"]
+  if not valid
+     then return (Left "This is not a valid maildir")
+     else do
+       let md = Maildir fp
+       -- TODO remove old files from tmp
+       updateNew md
+       return (Right md)
 
 -- | Move messages from 'new' to 'cur'
 updateNew :: Maildir -> IO ()
