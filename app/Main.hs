@@ -232,7 +232,9 @@ getMID msg = do
     Just mid -> return mid
 
 editFile :: FilePath -> IO ()
-editFile fp = callCommand ("vim " ++ fp) -- TODO: dont hardcode vim
+editFile fp = do
+  editor <- fromMaybe "vim" <$> lookupEnv "EDITOR"
+  callCommand (editor ++ " " ++ fp)
 
 main :: IO ()
 main = do
