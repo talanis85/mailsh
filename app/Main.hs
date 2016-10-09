@@ -44,7 +44,8 @@ options = Options <$> (subparser
                                           <*> printerOption (Printer headersOnlyPrinter)
                                           <*> pure defaultPrinterOptions)
                               idm)
-  <> command "compose"  (info (cmdCompose <$> argument str (metavar "RECIPIENT")) idm)
+  <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
+                                          <*> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
@@ -114,8 +115,8 @@ cmdCat msg' printer propts = do
   fp <- absoluteMaildirFile mid
   outputWithPrinter printer propts fp
 
-cmdCompose :: Recipient -> MaildirM ()
-cmdCompose rcpt = do
+cmdCompose :: Bool -> Recipient -> MaildirM ()
+cmdCompose nosend rcpt = do
   (tempf, temph) <- liftIO $ openTempFile "/tmp" "message" -- TODO: dont hardcode "/tmp"
   liftIO $ hPutStrLn temph "From: "
   liftIO $ hPutStrLn temph $ "To: " ++ rcpt
@@ -128,8 +129,7 @@ cmdCompose rcpt = do
   case result of
     Nothing -> throwError "Could not parse message"
     Just (headers, body) -> do
-      sendMessage headers body
-      liftIO $ putStrLn "Sent message:"
+      unless nosend $ sendMessage headers body
       msg <- renderMessageS headers body
       liftIO $ putStrLn msg
 
