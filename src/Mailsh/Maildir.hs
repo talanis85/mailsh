@@ -54,17 +54,22 @@ curOf = (</> "cur") . getMaildir
 tmpOf = (</> "tmp") . getMaildir
 newOf = (</> "new") . getMaildir
 
+splitLast :: (Eq a) => a -> [a] -> ([a], [a])
+splitLast c s = let (l, r) = foldl f ([], []) s
+                in if null l then (r, [])
+                             else (l, r)
+  where
+    f (l, r) x | x == c && null l = (r, [])
+               | x == c           = (l ++ [c] ++ r, [])
+               | x /= c = (l, r ++ [x])
+
 -- | Split a 'MaildirFile' into a 'MID' and its flags.
 breakFlags :: MaildirFile -> (MID, String)
-breakFlags f =
-  let (rflags, rbasename) = break (== ',') (reverse f)
-  in (reverse (tail rbasename), reverse rflags)
+breakFlags = splitLast ','
 
 -- | Split a 'MaildirFile' into basename and version+flags
 breakVersion :: MaildirFile -> (String, String)
-breakVersion f =
-  let (rflags, rbasename) = break (== ':') (reverse f)
-  in (reverse (tail rbasename), reverse rflags)
+breakVersion = splitLast ':'
 
 -- | Get a 'MID' from a 'MaildirFile'
 midOf :: MaildirFile -> MID
