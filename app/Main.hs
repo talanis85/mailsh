@@ -10,6 +10,7 @@ import Options.Applicative
 import System.Console.Terminal.Size
 import System.Directory
 import System.Environment
+import System.FilePath
 import System.IO
 import System.Time
 import System.Locale
@@ -93,19 +94,17 @@ msgArgument :: Parser MessageNumber'
 msgArgument = argument (setRecentMessageNumber <$> auto)
                        (metavar "MESSAGE" <> value getRecentMessageNumber)
 
+maildirFile :: String -> MaildirM FilePath
+maildirFile f = do
+  p <- getMaildirPath
+  return (p </> f)
+
 getRecentMessageNumber :: MessageNumber'
-getRecentMessageNumber = read <$> liftIO (readHomeFile ".recentmessage")
-  where
-    readHomeFile f = do
-      d <- getHomeDirectory
-      readFile (d ++ "/" ++ f)
+getRecentMessageNumber = read <$> (maildirFile ".recentmessage" >>= liftIO . readFile)
 
 setRecentMessageNumber :: MessageNumber -> MessageNumber'
-setRecentMessageNumber n = liftIO (writeHomeFile ".recentmessage" (show n)) >> return n
-  where
-    writeHomeFile f s = do
-      d <- getHomeDirectory
-      writeFile (d ++ "/" ++ f) s
+setRecentMessageNumber n = (maildirFile ".recentmessage" >>= liftIO . flip writeFile (show n))
+                           >> return n
 
 getNextMessageNumber :: MessageNumber'
 getNextMessageNumber = do

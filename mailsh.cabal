@@ -73,6 +73,7 @@ executable mailsh
                      , directory
                      , process
                      , gitrev
+                     , filepath
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 

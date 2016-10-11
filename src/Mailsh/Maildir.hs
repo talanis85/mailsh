@@ -5,6 +5,7 @@ module Mailsh.Maildir
   , MaildirM
   , runMaildirM
   , withMaildirPath
+  , getMaildirPath
   , listMaildir
   , absoluteMaildirFile
   , setFlag
@@ -51,6 +52,9 @@ withMaildirPath m p = do
   case maildir of
     Left err -> return (Left err)
     Right maildir -> runMaildirM m maildir
+
+getMaildirPath :: MaildirM FilePath
+getMaildirPath = getMaildir <$> ask
 
 curOf = (</> "cur") . getMaildir
 tmpOf = (</> "tmp") . getMaildir
