@@ -15,7 +15,7 @@
 module Network.Email.Rfc2822 where
 
 import System.Time
-import Data.Char ( ord )
+import Data.Char ( ord, toLower )
 import Data.List ( intercalate )
 import Data.Maybe ( catMaybes )
 import qualified Data.Map as Map
@@ -866,11 +866,13 @@ mime_param      = do char ';'
                      return (key, unquote value)
 
 content_transfer_encoding :: Parser EncodingType
-content_transfer_encoding = header "Content-Transfer-Encoding" $ choice
-  [ string (B.pack "8bit") >> return EightBit
-  , string (B.pack "base64") >> return Base64
-  , string (B.pack "quoted-printable") >> return QuotedPrintable
-  ]
+content_transfer_encoding = header "Content-Transfer-Encoding" $ do
+  name <- atom
+  case map toLower name of
+    "8bit" -> return EightBit
+    "base64" -> return Base64
+    "quoted-printable" -> return QuotedPrintable
+    _ -> fail "Unknown transfer encoding"
 
 name_val_list   :: Parser [(String,String)]
 name_val_list   = do optional cfws
