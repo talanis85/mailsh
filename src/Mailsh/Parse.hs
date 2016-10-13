@@ -11,8 +11,8 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BChar8
 import Data.Word
 
-parseFile :: FilePath -> Parser a -> IO (Maybe a)
-parseFile fp p = maybeResult <$> parse p <$> fixCrlfL <$> B.readFile fp
+parseFile :: FilePath -> Parser a -> IO (Either String a)
+parseFile fp p = eitherResult <$> parse p <$> fixCrlfL <$> B.readFile fp
 
 parseString :: Parser a -> String -> Maybe a
 parseString p s = maybeResult (parse p (BChar8.pack s))

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
 import Control.Monad
@@ -112,6 +113,13 @@ getNextMessageNumber = do
   filtered <- filterM (runFilter filterUnseen . snd) messages
   setRecentMessageNumber $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
 
+throwEither :: (MonadError String m) => String -> m (Either String a) -> m a
+throwEither s m = do
+  r <- m
+  case r of
+    Left e -> throwError (s ++ ": " ++ show e)
+    Right v -> return v
+
 cmdRead :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
 cmdRead msg' printer propts = do
   msg <- msg'
@@ -203,8 +211,8 @@ printMessageWith f n mid = do
   headers <- liftIO $ parseFile fp parseHeaders
   flags <- getFlags mid
   case headers of
-    Nothing -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
-    Just headers -> liftIO $ f n flags headers
+    Left err -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
+    Right headers -> liftIO $ f n flags headers
 
 printWithWidth :: (Int -> String) -> IO ()
 printWithWidth f = do
@@ -235,10 +243,7 @@ flagSummary flags
 getHeaders :: MID -> MaildirM [Field]
 getHeaders mid = do
   fp <- absoluteMaildirFile mid
-  headers <- liftIO $ parseFile fp parseHeaders
-  case headers of
-    Nothing -> throwError "Error parsing headers."
-    Just headers -> return headers
+  throwEither "Error parsing headers" $ liftIO $ parseFile fp parseHeaders
 
 getMID :: MessageNumber -> MaildirM MID
 getMID msg = do
