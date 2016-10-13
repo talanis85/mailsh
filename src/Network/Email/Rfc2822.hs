@@ -144,7 +144,7 @@ cfws            = do r <- many1 $ choice [ fws, comment ]
 -- 'specials', or space. 'atom' and 'dot_atom' are made up of this.
 
 atext           :: Parser Char
-atext           = alpha <|> digit <|> oneOf "!#$%&'*+-/=?^_`{|}~"
+atext           = alpha <|> digit <|> oneOf "-!#$%&'*+/=?^_`{|}~"
                   <?> "US-ASCII character (excluding controls, space, and specials)"
 
 -- |Match one or more 'atext' characters and skip any preceeding or
