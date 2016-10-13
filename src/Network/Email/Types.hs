@@ -13,7 +13,7 @@ module Network.Email.Types
   , IsField (IsField)
   , fOptionalField, fFrom, fSender, fReturnPath, fReplyTo
   , fTo, fCc, fBcc
-  -- , fMessageID, fInReplyTo, fReferences
+  , fMessageID, fInReplyTo, fReferences
   , fSubject
   -- , fComments, fKeywords
   , fDate
@@ -118,6 +118,9 @@ fReplyTo            = AField "ReplyTo"     _ReplyTo
 fTo                 = AField "To"          _To
 fCc                 = AField "Cc"          _Cc 
 fBcc                = AField "Bcc"         _Bcc
+fMessageID          = AField "Message-ID"  _MessageID
+fInReplyTo          = AField "In-Reply-To" _InReplyTo
+fReferences         = AField "References"  _References
 fSubject            = AField "Subject"     _Subject
 fDate               = AField "Date"        _Date
 fContentType        = AField "Content-Type" _ContentType
@@ -144,6 +147,8 @@ instance ShowField [NameAddr] where
   showFieldValue = mconcat . intersperse "," . map formatNameAddr
 instance ShowField CalendarTime where
   showFieldValue = formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
+instance ShowField [String] where
+  showFieldValue xs = intercalate ", " $ map showFieldValue xs
 
 lookupField :: AField a -> [Field] -> [a]
 lookupField f = mapMaybe (^? (fieldPrism f))

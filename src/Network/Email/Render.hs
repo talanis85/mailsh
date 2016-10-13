@@ -43,17 +43,24 @@ genMail fields body = do
         , mailCc      = map convertAddr $ concat $ lookupField fCc fields
         , mailBcc     = map convertAddr $ concat $ lookupField fBcc fields
         , mailHeaders = additionalHeaders fields
+            [ IsField fSubject
+            , IsField fReplyTo
+            , IsField fInReplyTo
+            , IsField fReferences
+            ]
         , mailParts   = [mainPart mainContentType bodyContent]
         }
   attachments <- mapM parseAttachment (lookupOptionalField "Attachment" fields)
   liftIO $ addAttachments attachments mainMail
 
-additionalHeaders :: [Field] -> Headers
-additionalHeaders fields = mconcat
-  [ map (mkStringHeader "Subject") $ lookupField fSubject fields
-  ]
+additionalHeader :: [Field] -> IsField -> [(BS.ByteString, T.Text)]
+additionalHeader headers (IsField f) =
+  map (mkStringHeader (fieldName f)) (map showFieldValue (lookupField f headers))
     where
       mkStringHeader name s = (BS.pack name, T.pack s)
+
+additionalHeaders :: [Field] -> [IsField] -> Headers
+additionalHeaders headers fields = mconcat $ map (additionalHeader headers) fields
 
 convertAddr :: NameAddr -> Address
 convertAddr na = Address

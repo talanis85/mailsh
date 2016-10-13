@@ -61,7 +61,8 @@ commandP = subparser
                               idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
                                           <*> argument str (metavar "RECIPIENT")) idm)
-  <> command "reply"    (info (cmdReply   <$> flag SingleReply GroupReply (long "group")
+  <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
+                                          <*> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                                           <*> argument (eitherReader parseFilterExp)
@@ -144,30 +145,74 @@ cmdCompose nosend rcpt = do
         [ mkField fFrom <$> return <$> from
         , mkField fTo   <$> parseString parseNameAddrs rcpt
         ]
-  result <- liftIO $ composeWithHeaders initialHeaders
-  case result of
-    Nothing -> throwError "Could not parse message"
-    Just (headers, body) -> do
-      unless nosend $ sendMessage headers body
-      msg <- renderMessageS headers body
-      liftIO $ putStrLn msg
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWithHeaders initialHeaders
+  unless nosend $ sendMessage headers body
+  msg <- renderMessageS headers body
+  liftIO $ putStrLn msg
 
-cmdReply :: ReplyStrategy -> MessageNumber' -> MaildirM ()
-cmdReply strat msg' = do
+cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> MaildirM ()
+cmdReply nosend strat msg' = do
   msg <- msg'
-  liftIO $ printf "TODO: Reply to message %s with %s\n" (show msg) (show strat)
+  mid <- getMID msg
+  fp <- absoluteMaildirFile mid
+  headers <- throwEither "Invalid message" $ liftIO $ parseFile fp parseHeaders
+  from <- do
+    x <- liftIO (lookupEnv "MAILFROM")
+    return (x >>= parseString parseNameAddr)
+  let initialHeaders = (catMaybes
+        [ mkField fFrom <$> return <$> from
+        ])
+        ++ replyHeaders strat headers
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWithHeaders initialHeaders
+  unless nosend $ sendMessage headers body
+  msg <- renderMessageS headers body
+  liftIO $ putStrLn msg
 
-composeWithHeaders :: [Field] -> IO (Maybe ([Field], Body))
+replyHeaders :: ReplyStrategy -> [Field] -> [Field]
+replyHeaders strat headers =
+  let from    = mconcat (lookupField fFrom headers)
+      replyto = mconcat (lookupField fReplyTo headers)
+      to      = mconcat (lookupField fTo headers)
+      cc      = mconcat (lookupField fCc headers)
+      subject = listToMaybe (lookupField fSubject headers)
+      msgids  = lookupField fMessageID headers
+      refs     = mconcat (lookupField fReferences headers)
+      from'   = case replyto of
+                  [] -> from
+                  xs -> xs
+      to'     = case strat of
+                  GroupReply -> from' ++ to
+                  SingleReply -> from'
+      cc'     = case strat of
+                  GroupReply -> Just cc
+                  SingleReply -> Nothing
+      subject' = fromMaybe "Re:" $ ("Re: " ++) <$> subject
+  in catMaybes [ Just (mkField fTo to')
+               , mkField fCc <$> cc'
+               , Just (mkField fInReplyTo msgids)
+               , Just (mkField fSubject subject')
+               , Just (mkField fReferences (msgids ++ refs))
+               ]
+
+composeWithHeaders :: [Field] -> IO (Either String ([Field], Body))
 composeWithHeaders headers = do
-  tempdir <- liftIO getTemporaryDirectory
-  (tempf, temph) <- liftIO $ openTempFile tempdir "message"
-  hPutStrLn temph $ formatHeaders [IsField fFrom, IsField fTo] headers
-  hClose temph
-  editFile tempf
-  parseFile tempf $ do
-    headers <- parseHeaders
-    body <- parseMessage mimeTextPlain headers
-    return (headers, body)
+  tempdir <- getTemporaryDirectory
+  (tempf, temph) <- openTempFile tempdir "message"
+  msg <- runExceptT $ renderMessageS headers (BodyLeaf mimeTextPlain "")
+  case msg of
+    Left err -> return (Left err)
+    Right msg -> do
+      hPutStrLn temph msg
+      hClose temph
+      editFile tempf
+      parseFile tempf $ do
+        headers <- parseHeaders
+        body <- parseMessage mimeTextPlain headers
+        case body of
+          BodyLeaf _ b -> case filter (`notElem` "\n\r\t ") b of
+                            [] -> fail "Empty message"
+                            _  -> return (headers, body)
+          _            -> return (headers, body)
 
 cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
 cmdHeaders limit filter = do
