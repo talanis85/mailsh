@@ -36,7 +36,8 @@ encoded_message t e = do
                          Just charset -> case decodeStringExplicit charset (B.unpack decoded) of
                                           Left err -> B.unpack decoded
                                           Right v  -> v
-                   in return (BodyLeaf t finalBody)
+                       finalBodyNL = filter (/= '\r') finalBody
+                   in return (BodyLeaf t finalBodyNL)
 
 splitMultipart :: String -> B.ByteString -> [B.ByteString]
 splitMultipart boundary s = fromMaybe [] (parseMaybe (multipartP boundary >> many (multipartP boundary)) s)
@@ -57,10 +58,6 @@ bodyP = do
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
   encoded_message contentType contentTransferEncoding
-
-passthrough = do
-  s <- takeByteString
-  return (TE.decodeUtf8 s)
 
 decodeMessage :: EncodingType -> Parser B.ByteString
 decodeMessage encoding = do
