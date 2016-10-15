@@ -21,7 +21,10 @@ library
                      , Mailsh.MessageNumber
                      , Mailsh.Printer
                      , Mailsh.Parse
+                     , Mailsh.Render
+                     , Mailsh.Compose
                      , Network.Email
+                     , Data.String.WordWrap
   other-modules:       Mailsh.Printer.Simple
                      , Mailsh.Printer.Types
                      , Mailsh.Printer.Utils

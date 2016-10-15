@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Maybe
+import Data.String.WordWrap
 import Development.GitRev
 import Options.Applicative
 import System.Console.Terminal.Size
@@ -18,12 +19,14 @@ import System.Locale
 import System.Process
 import Text.Printf
 
+import Mailsh.Compose
 import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
 import Mailsh.MessageNumber
 import Mailsh.Printer
 import Mailsh.Parse
+import Mailsh.Render
 
 import Network.Email
 
@@ -145,7 +148,7 @@ cmdCompose nosend rcpt = do
         [ mkField fFrom <$> return <$> from
         , mkField fTo   <$> parseString parseNameAddrs rcpt
         ]
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWithHeaders initialHeaders
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
   unless nosend $ sendMessage headers body
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
@@ -155,7 +158,10 @@ cmdReply nosend strat msg' = do
   msg <- msg'
   mid <- getMID msg
   fp <- absoluteMaildirFile mid
-  headers <- throwEither "Invalid message" $ liftIO $ parseFile fp parseHeaders
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ parseCrlfFile fp $ do
+    h <- parseHeaders
+    b <- parseMessage mimeTextPlain h
+    return (h, b)
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseString parseNameAddr)
@@ -163,7 +169,9 @@ cmdReply nosend strat msg' = do
         [ mkField fFrom <$> return <$> from
         ])
         ++ replyHeaders strat headers
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWithHeaders initialHeaders
+  rendered <- liftIO $ uncurry renderSimple (bodies body !! 0)
+  let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
   unless nosend $ sendMessage headers body
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
@@ -194,11 +202,11 @@ replyHeaders strat headers =
                , Just (mkField fReferences (msgids ++ refs))
                ]
 
-composeWithHeaders :: [Field] -> IO (Either String ([Field], Body))
-composeWithHeaders headers = do
+composeWith :: [Field] -> String -> IO (Either String ([Field], Body))
+composeWith headers text = do
   tempdir <- getTemporaryDirectory
   (tempf, temph) <- openTempFile tempdir "message"
-  msg <- runExceptT $ renderMessageS headers (BodyLeaf mimeTextPlain "")
+  msg <- runExceptT $ renderCompose headers text
   case msg of
     Left err -> return (Left err)
     Right msg -> do
@@ -206,8 +214,8 @@ composeWithHeaders headers = do
       hClose temph
       editFile tempf
       parseFile tempf $ do
-        headers <- parseHeaders
-        body <- parseMessage mimeTextPlain headers
+        headers <- parseComposedHeaders
+        body <- parseComposedMessage
         case body of
           BodyLeaf _ b -> case filter (`notElem` "\n\r\t ") b of
                             [] -> fail "Empty message"
@@ -253,7 +261,7 @@ printMessageWith :: (MessageNumber -> String -> [Field] -> IO ())
                  -> MessageNumber -> MID -> MaildirM ()
 printMessageWith f n mid = do
   fp <- absoluteMaildirFile mid
-  headers <- liftIO $ parseFile fp parseHeaders
+  headers <- liftIO $ parseCrlfFile fp parseHeaders
   flags <- getFlags mid
   case headers of
     Left err -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
@@ -288,7 +296,7 @@ flagSummary flags
 getHeaders :: MID -> MaildirM [Field]
 getHeaders mid = do
   fp <- absoluteMaildirFile mid
-  throwEither "Error parsing headers" $ liftIO $ parseFile fp parseHeaders
+  throwEither "Error parsing headers" $ liftIO $ parseCrlfFile fp parseHeaders
 
 getMID :: MessageNumber -> MaildirM MID
 getMID msg = do
