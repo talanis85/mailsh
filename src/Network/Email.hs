@@ -1,7 +1,6 @@
 module Network.Email
   ( module Network.Email.Types
   , module Network.Email.Render
-  , simpleContentType
   , parseHeaders
   , parseMessage
   , parseNameAddr
@@ -22,9 +21,6 @@ import Network.Email.Message
 import Network.Email.Types
 import Network.Email.Render
 import System.IO
-
-simpleContentType :: MimeType -> String
-simpleContentType t = mimeType t ++ "/" ++ mimeSubtype t
 
 parseHeaders :: P.Parser [Field]
 parseHeaders = do

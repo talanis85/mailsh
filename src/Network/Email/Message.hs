@@ -24,26 +24,37 @@ encoded_message :: MimeType -> EncodingType -> Parser Body
 encoded_message t e = do
   decoded <- decodeMessage e
   case mimeType t of
-    "multipart" -> case Map.lookup "boundary" (mimeParams t) of
-                     Nothing -> fail "multipart without boundary"
-                     Just b  -> do
-                       let parts = splitMultipart b decoded
-                       return (BodyTree (mapMaybe (parseMaybe bodyP) parts))
-    _           -> let charsetParam = Map.lookup "charset" (mimeParams t)
-                       charset = charsetParam >>= encodingFromStringExplicit
-                       finalBody = case charset of
-                         Nothing -> B.unpack decoded
-                         Just charset -> case decodeStringExplicit charset (B.unpack decoded) of
-                                          Left err -> B.unpack decoded
-                                          Right v  -> v
-                       finalBodyNL = filter (/= '\r') finalBody
-                   in return (BodyLeaf t finalBodyNL)
+    "multipart" ->
+      case Map.lookup "boundary" (mimeParams t) of
+        Nothing -> fail "multipart without boundary"
+        Just b  -> do
+          let parts = splitMultipart b decoded
+              mpt   = case mimeSubtype t of
+                        "alternative" -> MultipartAlternative
+                        _             -> MultipartMixed
+          return (BodyTree mpt (mapMaybe (parseMaybe bodyP) parts))
+    _ ->
+      let charsetParam = Map.lookup "charset" (mimeParams t)
+          charset = charsetParam >>= encodingFromStringExplicit
+          finalBody = case charset of
+            Nothing -> B.unpack decoded
+            Just charset -> case decodeStringExplicit charset (B.unpack decoded) of
+                             Left err -> B.unpack decoded
+                             Right v  -> v
+          finalBodyNL = filter (/= '\r') finalBody
+      in return (BodyLeaf t finalBodyNL)
 
 splitMultipart :: String -> B.ByteString -> [B.ByteString]
 splitMultipart boundary s = fromMaybe [] (parseMaybe (multipartP boundary >> many (multipartP boundary)) s)
 
+multipartBoundaryP :: String -> Parser ()
+multipartBoundaryP b = string (B.pack ("\r\n--" ++ b ++ "\r\n")) >> return ()
+
+multipartBoundaryFinalP :: String -> Parser ()
+multipartBoundaryFinalP b = string (B.pack ("\r\n--" ++ b ++ "--\r\n")) >> return ()
+
 multipartP :: String -> Parser B.ByteString
-multipartP boundary = B.pack <$> manyTill anyChar (string (B.pack ("--" ++ boundary ++ "\r\n")))
+multipartP boundary = B.pack <$> manyTill anyChar (multipartBoundaryP boundary <|> multipartBoundaryFinalP boundary)
 
 parseMaybe :: Parser a -> B.ByteString -> Maybe a
 parseMaybe p b = case parseOnly p b of

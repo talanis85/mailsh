@@ -26,11 +26,11 @@ simplePrinter = do
   liftIO $ putStr $ formatHeaders filter hs
   liftIO $ putStrLn $ replicate 78 '-'
   msg <- parseOrFail (parseMessage mimeTextPlain hs)
-  let (t, body) = head (bodies msg)
+  let (t, body) = head (bodiesOf ["text/plain", "text/html"] msg)
   liftIO $ mimeOut t body
 
 mimeOut :: MimeType -> String -> IO ()
-mimeOut mimeType = case simpleContentType mimeType of
+mimeOut mimeType = case simpleMimeType mimeType of
                      "text/html" -> w3mOut
                      _           -> textPlainOut
 

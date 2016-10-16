@@ -9,7 +9,7 @@ import System.Process
 
 renderSimple :: MimeType -> String -> IO String
 renderSimple mimeType =
-  case simpleContentType mimeType of
+  case simpleMimeType mimeType of
     "text/html" -> renderW3m
     _           -> renderText
 

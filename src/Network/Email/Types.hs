@@ -3,9 +3,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
   ( Body (..)
-  , bodies
+  , MultipartType (..)
+  , bodies, bodiesOf
   , NameAddr (..)
   , MimeType (..)
+  , simpleMimeType
   , mimeApplicationOctetStream, mimeTextPlain
   , EncodingType (..)
   , Field (..)
@@ -30,15 +32,28 @@ import Control.Lens
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Monoid
 import System.Time
 import System.Locale
 
-data Body = BodyLeaf MimeType String | BodyTree [Body]
+data Body = BodyLeaf MimeType String | BodyTree MultipartType [Body]
+  deriving (Show)
+
+data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
 
 bodies :: Body -> [(MimeType, String)]
-bodies (BodyLeaf t s) = [(t, s)]
-bodies (BodyTree bs)  = concatMap bodies bs
+bodies (BodyLeaf t s)  = [(t, s)]
+bodies (BodyTree _ bs) = concatMap bodies bs
+
+bodiesOf :: [String] -> Body -> [(MimeType, String)]
+bodiesOf types (BodyLeaf t s) = [(t, s)]
+bodiesOf types (BodyTree MultipartMixed bs) = concatMap (bodiesOf types) bs
+bodiesOf types (BodyTree MultipartAlternative bs) = maybeToList $ getLast $ mconcat $ map Last $ concatMap (bodies' types) bs
+  where
+    bodies' types (BodyLeaf t s) | simpleMimeType t `elem` types = [Just (t, s)]
+                                 | otherwise = [Nothing]
+    bodies' types (BodyTree m bs) = map Just (concatMap (bodiesOf types) bs)
 
 -- |A NameAddr is composed of an optional realname a mandatory
 -- e-mail 'address'.
@@ -86,6 +101,9 @@ data MimeType = MimeType
   , mimeSubtype :: String
   , mimeParams :: Map.Map String String
   }
+
+simpleMimeType :: MimeType -> String
+simpleMimeType t = mimeType t ++ "/" ++ mimeSubtype t
 
 mimeApplicationOctetStream :: MimeType
 mimeApplicationOctetStream = MimeType
