@@ -157,11 +157,10 @@ cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> MaildirM ()
 cmdReply nosend strat msg' = do
   msg <- msg'
   mid <- getMID msg
-  fp <- absoluteMaildirFile mid
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ parseCrlfFile fp $ do
+  (headers, body) <- parseMaildirFile mid $ do
     h <- parseHeaders
-    b <- parseMessage mimeTextPlain h
-    return (h, b)
+    m <- parseMessage mimeTextPlain h
+    return (h, m)
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseString parseNameAddr)
@@ -260,12 +259,9 @@ printMessageSingle = printMessageWith $
 printMessageWith :: (MessageNumber -> String -> [Field] -> IO ())
                  -> MessageNumber -> MID -> MaildirM ()
 printMessageWith f n mid = do
-  fp <- absoluteMaildirFile mid
-  headers <- liftIO $ parseCrlfFile fp parseHeaders
+  headers <- parseMaildirFile mid parseHeaders
   flags <- getFlags mid
-  case headers of
-    Left err -> liftIO $ printf "%6s: --- Error parsing headers ---" (show n)
-    Right headers -> liftIO $ f n flags headers
+  liftIO $ f n flags headers
 
 printWithWidth :: (Int -> String) -> IO ()
 printWithWidth f = do
@@ -294,9 +290,7 @@ flagSummary flags
   | otherwise                               = 'N'
 
 getHeaders :: MID -> MaildirM [Field]
-getHeaders mid = do
-  fp <- absoluteMaildirFile mid
-  throwEither "Error parsing headers" $ liftIO $ parseCrlfFile fp parseHeaders
+getHeaders mid = parseMaildirFile mid parseHeaders
 
 getMID :: MessageNumber -> MaildirM MID
 getMID msg = do
