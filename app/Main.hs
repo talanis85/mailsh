@@ -168,7 +168,8 @@ cmdReply nosend strat msg' = do
         [ mkField fFrom <$> return <$> from
         ])
         ++ replyHeaders strat headers
-  rendered <- liftIO $ uncurry renderSimple (bodiesOf ["text/plain", "text/html"] body !! 0)
+  let bs = bodiesOf (anyF [isSimpleMimeType "text/plain", isSimpleMimeType "text/html"]) body
+  rendered <- liftIO $ uncurry renderSimple $ bs !! 0
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
   unless nosend $ sendMessage headers body

@@ -5,6 +5,8 @@ module Network.Email.Types
   ( Body (..)
   , MultipartType (..)
   , bodies, bodiesOf
+  , anyF
+  , isSimpleMimeType
   , NameAddr (..)
   , MimeType (..)
   , simpleMimeType
@@ -46,14 +48,20 @@ bodies :: Body -> [(MimeType, String)]
 bodies (BodyLeaf t s)  = [(t, s)]
 bodies (BodyTree _ bs) = concatMap bodies bs
 
-bodiesOf :: [String] -> Body -> [(MimeType, String)]
+bodiesOf :: (MimeType -> Bool) -> Body -> [(MimeType, String)]
 bodiesOf types (BodyLeaf t s) = [(t, s)]
 bodiesOf types (BodyTree MultipartMixed bs) = concatMap (bodiesOf types) bs
 bodiesOf types (BodyTree MultipartAlternative bs) = maybeToList $ getLast $ mconcat $ map Last $ concatMap (bodies' types) bs
   where
-    bodies' types (BodyLeaf t s) | simpleMimeType t `elem` types = [Just (t, s)]
+    bodies' types (BodyLeaf t s) | types t   = [Just (t, s)]
                                  | otherwise = [Nothing]
     bodies' types (BodyTree m bs) = map Just (concatMap (bodiesOf types) bs)
+
+isSimpleMimeType :: String -> MimeType -> Bool
+isSimpleMimeType s t = s == simpleMimeType t
+
+anyF :: [a -> Bool] -> a -> Bool
+anyF fs = getAny . foldMap (Any .) fs
 
 -- |A NameAddr is composed of an optional realname a mandatory
 -- e-mail 'address'.

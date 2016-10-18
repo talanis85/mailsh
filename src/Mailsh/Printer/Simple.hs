@@ -26,7 +26,7 @@ simplePrinter = do
   liftIO $ putStr $ formatHeaders filter hs
   liftIO $ putStrLn $ replicate 78 '-'
   msg <- parseOrFail (parseMessage mimeTextPlain hs)
-  let (t, body) = head (bodiesOf ["text/plain", "text/html"] msg)
+  let (t, body) = head (bodiesOf (anyF [isSimpleMimeType "text/plain", isSimpleMimeType "text/html"]) msg)
   liftIO $ mimeOut t body
 
 mimeOut :: MimeType -> String -> IO ()
