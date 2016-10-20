@@ -9,6 +9,7 @@ module Network.Email.Types
   , outline
   , anyF
   , isSimpleMimeType
+  , MsgID (..), formatMsgID
   , NameAddr (..)
   , MimeType (..)
   , simpleMimeType
@@ -79,6 +80,12 @@ isSimpleMimeType s t = s == simpleMimeType t
 anyF :: [a -> Bool] -> a -> Bool
 anyF fs = getAny . foldMap (Any .) fs
 
+newtype MsgID = MsgID { getMsgID :: String }
+  deriving (Show, Eq)
+
+formatMsgID :: MsgID -> String
+formatMsgID m = "<" ++ getMsgID m ++ ">"
+
 -- |A NameAddr is composed of an optional realname a mandatory
 -- e-mail 'address'.
 
@@ -99,9 +106,9 @@ data Field      = OptionalField       String String
                 | To                  [NameAddr]
                 | Cc                  [NameAddr]
                 | Bcc                 [NameAddr]
-                | MessageID           String
-                | InReplyTo           [String]
-                | References          [String]
+                | MessageID           MsgID
+                | InReplyTo           [MsgID]
+                | References          [MsgID]
                 | Subject             String
                 | Comments            String
                 | Keywords            [[String]]
@@ -112,7 +119,7 @@ data Field      = OptionalField       String String
                 | ResentTo            [NameAddr]
                 | ResentCc            [NameAddr]
                 | ResentBcc           [NameAddr]
-                | ResentMessageID     String
+                | ResentMessageID     MsgID
                 | ResentReplyTo       [NameAddr]
                 | Received            ([(String,String)], CalendarTime)
                 | ObsReceived         [(String,String)]
@@ -190,6 +197,10 @@ instance ShowField [NameAddr] where
 instance ShowField CalendarTime where
   showFieldValue = formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
 instance ShowField [String] where
+  showFieldValue xs = intercalate ", " $ map showFieldValue xs
+instance ShowField MsgID where
+  showFieldValue = formatMsgID
+instance ShowField [MsgID] where
   showFieldValue xs = intercalate ", " $ map showFieldValue xs
 
 lookupField :: AField a -> [Field] -> [a]

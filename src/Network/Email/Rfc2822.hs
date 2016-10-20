@@ -672,32 +672,32 @@ bcc             = header "Bcc" (try address_list <|> do { optional cfws; return 
 -- |Parse a \"@Message-Id:@\" header line and return the 'msg_id'
 -- contained in it.
 
-message_id      :: Parser String
+message_id      :: Parser MsgID
 message_id      = header "Message-ID" msg_id
 
 -- |Parse a \"@In-Reply-To:@\" header line and return the list of
 -- 'msg_id's contained in it.
 
-in_reply_to     :: Parser [String]
+in_reply_to     :: Parser [MsgID]
 in_reply_to     = header "In-Reply-To" (many1 msg_id)
 
 -- |Parse a \"@References:@\" header line and return the list of
 -- 'msg_id's contained in it.
 
-references      :: Parser [String]
+references      :: Parser [MsgID]
 references      = header "References" (many1 msg_id)
 
 -- |Parse a \"@message ID:@\" and return it. A message ID is almost
 -- identical to an 'angle_addr', but with stricter rules about folding
 -- and whitespace.
 
-msg_id          :: Parser String
+msg_id          :: Parser MsgID
 msg_id          = unfold (do _ <- char '<'
                              idl <- id_left
                              _ <- char '@'
                              idr <- id_right
                              _ <- char '>'
-                             return ("<" ++ idl ++ "@" ++ idr ++ ">"))
+                             return (MsgID (idl ++ "@" ++ idr)))
                   <?> "message ID"
 
 -- |Parse a \"left ID\" part of a 'msg_id'. This is almost identical to
@@ -812,7 +812,7 @@ resent_bcc      = header "Resent-Bcc" (    try address_list
 -- |Parse a \"@Resent-Message-ID:@\" header line and return the 'msg_id'
 -- contained in it.
 
-resent_msg_id   :: Parser String
+resent_msg_id   :: Parser MsgID
 resent_msg_id   = header "Resent-Message-ID" msg_id
 
 
@@ -896,7 +896,7 @@ item_value      :: Parser String
 item_value      = choice [ try (do { r <- many1 angle_addr; return (concat r) })
                          , try addr_spec
                          , try domain
-                         , msg_id
+                         , formatMsgID <$> msg_id
                          , try atom
                          ]
                   <?> "value of a name/value pair"
@@ -1272,26 +1272,26 @@ obs_bcc         = header "Bcc" (    try address_list
 -- |Parse a 'message_id' header line but allow for the obsolete
 -- folding syntax.
 
-obs_message_id  :: Parser String
+obs_message_id  :: Parser MsgID
 obs_message_id  = obs_header "Message-ID" msg_id
 
 -- |Parse an 'in_reply_to' header line but allow for the obsolete
 -- folding and the obsolete phrase syntax.
 
-obs_in_reply_to :: Parser [String]
-obs_in_reply_to = obs_header "In-Reply-To" (do r <- many (    do {_ <- phrase; return [] }
+obs_in_reply_to :: Parser [MsgID]
+obs_in_reply_to = obs_header "In-Reply-To" (do r <- many (    do {_ <- phrase; return (MsgID "") }
                                                           <|> msg_id
                                                          )
-                                               return (filter (/=[]) r))
+                                               return (filter (/= MsgID "") r))
 
 -- |Parse a 'references' header line but allow for the obsolete
 -- folding and the obsolete phrase syntax.
 
-obs_references  :: Parser [String]
-obs_references  = obs_header "References" (do r <- many (    do { _ <- phrase; return [] }
+obs_references  :: Parser [MsgID]
+obs_references  = obs_header "References" (do r <- many (    do { _ <- phrase; return (MsgID "") }
                                                          <|> msg_id
                                                         )
-                                              return (filter (/=[]) r))
+                                              return (filter (/= MsgID "") r))
 
 -- |Parses the \"left part\" of a message ID, but allows the obsolete
 -- syntax, which is identical to a 'local_part'.
@@ -1371,7 +1371,7 @@ obs_resent_bcc  = obs_header "Bcc" (    try address_list
 -- |Parse a 'resent_msg_id' header line but allow for the obsolete
 -- folding syntax.
 
-obs_resent_mid  :: Parser String
+obs_resent_mid  :: Parser MsgID
 obs_resent_mid  = obs_header "Resent-Message-ID" msg_id
 
 -- |Parse a @Resent-Reply-To@ header line but allow for the

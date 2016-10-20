@@ -66,11 +66,11 @@ headerNameP s p = do
 unstructuredP :: Parser String
 unstructuredP = B.unpack <$> takeWhile (notInClass "\n")
 
-msgidP :: Parser String
-msgidP = angleAddrP
+msgidP :: Parser MsgID
+msgidP = MsgID <$> angleAddrP
 
-msgidsP :: Parser [String]
-msgidsP = tok angleAddrP `sepBy` tok (char ',')
+msgidsP :: Parser [MsgID]
+msgidsP = tok msgidP `sepBy` tok (char ',')
 
 mailboxP :: Parser NameAddr
 mailboxP = try nameAddrP <|> fmap (NameAddr Nothing) addrSpecP
