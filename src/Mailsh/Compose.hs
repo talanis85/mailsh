@@ -3,6 +3,7 @@ module Mailsh.Compose
   ( parseComposedHeaders
   , parseComposedMessage
   , renderCompose
+  , isEmptyBody
   ) where
 
 import Prelude hiding (takeWhile)
@@ -12,6 +13,7 @@ import Control.Monad.Trans
 import Control.Monad.Except
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 
 import Network.Email
@@ -34,8 +36,12 @@ parseComposedHeaders = catMaybes <$> many (headerP <* char '\n')
 
 parseComposedMessage :: Parser Body
 parseComposedMessage = do
-  s <- takeByteString
-  return (BodyLeaf mimeTextPlain (B.unpack s))
+  s <- takeLazyByteString
+  return (BodyLeaf mimeTextPlain s)
+
+isEmptyBody :: Body -> Bool
+isEmptyBody (BodyLeaf _ b) = BL.null (BL.filter (\x -> x /= '\n' && x /= '\r' && x /= ' ') b)
+isEmptyBody _ = False
 
 headerP :: Parser (Maybe Field)
 headerP = choice $ map try $

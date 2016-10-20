@@ -2,9 +2,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
-  ( Body (..)
+  ( Body' (..)
+  , Body, BodyContent
   , MultipartType (..)
   , bodies, bodiesOf
+  , outline
   , anyF
   , isSimpleMimeType
   , NameAddr (..)
@@ -37,18 +39,23 @@ import Data.Maybe
 import Data.Monoid
 import System.Time
 import System.Locale
+import Text.Printf
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.ByteString.Lazy.Builder
 
-data Body = BodyLeaf MimeType String | BodyTree MultipartType [Body]
-  deriving (Show)
+data Body' a = BodyLeaf MimeType a | BodyTree MultipartType [Body' a]
+
+type Body = Body' BL.ByteString
+type BodyContent = BL.ByteString
 
 data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
 
-bodies :: Body -> [(MimeType, String)]
+bodies :: Body' a -> [(MimeType, a)]
 bodies (BodyLeaf t s)  = [(t, s)]
 bodies (BodyTree _ bs) = concatMap bodies bs
 
-bodiesOf :: (MimeType -> Bool) -> Body -> [(MimeType, String)]
+bodiesOf :: (MimeType -> Bool) -> Body' a -> [(MimeType, a)]
 bodiesOf types (BodyLeaf t s) = [(t, s)]
 bodiesOf types (BodyTree MultipartMixed bs) = concatMap (bodiesOf types) bs
 bodiesOf types (BodyTree MultipartAlternative bs) = maybeToList $ getLast $ mconcat $ map Last $ concatMap (bodies' types) bs
@@ -56,6 +63,15 @@ bodiesOf types (BodyTree MultipartAlternative bs) = maybeToList $ getLast $ mcon
     bodies' types (BodyLeaf t s) | types t   = [Just (t, s)]
                                  | otherwise = [Nothing]
     bodies' types (BodyTree m bs) = map Just (concatMap (bodiesOf types) bs)
+
+outline :: Body -> String
+outline = outline' 0
+  where
+    outline' indent (BodyLeaf t s)
+      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" (simpleMimeType t) (condensed (BL.unpack s))
+    outline' indent (BodyTree mt bodies)
+      = replicate (indent * 2) ' ' ++ printf "%s:\n" (show mt) ++ concatMap (outline' (indent+1)) bodies
+    condensed = (++ "...") . take 50 . filter (/= '\n')
 
 isSimpleMimeType :: String -> MimeType -> Bool
 isSimpleMimeType s t = s == simpleMimeType t

@@ -48,7 +48,7 @@ genMail fields body = do
             , IsField fInReplyTo
             , IsField fReferences
             ]
-        , mailParts   = [mainPart mainContentType bodyContent]
+        , mailParts   = [mainPart mainContentType (B.unpack bodyContent)]
         }
   attachments <- mapM parseAttachment (lookupOptionalField "Attachment" fields)
   liftIO $ addAttachments attachments mainMail

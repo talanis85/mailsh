@@ -2,67 +2,67 @@ module Network.Email.Message
   ( encoded_message
   ) where
 
+import Prelude hiding (takeWhile)
+
 import qualified Codec.MIME.Base64 as Base64
 import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.ByteString.Builder
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
+import qualified Data.Attoparsec.ByteString.Lazy as APL
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Monoid
 import Control.Applicative
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Data.Encoding
+import qualified Data.Encoding as Enc
 
 import Network.Email.Rfc2822
 import Network.Email.Rfc2047
+import Network.Email.Rfc2234
 import Network.Email.Types
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 encoded_message :: MimeType -> EncodingType -> Parser Body
 encoded_message t e = do
-  decoded <- decodeMessage e
   case mimeType t of
-    "multipart" ->
-      case Map.lookup "boundary" (mimeParams t) of
-        Nothing -> fail "multipart without boundary"
-        Just b  -> do
-          let parts = splitMultipart b decoded
-              mpt   = case mimeSubtype t of
-                        "alternative" -> MultipartAlternative
-                        _             -> MultipartMixed
-          return (BodyTree mpt (mapMaybe (parseMaybe bodyP) parts))
+    "multipart" -> do
+      let Just boundary = Map.lookup "boundary" (mimeParams t)
+      BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
     _ ->
-      let charsetParam = Map.lookup "charset" (mimeParams t)
-          charset = charsetParam >>= encodingFromStringExplicit
-          finalBody = case charset of
-            Nothing -> B.unpack decoded
-            Just charset -> case decodeStringExplicit charset (B.unpack decoded) of
-                             Left err -> B.unpack decoded
-                             Right v  -> v
-          finalBodyNL = filter (/= '\r') finalBody
-      in return (BodyLeaf t finalBodyNL)
+      BodyLeaf <$> pure t <*> singlepartP e
 
-splitMultipart :: String -> B.ByteString -> [B.ByteString]
-splitMultipart boundary s = fromMaybe [] (parseMaybe (multipartP boundary >> many (multipartP boundary)) s)
+multipartType :: String -> MultipartType
+multipartType "alternative" = MultipartAlternative
+multipartType _             = MultipartMixed
 
-multipartBoundaryP :: String -> Parser ()
-multipartBoundaryP b = string (B.pack ("\r\n--" ++ b ++ "\r\n")) >> return ()
+singlepartP :: EncodingType -> Parser BL.ByteString
+singlepartP e = BL.filter (/= '\r') <$> decodeWithError e <$> takeLazyByteString
 
-multipartBoundaryFinalP :: String -> Parser ()
-multipartBoundaryFinalP b = string (B.pack ("\r\n--" ++ b ++ "--\r\n")) >> return ()
+multipartP :: EncodingType -> String -> Parser [Body]
+multipartP e boundary = do
+  bs <- decodeWithError e <$> takeLazyByteString
+  let parser = do
+        multipartPartP (B.pack boundary)
+        many1 (multipartPartP (B.pack boundary))
+  case APL.eitherResult (APL.parse parser bs) of
+    Left err -> fail ("Could not parse multipart: " ++ err)
+    Right v  -> return v
 
-multipartP :: String -> Parser B.ByteString
-multipartP boundary = B.pack <$> manyTill anyChar (multipartBoundaryP boundary <|> multipartBoundaryFinalP boundary)
+multipartPartP :: B.ByteString -> Parser Body
+multipartPartP boundary = do
+  part <- toLazyByteString <$> mconcat <$> many (multipartLineP boundary)
+  takeLine
+  case APL.eitherResult (APL.parse multipartBodyP part) of
+    Left err -> fail ("Could not parse part: " ++ err)
+    Right v  -> return v
 
-parseMaybe :: Parser a -> B.ByteString -> Maybe a
-parseMaybe p b = case parseOnly p b of
-                Left err -> Nothing
-                Right v  -> Just v
-
-bodyP :: Parser Body
-bodyP = do
+multipartBodyP :: Parser Body
+multipartBodyP = do
   headers <- fields
   let contentType =
         fromMaybe mimeApplicationOctetStream (listToMaybe (lookupField fContentType headers))
@@ -70,10 +70,28 @@ bodyP = do
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
   encoded_message contentType contentTransferEncoding
 
-decodeMessage :: EncodingType -> Parser B.ByteString
-decodeMessage encoding = do
-  enctext <- takeByteString
-  return $ case encoding of
-    QuotedPrintable -> B.pack $ QuotedPrintable.decode (B.unpack enctext)
-    Base64          -> B.pack $ Base64.decodeToString (B.unpack enctext)
-    EightBit        -> enctext
+multipartLineP :: B.ByteString -> Parser Builder
+multipartLineP boundary = do
+  let dashdash = B.pack "--"
+      endofline = B.pack "\r\n"
+  line <- takeLine
+  if line == (dashdash <> boundary) || line == (dashdash <> boundary <> dashdash)
+     then fail "End of part"
+     else return (byteString (line <> endofline))
+
+decodeWithError :: EncodingType -> BL.ByteString -> BL.ByteString
+decodeWithError e s = case decode e s of
+                        Nothing -> BL.pack ("DECODING ERROR: " ++ show e ++ "\n#####Message:\n" ++ BL.unpack s)
+                        Just r  -> r
+
+decode :: EncodingType -> BL.ByteString -> Maybe BL.ByteString
+decode e = case e of
+  QuotedPrintable ->
+    Just . BL.pack . QuotedPrintable.decode . BL.unpack
+  Base64          ->
+    Just . BL.pack . Base64.decodeToString . BL.unpack
+  EightBit        ->
+    Just
+
+takeLine :: Parser B.ByteString
+takeLine = takeWhile (notInClass "\r\n") <* crlf

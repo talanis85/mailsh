@@ -24,7 +24,6 @@ import Mailsh.Types
 import Mailsh.Filter
 import Mailsh.Maildir
 import Mailsh.MessageNumber
-import Mailsh.Printer
 import Mailsh.Parse
 import Mailsh.Render
 
@@ -51,17 +50,10 @@ version = $(gitBranch) ++ "@" ++ $(gitHash)
 commandP :: Parser (MaildirM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> printerOption (Printer simplePrinter)
-                                          <*> pure defaultPrinterOptions)
-                              idm)
-  <> command "cat"      (info (cmdCat     <$> msgArgument
-                                          <*> printerOption (Printer utf8Printer)
-                                          <*> pure defaultPrinterOptions)
-                              idm)
+                                          <*> rendererOption) idm)
+  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
-                                          <*> printerOption (Printer headersOnlyPrinter)
-                                          <*> pure defaultPrinterOptions)
-                              idm)
+                                          <*> rendererOption) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
                                           <*> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
@@ -80,6 +72,16 @@ commandP = subparser
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value filterUnseen))
     where
+      rendererOption = option rendererReader (   short 'r'
+                                              <> long "render"
+                                              <> metavar "RENDERER"
+                                              <> value renderMainPart
+                                             )
+      rendererReader = eitherReader $ \s -> case s of
+        "default" -> Right renderMainPart
+        "outline" -> Right renderOutline
+        _         -> Left "Invalid renderer"
+      {-
       printerOption def =
         option printerReader (   short 'p'
                               <> long "printer"
@@ -91,6 +93,7 @@ commandP = subparser
         "raw"          -> Right (Printer utf8Printer)
         "default"      -> Right (Printer simplePrinter)
         _              -> Left "Invalid printer"
+      -}
 
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
 maybeOption r m = option (Just <$> r) (m <> value Nothing)
@@ -117,6 +120,13 @@ getNextMessageNumber = do
   filtered <- filterM (runFilter filterUnseen . snd) messages
   setRecentMessageNumber $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
 
+defaultHeaders :: [IsField]
+defaultHeaders =
+  [ IsField fDate, IsField fTo, IsField fFrom
+  , IsField fCc, IsField fBcc, IsField fReplyTo
+  , IsField fSubject
+  ]
+
 throwEither :: (MonadError String m) => String -> m (Either String a) -> m a
 throwEither s m = do
   r <- m
@@ -124,20 +134,25 @@ throwEither s m = do
     Left e -> throwError (s ++ ": " ++ show e)
     Right v -> return v
 
-cmdRead :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
-cmdRead msg' printer propts = do
+cmdRead :: MessageNumber' -> Renderer -> MaildirM ()
+cmdRead msg' renderer = do
   msg <- msg'
   mid <- getMID msg
-  fp <- absoluteMaildirFile mid
-  outputWithPrinter printer propts fp
+  (headers, body) <- parseMaildirFile mid $ do
+    h <- parseHeaders
+    b <- parseMessage mimeTextPlain h
+    return (h, b)
+
+  liftIO $ putStrLn $ formatHeaders defaultHeaders headers
+  liftIO $ renderer body >>= putStrLn
   setFlag 'S' mid
 
-cmdCat :: MessageNumber' -> Printer -> PrinterOptions -> MaildirM ()
-cmdCat msg' printer propts = do
+cmdCat :: MessageNumber' -> MaildirM ()
+cmdCat msg' = do
   msg <- msg'
   mid <- getMID msg
   fp <- absoluteMaildirFile mid
-  outputWithPrinter printer propts fp
+  liftIO $ readFile fp >>= putStrLn
 
 cmdCompose :: Bool -> Recipient -> MaildirM ()
 cmdCompose nosend rcpt = do
@@ -168,8 +183,7 @@ cmdReply nosend strat msg' = do
         [ mkField fFrom <$> return <$> from
         ])
         ++ replyHeaders strat headers
-  let bs = bodiesOf (anyF [isSimpleMimeType "text/plain", isSimpleMimeType "text/html"]) body
-  rendered <- liftIO $ uncurry renderSimple $ bs !! 0
+  rendered <- liftIO $ renderMainPart body
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
   unless nosend $ sendMessage headers body
@@ -216,11 +230,9 @@ composeWith headers text = do
       parseFile tempf $ do
         headers <- parseComposedHeaders
         body <- parseComposedMessage
-        case body of
-          BodyLeaf _ b -> case filter (`notElem` "\n\r\t ") b of
-                            [] -> fail "Empty message"
-                            _  -> return (headers, body)
-          _            -> return (headers, body)
+        if isEmptyBody body
+           then fail "Empty message"
+           else return (headers, body)
 
 cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
 cmdHeaders limit filter = do

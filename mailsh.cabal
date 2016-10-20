@@ -19,16 +19,12 @@ library
                      , Mailsh.Filter
                      , Mailsh.Maildir
                      , Mailsh.MessageNumber
-                     , Mailsh.Printer
                      , Mailsh.Parse
                      , Mailsh.Render
                      , Mailsh.Compose
                      , Network.Email
                      , Data.String.WordWrap
-  other-modules:       Mailsh.Printer.Simple
-                     , Mailsh.Printer.Types
-                     , Mailsh.Printer.Utils
-                     , Network.Email.Rfc2234
+  other-modules:       Network.Email.Rfc2234
                      , Network.Email.Rfc2822
                      , Network.Email.Rfc2047
                      , Network.Email.Types
@@ -44,12 +40,7 @@ library
                      , filepath
                      , bytestring
                      , text
-                     , pipes
-                     , pipes-bytestring
-                     , pipes-text
-                     , pipes-parse
                      , attoparsec
-                     , pipes-attoparsec
                      , process
                      , containers
                      , old-time
