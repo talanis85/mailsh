@@ -48,9 +48,12 @@ headerP = choice $ map try $
   [ Just . mkField fSubject <$> headerNameP "Subject" unstructuredP
   , Just . mkField fFrom <$> headerNameP "From" mailboxListP
   , Just . mkField fTo <$> headerNameP "To" mailboxListP
+  , Just . mkField fCc <$> headerNameP "Cc" mailboxListP
+  , Just . mkField fBcc <$> headerNameP "Bcc" mailboxListP
   , Just . mkField fReplyTo <$> headerNameP "Reply-To" mailboxListP
   , Just . mkField fInReplyTo <$> headerNameP "In-Reply-To" msgidsP
   , Just . mkField fReferences <$> headerNameP "References" msgidsP
+  , Just . mkField (fOptionalField "Attachment") <$> headerNameP "Attachment" unstructuredP
   , takeWhile1 (notInClass "\n") *> pure Nothing
   ]
 
