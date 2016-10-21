@@ -31,14 +31,13 @@ import Network.Email.Types
 type Charset = Maybe Enc.DynEncoding
 
 encoded_message :: MimeType -> EncodingType -> Parser Body
-encoded_message t e = do
-  case mimeType t of
-    "multipart" -> do
-      let Just boundary = Map.lookup "boundary" (mimeParams t)
-      BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
-    _ -> do
-      let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
-      BodyLeaf <$> pure t <*> singlepartP e charset
+encoded_message t e = case mimeType t of
+  "multipart" -> do
+    let Just boundary = Map.lookup "boundary" (mimeParams t)
+    BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
+  _ -> do
+    let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
+    BodyLeaf <$> pure t <*> singlepartP e charset
 
 multipartType :: String -> MultipartType
 multipartType "alternative" = MultipartAlternative

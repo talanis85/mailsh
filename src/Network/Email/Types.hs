@@ -44,6 +44,8 @@ import Text.Printf
 import qualified Data.Text as T
 import Data.ByteString.Lazy.Builder
 
+{-# ANN module "HLint: ignore Use camelCase" #-}
+
 data Body' a = BodyLeaf MimeType a | BodyTree MultipartType [Body' a]
 
 type Body = Body' T.Text
@@ -150,7 +152,7 @@ mimeTextPlain cs = MimeType
   }
 
 instance Show MimeType where
-  show t = mimeType t ++ "/" ++ mimeSubtype t ++ concat (map showParam (Map.toList (mimeParams t)))
+  show t = mimeType t ++ "/" ++ mimeSubtype t ++ concatMap showParam (Map.toList (mimeParams t))
     where showParam (k,v) = ";" ++ k ++ "=" ++ v
 
 data EncodingType = EightBit | Base64 | QuotedPrintable
@@ -203,7 +205,7 @@ instance ShowField [MsgID] where
   showFieldValue xs = intercalate ", " $ map showFieldValue xs
 
 lookupField :: AField a -> [Field] -> [a]
-lookupField f = mapMaybe (^? (fieldPrism f))
+lookupField f = mapMaybe (^? fieldPrism f)
 
 isn't' :: IsField -> Field -> Bool
 isn't' (IsField x) = isn't (fieldPrism x)
@@ -212,7 +214,7 @@ mkField :: AField a -> a -> Field
 mkField f v = v ^. re (fieldPrism f)
 
 filterFields :: [IsField] -> [Field] -> [Field]
-filterFields f = filter (\x -> or (map (not . flip isn't' x) f))
+filterFields f = filter (\x -> any (not . flip isn't' x) f)
 
 lookupOptionalField :: String -> [Field] -> [String]
 lookupOptionalField key = map (dropWhile (== ' '))
@@ -224,6 +226,4 @@ formatNameAddr na = case nameAddr_name na of
                       Just name -> name ++ " <" ++ nameAddr_addr na ++ ">"
 
 formatNameAddrShort :: NameAddr -> String
-formatNameAddrShort na = case nameAddr_name na of
-                           Nothing -> nameAddr_addr na
-                           Just name -> name
+formatNameAddrShort na = fromMaybe (nameAddr_addr na) (nameAddr_name na)

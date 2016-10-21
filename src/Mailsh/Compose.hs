@@ -41,7 +41,7 @@ parseComposedMessage = do
   return (decodeUtf8 s) -- TODO: decoding actually must depend on the locale
 
 headerP :: Parser (Maybe Field)
-headerP = choice $ map try $
+headerP = choice $ map try
   [ Just . mkField fSubject <$> headerNameP "Subject" unstructuredP
   , Just . mkField fFrom <$> headerNameP "From" mailboxListP
   , Just . mkField fTo <$> headerNameP "To" mailboxListP

@@ -54,7 +54,7 @@ genMail fields body = do
 
 additionalHeader :: [Field] -> IsField -> [(BS.ByteString, T.Text)]
 additionalHeader headers (IsField f) =
-  map (mkStringHeader (fieldName f)) (map showFieldValue (lookupField f headers))
+  map (mkStringHeader (fieldName f) . showFieldValue) (lookupField f headers)
     where
       mkStringHeader name s = (BS.pack name, T.pack s)
 

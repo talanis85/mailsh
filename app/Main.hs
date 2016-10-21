@@ -180,9 +180,9 @@ cmdReply nosend strat msg' = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseString parseNameAddr)
-  let initialHeaders = (catMaybes
+  let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        ])
+        ]
         ++ replyHeaders strat headers
   rendered <- liftIO $ renderMainPart body
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
