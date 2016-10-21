@@ -34,17 +34,23 @@ encoded_message :: MimeType -> EncodingType -> Parser Body
 encoded_message t e = case mimeType t of
   "multipart" -> do
     let Just boundary = Map.lookup "boundary" (mimeParams t)
-    BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
-  _ -> do
+    BodyMultipart <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
+  "text" -> do
     let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
-    BodyLeaf <$> pure t <*> singlepartP e charset
+    BodyText <$> pure (mimeSubtype t) <*> singlepartTextP e charset
+  _ ->
+    BodyBinary <$> pure t <*> singlepartBinaryP e
 
 multipartType :: String -> MultipartType
 multipartType "alternative" = MultipartAlternative
 multipartType _             = MultipartMixed
 
-singlepartP :: EncodingType -> Charset -> Parser T.Text
-singlepartP e charset = T.filter (/= '\r') <$> decodeCharset charset <$> decodeEncoding e <$> takeLazyByteString
+singlepartTextP :: EncodingType -> Charset -> Parser T.Text
+singlepartTextP e charset =
+  T.filter (/= '\r') <$> decodeCharset charset<$> decodeEncoding e <$> takeLazyByteString
+
+singlepartBinaryP :: EncodingType -> Parser BL.ByteString
+singlepartBinaryP e = decodeEncoding e <$> takeLazyByteString
 
 multipartP :: EncodingType -> String -> Parser [Body]
 multipartP e boundary = do

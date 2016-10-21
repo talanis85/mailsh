@@ -16,10 +16,13 @@ type Renderer = Body -> IO String
 
 renderMainPart :: Renderer
 renderMainPart b =
-  let (t, s) = head $ bodiesOf (anyF [isSimpleMimeType "text/plain", isSimpleMimeType "text/html"]) b
-  in case simpleMimeType t of
-    "text/html" -> renderW3m s
-    _           -> renderText s
+  let typeFilter = anyF [isSimpleMimeType "text/plain", isSimpleMimeType "text/html"]
+      body       = head <$> textBodies <$> collapseAlternatives typeFilter b
+  in case body of
+       Nothing -> return ""
+       Just (t, s) -> case t of
+        "html" -> renderW3m s
+        _      -> renderText s
 
 renderText :: T.Text -> IO String
 renderText = return . T.unpack

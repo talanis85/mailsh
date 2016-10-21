@@ -2,10 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
-  ( Body' (..)
-  , Body
+  ( Body (..)
   , MultipartType (..)
-  , bodies, bodiesOf
+  , textBodies, collapseAlternatives
   , outline
   , anyF
   , isSimpleMimeType
@@ -43,35 +42,44 @@ import System.Locale
 import Text.Printf
 import qualified Data.Text as T
 import Data.ByteString.Lazy.Builder
+import qualified Data.ByteString.Lazy as BL
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
-data Body' a = BodyLeaf MimeType a | BodyTree MultipartType [Body' a]
-
-type Body = Body' T.Text
+data Body = BodyText String T.Text
+          | BodyBinary MimeType BL.ByteString
+          | BodyMultipart MultipartType [Body]
 
 data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
 
-bodies :: Body' a -> [(MimeType, a)]
-bodies (BodyLeaf t s)  = [(t, s)]
-bodies (BodyTree _ bs) = concatMap bodies bs
+textBodies :: Body -> [(String, T.Text)]
+textBodies (BodyText t s)       = [(t, s)]
+textBodies (BodyMultipart _ bs) = concatMap textBodies bs
+textBodies _                    = []
 
-bodiesOf :: (MimeType -> Bool) -> Body' a -> [(MimeType, a)]
-bodiesOf types (BodyLeaf t s) = [(t, s)]
-bodiesOf types (BodyTree MultipartMixed bs) = concatMap (bodiesOf types) bs
-bodiesOf types (BodyTree MultipartAlternative bs) = maybeToList $ getLast $ mconcat $ map Last $ concatMap (bodies' types) bs
+collapseAlternatives :: (MimeType -> Bool) -> Body -> Maybe Body
+collapseAlternatives types (BodyMultipart MultipartAlternative bs) =
+  getLast $ mconcat $ map (Last . filterBody types) bs
   where
-    bodies' types (BodyLeaf t s) | types t   = [Just (t, s)]
-                                 | otherwise = [Nothing]
-    bodies' types (BodyTree m bs) = map Just (concatMap (bodiesOf types) bs)
+    filterBody types (BodyText t s)
+      | types (MimeType "text" t mempty) = Just (BodyText t s)
+      | otherwise = Nothing
+    filterBody types (BodyBinary t s)
+      | types t   = Just (BodyBinary t s)
+      | otherwise = Nothing
+    filterBody types (BodyMultipart mt bs) =
+      collapseAlternatives types (BodyMultipart mt bs)
+collapseAlternatives types body = Just body
 
 outline :: Body -> String
 outline = outline' 0
   where
-    outline' indent (BodyLeaf t s)
-      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" (simpleMimeType t) (condensed (T.unpack s))
-    outline' indent (BodyTree mt bodies)
+    outline' indent (BodyText t s)
+      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" ("text/" ++ t) (condensed (T.unpack s))
+    outline' indent (BodyBinary t s)
+      = replicate (indent * 2) ' ' ++ printf "%-15s: (binary)\n" (simpleMimeType t)
+    outline' indent (BodyMultipart mt bodies)
       = replicate (indent * 2) ' ' ++ printf "%s:\n" (show mt) ++ concatMap (outline' (indent+1)) bodies
     condensed = (++ "...") . take 50 . filter (/= '\n')
 
