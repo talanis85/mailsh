@@ -142,11 +142,11 @@ mimeApplicationOctetStream = MimeType
   , mimeParams = mempty
   }
 
-mimeTextPlain :: MimeType
-mimeTextPlain = MimeType
+mimeTextPlain :: String -> MimeType
+mimeTextPlain cs = MimeType
   { mimeType = "text"
   , mimeSubtype = "plain"
-  , mimeParams = mempty
+  , mimeParams = Map.fromList [("charset", cs)]
   }
 
 instance Show MimeType where

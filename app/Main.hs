@@ -7,6 +7,7 @@ import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Maybe
 import Data.String.WordWrap
+import qualified Data.Text as T
 import Development.GitRev
 import Options.Applicative
 import System.Console.Terminal.Size
@@ -140,7 +141,7 @@ cmdRead msg' renderer = do
   mid <- getMID msg
   (headers, body) <- parseMaildirFile mid $ do
     h <- parseHeaders
-    b <- parseMessage mimeTextPlain h
+    b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
 
   liftIO $ putStrLn $ formatHeaders defaultHeaders headers
@@ -174,7 +175,7 @@ cmdReply nosend strat msg' = do
   mid <- getMID msg
   (headers, body) <- parseMaildirFile mid $ do
     h <- parseHeaders
-    m <- parseMessage mimeTextPlain h
+    m <- parseMessage (mimeTextPlain "utf8") h
     return (h, m)
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
@@ -216,7 +217,7 @@ replyHeaders strat headers =
                , Just (mkField fReferences (msgids ++ refs))
                ]
 
-composeWith :: [Field] -> String -> IO (Either String ([Field], Body))
+composeWith :: [Field] -> String -> IO (Either String ([Field], T.Text))
 composeWith headers text = do
   tempdir <- getTemporaryDirectory
   (tempf, temph) <- openTempFile tempdir "message"
@@ -230,7 +231,7 @@ composeWith headers text = do
       parseFile tempf $ do
         headers <- parseComposedHeaders
         body <- parseComposedMessage
-        if isEmptyBody body
+        if T.null body
            then fail "Empty message"
            else return (headers, body)
 

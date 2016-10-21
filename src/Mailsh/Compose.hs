@@ -3,7 +3,6 @@ module Mailsh.Compose
   ( parseComposedHeaders
   , parseComposedMessage
   , renderCompose
-  , isEmptyBody
   ) where
 
 import Prelude hiding (takeWhile)
@@ -36,14 +35,10 @@ renderCompose headers body = do
 parseComposedHeaders :: Parser [Field]
 parseComposedHeaders = catMaybes <$> many (headerP <* char '\n')
 
-parseComposedMessage :: Parser Body
+parseComposedMessage :: Parser T.Text
 parseComposedMessage = do
   s <- takeByteString
-  return (BodyLeaf mimeTextPlain (decodeUtf8 s))
-
-isEmptyBody :: Body -> Bool
-isEmptyBody (BodyLeaf _ b) = T.null (T.filter (\x -> x /= '\n' && x /= '\r' && x /= ' ') b)
-isEmptyBody _ = False
+  return (decodeUtf8 s) -- TODO: decoding actually must depend on the locale
 
 headerP :: Parser (Maybe Field)
 headerP = choice $ map try $
