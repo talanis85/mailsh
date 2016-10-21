@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
   ( Body' (..)
-  , Body, BodyContent
+  , Body
   , MultipartType (..)
   , bodies, bodiesOf
   , outline
@@ -41,13 +41,12 @@ import Data.Monoid
 import System.Time
 import System.Locale
 import Text.Printf
-import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Text as T
 import Data.ByteString.Lazy.Builder
 
 data Body' a = BodyLeaf MimeType a | BodyTree MultipartType [Body' a]
 
-type Body = Body' BL.ByteString
-type BodyContent = BL.ByteString
+type Body = Body' T.Text
 
 data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
@@ -69,7 +68,7 @@ outline :: Body -> String
 outline = outline' 0
   where
     outline' indent (BodyLeaf t s)
-      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" (simpleMimeType t) (condensed (BL.unpack s))
+      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" (simpleMimeType t) (condensed (T.unpack s))
     outline' indent (BodyTree mt bodies)
       = replicate (indent * 2) ' ' ++ printf "%s:\n" (show mt) ++ concatMap (outline' (indent+1)) bodies
     condensed = (++ "...") . take 50 . filter (/= '\n')

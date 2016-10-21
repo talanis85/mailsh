@@ -14,7 +14,9 @@ import Control.Monad.Except
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Text as T
 import Data.Maybe
+import Data.Text.Encoding
 
 import Network.Email
 import Network.Email.Rfc2822
@@ -36,11 +38,11 @@ parseComposedHeaders = catMaybes <$> many (headerP <* char '\n')
 
 parseComposedMessage :: Parser Body
 parseComposedMessage = do
-  s <- takeLazyByteString
-  return (BodyLeaf mimeTextPlain s)
+  s <- takeByteString
+  return (BodyLeaf mimeTextPlain (decodeUtf8 s))
 
 isEmptyBody :: Body -> Bool
-isEmptyBody (BodyLeaf _ b) = BL.null (BL.filter (\x -> x /= '\n' && x /= '\r' && x /= ' ') b)
+isEmptyBody (BodyLeaf _ b) = T.null (T.filter (\x -> x /= '\n' && x /= '\r' && x /= ' ') b)
 isEmptyBody _ = False
 
 headerP :: Parser (Maybe Field)

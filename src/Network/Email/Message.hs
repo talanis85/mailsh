@@ -32,24 +32,24 @@ type Charset = Maybe Enc.DynEncoding
 
 encoded_message :: MimeType -> EncodingType -> Parser Body
 encoded_message t e = do
-  let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
   case mimeType t of
     "multipart" -> do
       let Just boundary = Map.lookup "boundary" (mimeParams t)
-      BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e charset boundary
-    _ ->
+      BodyTree <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
+    _ -> do
+      let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
       BodyLeaf <$> pure t <*> singlepartP e charset
 
 multipartType :: String -> MultipartType
 multipartType "alternative" = MultipartAlternative
 multipartType _             = MultipartMixed
 
-singlepartP :: EncodingType -> Charset -> Parser BL.ByteString
-singlepartP e charset = BL.filter (/= '\r') <$> decodeWithError e charset <$> takeLazyByteString
+singlepartP :: EncodingType -> Charset -> Parser T.Text
+singlepartP e charset = T.filter (/= '\r') <$> decodeCharset charset <$> decodeEncoding e <$> takeLazyByteString
 
-multipartP :: EncodingType -> Charset -> String -> Parser [Body]
-multipartP e charset boundary = do
-  bs <- decodeWithError e charset <$> takeLazyByteString
+multipartP :: EncodingType -> String -> Parser [Body]
+multipartP e boundary = do
+  bs <- decodeEncoding e <$> takeLazyByteString
   let parser = do
         multipartPartP (B.pack boundary)
         many1 (multipartPartP (B.pack boundary))
@@ -83,24 +83,23 @@ multipartLineP boundary = do
      then fail "End of part"
      else return (byteString (line <> endofline))
 
-decodeWithError :: EncodingType -> Charset -> BL.ByteString -> BL.ByteString
-decodeWithError e charset s = case decode e charset s of
-  Nothing -> BL.pack ("DECODING ERROR: " ++ show e ++ "\n#####Message:\n" ++ BL.unpack s)
-  Just r  -> r
-
-decode :: EncodingType -> Charset -> BL.ByteString -> Maybe BL.ByteString
-decode e charset = decodeTransfer e >=> decodeCharset charset
+decodeEncoding :: EncodingType -> BL.ByteString -> BL.ByteString
+decodeEncoding e = fromMaybe (BL.pack "DECODING ERROR") . decodeEncoding' e
   where
-    decodeTransfer e = case e of
+    decodeEncoding' e = case e of
       QuotedPrintable ->
         Just . BL.pack . QuotedPrintable.decode . BL.unpack
       Base64          ->
         Just . BL.pack . Base64.decodeToString . BL.unpack
       EightBit        ->
         Just
-    decodeCharset c = case c of
-      Nothing -> Just
-      Just c  -> fmap BL.pack . either (const Nothing) Just . Enc.decodeLazyByteStringExplicit c
+
+decodeCharset :: Charset -> BL.ByteString -> T.Text
+decodeCharset c = fromMaybe (T.pack "CHARSET ERROR") . decodeCharset' c
+  where
+    decodeCharset' c = case c of
+      Nothing -> Just . TE.decodeUtf8 . BL.toStrict
+      Just c  -> fmap T.pack . either (const Nothing) Just . Enc.decodeLazyByteStringExplicit c
 
 takeLine :: Parser B.ByteString
 takeLine = takeWhile (notInClass "\r\n") <* crlf

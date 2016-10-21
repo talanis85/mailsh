@@ -9,7 +9,8 @@ import Network.Email
 import System.IO
 import System.Process
 import Text.Printf
-import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 type Renderer = Body -> IO String
 
@@ -20,16 +21,16 @@ renderMainPart b =
     "text/html" -> renderW3m s
     _           -> renderText s
 
-renderText :: BL.ByteString -> IO String
-renderText = return . BL.unpack
+renderText :: T.Text -> IO String
+renderText = return . T.unpack
 
-renderW3m :: BL.ByteString -> IO String
+renderW3m :: T.Text -> IO String
 renderW3m s = do
   hFlush stdout
   (Just inH, Just outH, _, procH) <-
     createProcess_ "see" (shell "w3m -T text/html | cat") { std_in = CreatePipe
                                                           , std_out = CreatePipe }
-  BL.hPutStrLn inH s
+  T.hPutStrLn inH s
   r <- hGetContents outH
   void $ waitForProcess procH
   return r
