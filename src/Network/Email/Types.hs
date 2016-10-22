@@ -4,10 +4,12 @@
 module Network.Email.Types
   ( Body (..)
   , MultipartType (..)
-  , textBodies, collapseAlternatives
+  , textBodies, binaryBodies, allBodies
+  , collapseAlternatives
   , outline
   , anyF
   , isSimpleMimeType
+  , lookupMimeParam
   , MsgID (..), formatMsgID
   , NameAddr (..)
   , MimeType (..)
@@ -49,6 +51,7 @@ import qualified Data.ByteString.Lazy as BL
 data Body = BodyText String T.Text
           | BodyBinary MimeType BL.ByteString
           | BodyMultipart MultipartType [Body]
+          -- TODO: refactor this into 'Tree a' and 'BodyContent'
 
 data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
@@ -57,6 +60,16 @@ textBodies :: Body -> [(String, T.Text)]
 textBodies (BodyText t s)       = [(t, s)]
 textBodies (BodyMultipart _ bs) = concatMap textBodies bs
 textBodies _                    = []
+
+binaryBodies :: Body -> [(MimeType, BL.ByteString)]
+binaryBodies (BodyBinary t s)     = [(t, s)]
+binaryBodies (BodyMultipart _ bs) = concatMap binaryBodies bs
+binaryBodies _                    = []
+
+allBodies :: Body -> [Either (String, T.Text) (MimeType, BL.ByteString)]
+allBodies (BodyBinary t s)     = [Right (t, s)]
+allBodies (BodyText t s)       = [Left (t, s)]
+allBodies (BodyMultipart _ bs) = concatMap allBodies bs
 
 collapseAlternatives :: (MimeType -> Bool) -> Body -> Maybe Body
 collapseAlternatives types (BodyMultipart MultipartAlternative bs) =
@@ -144,6 +157,9 @@ data MimeType = MimeType
 
 simpleMimeType :: MimeType -> String
 simpleMimeType t = mimeType t ++ "/" ++ mimeSubtype t
+
+lookupMimeParam :: String -> MimeType -> Maybe String
+lookupMimeParam k = Map.lookup k . mimeParams
 
 mimeApplicationOctetStream :: MimeType
 mimeApplicationOctetStream = MimeType

@@ -52,7 +52,8 @@ commandP :: Parser (MaildirM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
                                           <*> rendererOption) idm)
-  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
+  <> command "cat"      (info (cmdCat     <$> msgArgument
+                                          <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
                                           <*> rendererOption) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
@@ -76,10 +77,10 @@ commandP = subparser
       rendererOption = option rendererReader (   short 'r'
                                               <> long "render"
                                               <> metavar "RENDERER"
-                                              <> value renderMainPart
+                                              <> value renderDefault
                                              )
       rendererReader = eitherReader $ \s -> case s of
-        "default" -> Right renderMainPart
+        "default" -> Right renderDefault
         "outline" -> Right renderOutline
         _         -> Left "Invalid renderer"
       {-
@@ -148,12 +149,20 @@ cmdRead msg' renderer = do
   liftIO $ renderer body >>= putStrLn
   setFlag 'S' mid
 
-cmdCat :: MessageNumber' -> MaildirM ()
-cmdCat msg' = do
+cmdCat :: MessageNumber' -> Maybe Int -> MaildirM ()
+cmdCat msg' part = do
   msg <- msg'
   mid <- getMID msg
-  fp <- absoluteMaildirFile mid
-  liftIO $ readFile fp >>= putStrLn
+  case part of
+    Nothing -> do
+      fp <- absoluteMaildirFile mid
+      liftIO $ readFile fp >>= putStrLn
+    Just part -> do
+      (headers, body) <- parseMaildirFile mid $ do
+        h <- parseHeaders
+        b <- parseMessage (mimeTextPlain "utf8") h
+        return (h, b)
+      liftIO $ outputPart part body
 
 cmdCompose :: Bool -> Recipient -> MaildirM ()
 cmdCompose nosend rcpt = do
