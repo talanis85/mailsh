@@ -30,16 +30,16 @@ import Network.Email.Types
 
 type Charset = Maybe Enc.DynEncoding
 
-encoded_message :: MimeType -> EncodingType -> Parser Body
+encoded_message :: MimeType -> EncodingType -> Parser PartTree
 encoded_message t e = case mimeType t of
   "multipart" -> do
     let Just boundary = Map.lookup "boundary" (mimeParams t)
-    BodyMultipart <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
+    PartMulti <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
   "text" -> do
     let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
-    BodyText <$> pure (mimeSubtype t) <*> singlepartTextP e charset
+    PartSingle <$> (PartText <$> pure (mimeSubtype t) <*> singlepartTextP e charset)
   _ ->
-    BodyBinary <$> pure t <*> singlepartBinaryP e
+    PartSingle <$> (PartBinary <$> pure t <*> singlepartBinaryP e)
 
 multipartType :: String -> MultipartType
 multipartType "alternative" = MultipartAlternative
@@ -52,7 +52,7 @@ singlepartTextP e charset =
 singlepartBinaryP :: EncodingType -> Parser BL.ByteString
 singlepartBinaryP e = decodeEncoding e <$> takeLazyByteString
 
-multipartP :: EncodingType -> String -> Parser [Body]
+multipartP :: EncodingType -> String -> Parser [PartTree]
 multipartP e boundary = do
   bs <- decodeEncoding e <$> takeLazyByteString
   let parser = do
@@ -62,7 +62,7 @@ multipartP e boundary = do
     Left err -> fail ("Could not parse multipart: " ++ err)
     Right v  -> return v
 
-multipartPartP :: B.ByteString -> Parser Body
+multipartPartP :: B.ByteString -> Parser PartTree
 multipartPartP boundary = do
   part <- toLazyByteString <$> mconcat <$> many (multipartLineP boundary)
   takeLine
@@ -70,7 +70,7 @@ multipartPartP boundary = do
     Left err -> fail ("Could not parse part: " ++ err)
     Right v  -> return v
 
-multipartBodyP :: Parser Body
+multipartBodyP :: Parser PartTree
 multipartBodyP = do
   headers <- fields
   let contentType =

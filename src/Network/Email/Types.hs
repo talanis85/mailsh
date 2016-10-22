@@ -2,10 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Email.Types
-  ( Body (..)
+  ( PartTree' (..), PartTree, Part (..), _PartText, _PartBinary
   , MultipartType (..)
-  , textBodies, binaryBodies, allBodies
-  , collapseAlternatives
+  , partList, collapseAlternatives
   , outline
   , anyF
   , isSimpleMimeType
@@ -48,51 +47,39 @@ import qualified Data.ByteString.Lazy as BL
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
-data Body = BodyText String T.Text
-          | BodyBinary MimeType BL.ByteString
-          | BodyMultipart MultipartType [Body]
-          -- TODO: refactor this into 'Tree a' and 'BodyContent'
+data PartTree' a = PartSingle a | PartMulti MultipartType [PartTree' a]
+data Part = PartText String T.Text | PartBinary MimeType BL.ByteString
+type PartTree = PartTree' Part
 
 data MultipartType = MultipartMixed | MultipartAlternative
   deriving (Show)
 
-textBodies :: Body -> [(String, T.Text)]
-textBodies (BodyText t s)       = [(t, s)]
-textBodies (BodyMultipart _ bs) = concatMap textBodies bs
-textBodies _                    = []
+partList :: PartTree' a -> [a]
+partList (PartSingle a)   = [a]
+partList (PartMulti _ ps) = concatMap partList ps
 
-binaryBodies :: Body -> [(MimeType, BL.ByteString)]
-binaryBodies (BodyBinary t s)     = [(t, s)]
-binaryBodies (BodyMultipart _ bs) = concatMap binaryBodies bs
-binaryBodies _                    = []
-
-allBodies :: Body -> [Either (String, T.Text) (MimeType, BL.ByteString)]
-allBodies (BodyBinary t s)     = [Right (t, s)]
-allBodies (BodyText t s)       = [Left (t, s)]
-allBodies (BodyMultipart _ bs) = concatMap allBodies bs
-
-collapseAlternatives :: (MimeType -> Bool) -> Body -> Maybe Body
-collapseAlternatives types (BodyMultipart MultipartAlternative bs) =
-  getLast $ mconcat $ map (Last . filterBody types) bs
+collapseAlternatives :: (MimeType -> Bool) -> PartTree -> Maybe PartTree
+collapseAlternatives types (PartMulti MultipartAlternative bs) =
+  getLast $ mconcat $ map (Last . filterPart types) bs
   where
-    filterBody types (BodyText t s)
-      | types (MimeType "text" t mempty) = Just (BodyText t s)
+    filterPart types (PartSingle (PartText t s))
+      | types (MimeType "text" t mempty) = Just (PartSingle (PartText t s))
       | otherwise = Nothing
-    filterBody types (BodyBinary t s)
-      | types t   = Just (BodyBinary t s)
+    filterPart types (PartSingle (PartBinary t s))
+      | types t   = Just (PartSingle (PartBinary t s))
       | otherwise = Nothing
-    filterBody types (BodyMultipart mt bs) =
-      collapseAlternatives types (BodyMultipart mt bs)
-collapseAlternatives types body = Just body
+    filterPart types (PartMulti mt bs) =
+      collapseAlternatives types (PartMulti mt bs)
+collapseAlternatives types part = Just part
 
-outline :: Body -> String
+outline :: PartTree -> String
 outline = outline' 0
   where
-    outline' indent (BodyText t s)
+    outline' indent (PartSingle (PartText t s))
       = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" ("text/" ++ t) (condensed (T.unpack s))
-    outline' indent (BodyBinary t s)
+    outline' indent (PartSingle (PartBinary t s))
       = replicate (indent * 2) ' ' ++ printf "%-15s: (binary)\n" (simpleMimeType t)
-    outline' indent (BodyMultipart mt bodies)
+    outline' indent (PartMulti mt bodies)
       = replicate (indent * 2) ' ' ++ printf "%s:\n" (show mt) ++ concatMap (outline' (indent+1)) bodies
     condensed = (++ "...") . take 50 . filter (/= '\n')
 
@@ -183,6 +170,7 @@ data EncodingType = EightBit | Base64 | QuotedPrintable
   deriving (Show)
 
 makePrisms ''Field
+makePrisms ''Part
 
 fOptionalField name = AField name          (_OptionalField . isOptionalField name)
 fFrom               = AField "From"        _From

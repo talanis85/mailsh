@@ -28,7 +28,7 @@ parseHeaders = do
   crlf
   return r
 
-parseMessage :: MimeType -> [Field] -> P.Parser Body
+parseMessage :: MimeType -> [Field] -> P.Parser PartTree
 parseMessage defMime headers =
   let contentType =
         fromMaybe defMime (listToMaybe (lookupField fContentType headers))
