@@ -8,6 +8,7 @@ module Mailsh.Maildir
   , getMaildirPath
   , listMaildir
   , absoluteMaildirFile
+  , purgeMaildir
   , setFlag
   , unsetFlag
   , hasFlag
@@ -151,6 +152,21 @@ absoluteMaildirFile mid = do
   file <- getMaildirFile mid
   maildir <- ask
   return (curOf maildir </> file)
+
+-- | Delete all trashed messages.
+purgeMaildir :: MaildirM Int
+purgeMaildir = do
+  mids <- cachedMIDs
+  sum <$> mapM purgeFile mids
+    where
+      purgeFile mid = do
+        trashed <- hasFlag 'T' mid
+        if trashed
+           then do
+             f <- absoluteMaildirFile mid
+             liftIO $ removeFile f
+             return 1
+           else return 0
 
 setFlag :: Char -> MID -> MaildirM ()
 setFlag f mid = do

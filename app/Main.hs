@@ -67,6 +67,7 @@ commandP = subparser
                               idm)
   <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
   <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
+  <> command "purge"    (info (pure cmdPurge) idm)
   <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
   <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
@@ -257,6 +258,11 @@ cmdTrash = modifyMessage (setFlag 'T') "Trashed message."
 
 cmdRecover :: MessageNumber' -> MaildirM ()
 cmdRecover = modifyMessage (unsetFlag 'T') "Recovered message."
+
+cmdPurge :: MaildirM ()
+cmdPurge = do
+  n <- purgeMaildir
+  liftIO $ printf "Purged %d messages.\n" n
 
 cmdUnread :: MessageNumber' -> MaildirM ()
 cmdUnread = modifyMessage (unsetFlag 'S') "Marked message as unread."
