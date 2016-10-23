@@ -870,6 +870,8 @@ content_transfer_encoding = header "Content-Transfer-Encoding" $ do
   name <- atom
   case map toLower name of
     "8bit" -> return EightBit
+    "7bit" -> return EightBit
+    "binary" -> return EightBit
     "base64" -> return Base64
     "quoted-printable" -> return QuotedPrintable
     _ -> fail "Unknown transfer encoding"
