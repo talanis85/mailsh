@@ -63,7 +63,7 @@ commandP = subparser
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                                           <*> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value filterUnseen))
+                                                       (metavar "FILTER" <> value (return filterUnseen)))
                               idm)
   <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
   <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
@@ -73,7 +73,7 @@ commandP = subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
-                                 (metavar "FILTER" <> value filterUnseen))
+                                 (metavar "FILTER" <> value (return filterUnseen)))
     where
       rendererOption = option rendererReader (   short 'r'
                                               <> long "render"
@@ -245,9 +245,10 @@ composeWith headers text = do
            then fail "Empty message"
            else return (headers, body)
 
-cmdHeaders :: Maybe Limit -> FilterExp -> MaildirM ()
-cmdHeaders limit filter = do
+cmdHeaders :: Maybe Limit -> MaildirM FilterExp -> MaildirM ()
+cmdHeaders limit filter' = do
   messages <- checksumListing <$> listMaildir
+  filter <- filter'
   filtered <- filterM (runFilter filter . snd) messages
   case limit of
     Nothing -> mapM_ (uncurry printMessageSingle) filtered
@@ -327,6 +328,14 @@ getMID msg = do
   case lookupMessage msg messages of
     Nothing -> throwError "No such message."
     Just mid -> return mid
+
+parseMaildirFile :: MID -> Attoparsec a -> MaildirM a
+parseMaildirFile mid p = do
+  fp <- absoluteMaildirFile mid
+  r <- liftIO $ parseCrlfFile fp p
+  case r of
+    Left err -> throwError ("Cannot parse message " ++ err)
+    Right v  -> return v
 
 editFile :: FilePath -> IO ()
 editFile fp = do

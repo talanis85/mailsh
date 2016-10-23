@@ -3,12 +3,15 @@
 module Mailsh.Filter
   ( FilterExp
   , filterAll
+  , filterNone
   , filterUnseen
   , parseFilterExp
   , runFilter
   ) where
 
+import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.Except
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.Expr
 import qualified Data.ByteString.Char8 as B
@@ -19,6 +22,7 @@ import Network.Email
 import Mailsh.Maildir
 import Mailsh.Parse
 import Mailsh.Types
+import Mailsh.MessageNumber
 
 type FilterExp = Fix FilterExpF
 
@@ -28,6 +32,7 @@ data FilterExpF a
   | FilterNot a
   | FilterFlag Flag
   | FilterString String
+  | FilterMessageID MsgID
   | FilterAll
   -- ...
   deriving (Functor, Foldable, Traversable, Show)
@@ -47,13 +52,33 @@ filterFlag f = Fix (FilterFlag f)
 filterString :: String -> FilterExp
 filterString s = Fix (FilterString s)
 
+filterMessageID :: MsgID -> FilterExp
+filterMessageID m = Fix (FilterMessageID m)
+
+filterReferencedByNumber :: Int -> MaildirM FilterExp
+filterReferencedByNumber n = do
+  mids <- listMaildir
+  case lookupMessageUnsafe (unsafeMessageNumber n) mids of
+    Nothing -> throwError $ "Message not found: " ++ show n
+    Just mid -> do
+      fp <- absoluteMaildirFile mid
+      headers <- liftIO $ parseCrlfFile fp parseHeaders
+      case headers of
+        Left err -> throwError $ "Could not parse message " ++ show n ++ ": " ++ err
+        Right headers -> do
+          let refs = concat $ lookupField fReferences headers
+          return $ foldr (filterOr . filterMessageID) filterNone refs
+
 filterAll :: FilterExp
 filterAll = Fix FilterAll
+
+filterNone :: FilterExp
+filterNone = filterNot filterAll
 
 filterUnseen :: FilterExp
 filterUnseen = filterNot (filterFlag FlagS) `filterAnd` filterNot (filterFlag FlagT)
 
-parseFilterExp :: String -> Either String FilterExp
+parseFilterExp :: String -> Either String (MaildirM FilterExp)
 parseFilterExp str = case parseOnly (filterExpP <* endOfInput) (B.pack str) of
                       Left err -> Left ("Filter parse error: " ++ show err)
                       Right v -> Right v
@@ -61,12 +86,13 @@ parseFilterExp str = case parseOnly (filterExpP <* endOfInput) (B.pack str) of
 runFilter :: FilterExp -> MID -> MaildirM Bool
 runFilter f m = cataM (check m) f
   where
-    check m (FilterAnd a b)  = return (a && b)
-    check m (FilterOr a b)   = return (a || b)
-    check m (FilterNot a)    = return (not a)
-    check m (FilterFlag f)   = hasFlag (flagToChar f) m
-    check m (FilterString s) = containsString s m
-    check m (FilterAll)      = return True
+    check m (FilterAnd a b)            = return (a && b)
+    check m (FilterOr a b)             = return (a || b)
+    check m (FilterNot a)              = return (not a)
+    check m (FilterFlag f)             = hasFlag (flagToChar f) m
+    check m (FilterString s)           = containsString s m
+    check m (FilterMessageID msgid)    = hasMessageID msgid m
+    check m (FilterAll)                = return True
 
 containsString :: String -> MID -> MaildirM Bool
 containsString s m = do
@@ -78,20 +104,29 @@ containsString s m = do
   where
     isInfixOfCI a b = map toLower a `isInfixOf` map toLower b
 
-filterExpP :: Parser FilterExp
+hasMessageID :: MsgID -> MID -> MaildirM Bool
+hasMessageID msgid mid = do
+  fp <- absoluteMaildirFile mid
+  headers <- liftIO $ parseCrlfFile fp parseHeaders
+  case headers of
+    Left err -> return False
+    Right headers -> return $ msgid `elem` lookupField fMessageID headers
+
+filterExpP :: Parser (MaildirM FilterExp)
 filterExpP = buildExpressionParser
-  [ [ Prefix (char '~' >> return filterNot)            ]
-  , [ Infix  (char '&' >> return filterAnd) AssocRight ]
-  , [ Infix  (char '|' >> return filterOr ) AssocRight ]
+  [ [ Prefix (char '~' >> return (liftM  filterNot))            ]
+  , [ Infix  (char '&' >> return (liftM2 filterAnd)) AssocRight ]
+  , [ Infix  (char '|' >> return (liftM2 filterOr )) AssocRight ]
   ] filterTermP <?> "filter expression"
 
-filterTermP :: Parser FilterExp
+filterTermP :: Parser (MaildirM FilterExp)
 filterTermP = choice
-  [ char 'a' >> return filterAll
-  , char 'd' >> return (filterFlag FlagD)
-  , char 'r' >> return (filterFlag FlagR)
-  , char 's' >> return (filterFlag FlagS)
-  , char 't' >> return (filterFlag FlagT)
-  , char 'f' >> return (filterFlag FlagF)
-  , char '/' >> (filterString . B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
+  [ char 'a' >> return (return filterAll)
+  , char 'd' >> return (return (filterFlag FlagD))
+  , char 'r' >> return (return (filterFlag FlagR))
+  , char 's' >> return (return (filterFlag FlagS))
+  , char 't' >> return (return (filterFlag FlagT))
+  , char 'f' >> return (return (filterFlag FlagF))
+  , char '/' >> (return . filterString <$> B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
+  , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"
