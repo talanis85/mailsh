@@ -197,13 +197,14 @@ openMaildir fp = do
 updateNew :: MaildirM ()
 updateNew = do
   maildir <- ask
-  let moveNewFile filename = do
-        liftIO $ renameFile (newOf maildir </> filename)
-                            (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
-        cacheFile (fst (breakVersion filename))
+  let moveNewFile filename = renameFile (newOf maildir </> filename)
+                                        (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
+      cacheNewFile filename = cacheFile (fst (breakVersion filename))
   newFiles <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
     <$> getDirectoryContents (newOf maildir)
-  mapM_ moveNewFile newFiles
+  mapM_ (liftIO . moveNewFile) newFiles
+  clearCache
+  mapM_ cacheNewFile newFiles
 
 -- | Get all messages in the maildir in ascending order.
 listMaildir :: MaildirM [MID]
