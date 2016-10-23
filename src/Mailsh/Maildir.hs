@@ -1,9 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 module Mailsh.Maildir
-  ( Maildir
-  , MID
+  ( MID
   , MaildirM
-  , runMaildirM
   , withMaildirPath
   , getMaildirPath
   , listMaildir
@@ -13,16 +14,24 @@ module Mailsh.Maildir
   , unsetFlag
   , hasFlag
   , getFlags
+  , getHeaders
+  , rebuildMaildirCache
   ) where
 
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Acid
 import Data.List
+import Data.Typeable
+import Data.SafeCopy
 import qualified Data.Map as Map
 import System.Directory
 import System.FilePath
+
+import Mailsh.Parse
+import Network.Email
 
 -- | A unique message id in a maildir. This is the file name without flags.
 type MID = String
@@ -32,13 +41,68 @@ type MaildirFile = String
 data Maildir = Maildir { getMaildir :: FilePath }
   deriving (Show)
 
+newtype HeaderCache = HeaderCache (Map.Map MID [Field])
+  deriving (Typeable)
+
+$(deriveSafeCopy 0 'base ''EncodingType)
+$(deriveSafeCopy 0 'base ''MimeType)
+$(deriveSafeCopy 0 'base ''MsgID)
+$(deriveSafeCopy 0 'base ''NameAddr)
+$(deriveSafeCopy 0 'base ''Field)
+$(deriveSafeCopy 0 'base ''HeaderCache)
+
+clearHeaderCache :: Update HeaderCache ()
+clearHeaderCache = put (HeaderCache Map.empty)
+
+insertHeaderCache :: MID -> [Field] -> Update HeaderCache ()
+insertHeaderCache mid headers = do
+  HeaderCache c <- get
+  put (HeaderCache (Map.insert mid headers c))
+
+lookupHeaderCache :: MID -> Query HeaderCache (Maybe [Field])
+lookupHeaderCache mid = do
+  HeaderCache c <- ask
+  return (Map.lookup mid c)
+
+$(makeAcidic ''HeaderCache ['insertHeaderCache, 'lookupHeaderCache, 'clearHeaderCache])
+
+withHeaderCache :: (AcidState HeaderCache -> IO a) -> MaildirM a
+withHeaderCache f = do
+  acid <- mdcHeaderCache <$> get
+  mdpath <- getMaildirPath
+  case acid of
+    Nothing -> do
+      acid <- liftIO $ openLocalStateFrom (mdpath </> ".mailsh.cache") (HeaderCache Map.empty)
+      modify (\s -> s { mdcHeaderCache = Just acid })
+      liftIO $ f acid
+    Just acid -> liftIO $ f acid
+
+rebuildMaildirCache :: MaildirM ()
+rebuildMaildirCache = do
+  mids <- cachedMIDs
+  withHeaderCache (`update` ClearHeaderCache)
+  mapM_ cacheFile mids
+
+cacheFile :: MID -> MaildirM ()
+cacheFile mid = do
+  fp <- absoluteMaildirFile mid
+  headers <- liftIO $ parseCrlfFile fp parseHeaders
+  case headers of
+    Left err -> throwError $ "Could not parse message " ++ show mid ++ ": " ++ err
+    Right headers -> withHeaderCache (`update` InsertHeaderCache mid headers)
+
+lookupFile :: MID -> MaildirM (Maybe [Field])
+lookupFile mid = withHeaderCache (`query` LookupHeaderCache mid)
+
 data MaildirCache = MaildirCache
   { mdcList :: Maybe (Map.Map MID MaildirFile)
+  , mdcHeaderCache :: Maybe (AcidState HeaderCache)
   }
 
 mkMaildirCache :: MaildirCache
 mkMaildirCache = MaildirCache
   { mdcList = Nothing
+  , mdcHeaderCache = Nothing
   }
 
 newtype MaildirM a = MaildirM { _runMaildirM :: ExceptT String (StateT MaildirCache (ReaderT Maildir IO)) a }
@@ -52,7 +116,7 @@ withMaildirPath m p = do
   maildir <- openMaildir p
   case maildir of
     Left err -> return (Left err)
-    Right maildir -> runMaildirM m maildir
+    Right maildir -> runMaildirM (updateNew >> m) maildir
 
 getMaildirPath :: MaildirM FilePath
 getMaildirPath = getMaildir <$> ask
@@ -127,18 +191,19 @@ openMaildir fp = do
      else do
        let md = Maildir fp
        -- TODO remove old files from tmp
-       updateNew md
        return (Right md)
 
 -- | Move messages from 'new' to 'cur'
-updateNew :: Maildir -> IO ()
-updateNew maildir = do
+updateNew :: MaildirM ()
+updateNew = do
+  maildir <- ask
+  let moveNewFile filename = do
+        liftIO $ renameFile (newOf maildir </> filename)
+                            (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
+        cacheFile (fst (breakVersion filename))
   newFiles <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
     <$> getDirectoryContents (newOf maildir)
   mapM_ moveNewFile newFiles
-    where
-      moveNewFile filename = renameFile (newOf maildir </> filename)
-                                        (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
 
 -- | Get all messages in the maildir in ascending order.
 listMaildir :: MaildirM [MID]
@@ -198,3 +263,6 @@ getFlags :: MID -> MaildirM String
 getFlags mid = do
   file <- getMaildirFile mid
   return (snd (breakFlags file))
+
+getHeaders :: MID -> MaildirM (Maybe [Field])
+getHeaders = lookupFile

@@ -50,6 +50,8 @@ library
                      , mime
                      , attoparsec-expr
                      , mime-mail
+                     , acid-state
+                     , safecopy
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 

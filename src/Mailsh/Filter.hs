@@ -106,11 +106,10 @@ containsString s m = do
 
 hasMessageID :: MsgID -> MID -> MaildirM Bool
 hasMessageID msgid mid = do
-  fp <- absoluteMaildirFile mid
-  headers <- liftIO $ parseCrlfFile fp parseHeaders
+  headers <- getHeaders mid
   case headers of
-    Left err -> return False
-    Right headers -> return $ msgid `elem` lookupField fMessageID headers
+    Nothing -> return False
+    Just headers -> return $ msgid `elem` lookupField fMessageID headers
 
 filterExpP :: Parser (MaildirM FilterExp)
 filterExpP = buildExpressionParser
