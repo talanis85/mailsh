@@ -96,11 +96,10 @@ runFilter f m = cataM (check m) f
 
 containsString :: String -> MID -> MaildirM Bool
 containsString s m = do
-  fp <- absoluteMaildirFile m
-  headers <- liftIO $ parseCrlfFile fp parseHeaders
+  headers <- getHeaders m
   case headers of
-    Left err -> return False
-    Right headers -> return $ any (isInfixOfCI s) $ lookupField fSubject headers
+    Nothing -> return False
+    Just headers -> return $ any (isInfixOfCI s) $ lookupField fSubject headers
   where
     isInfixOfCI a b = map toLower a `isInfixOf` map toLower b
 
