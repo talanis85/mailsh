@@ -4,6 +4,12 @@ module Mailsh.Filter
   ( FilterExp
   , filterAll
   , filterNone
+  , filterAnd
+  , filterOr
+  , filterNot
+  , filterFlag
+  , filterString
+  , filterMessageID
   , filterUnseen
   , parseFilterExp
   , runFilter

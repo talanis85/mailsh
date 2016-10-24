@@ -147,8 +147,17 @@ cmdRead msg' renderer = do
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
 
+  let refs = concat $ lookupField fReferences headers
+      refFilter = foldr (filterOr . filterMessageID) filterNone refs
+  refmsgs <- (checksumListing <$> listMaildir) >>= filterM (runFilter refFilter . snd)
+
   liftIO $ putStrLn $ formatHeaders defaultHeaders headers
   liftIO $ renderer body >>= putStrLn
+
+  when (not (null refmsgs)) $ do
+    liftIO $ printf "References:\n"
+    mapM_ (uncurry printMessageSingle) refmsgs
+
   setFlag 'S' mid
 
 cmdCat :: MessageNumber' -> Maybe Int -> MaildirM ()

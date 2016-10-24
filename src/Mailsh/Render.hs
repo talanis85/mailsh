@@ -25,9 +25,8 @@ type Renderer = PartTree -> IO String
 renderDefault :: Renderer
 renderDefault b = do
   mainPart <- renderMainPart b
-  let sep = replicate 78 '-' 
   attachments <- renderPartList b
-  return (mainPart ++ "\n" ++ sep ++ "\n" ++ attachments)
+  return (mainPart ++ "\n--\nParts:\n" ++ attachments)
 
 renderTextParts :: Renderer
 renderTextParts b =
