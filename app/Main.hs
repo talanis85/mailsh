@@ -198,7 +198,9 @@ cmdReply nosend strat msg' = do
   rendered <- liftIO $ renderMainPart body
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
-  unless nosend $ sendMessage headers body
+  unless nosend $ do
+    sendMessage headers body
+    setFlag 'R' mid
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
 
