@@ -199,7 +199,7 @@ updateNew = do
   maildir <- ask
   let moveNewFile filename = renameFile (newOf maildir </> filename)
                                         (curOf maildir </> (fst (breakVersion filename) ++ ":2,"))
-      cacheNewFile filename = cacheFile (fst (breakVersion filename))
+      cacheNewFile filename = cacheFile (fst (breakVersion filename) ++ ":2")
   newFiles <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
     <$> getDirectoryContents (newOf maildir)
   mapM_ (liftIO . moveNewFile) newFiles
