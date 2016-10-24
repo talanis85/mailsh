@@ -17,6 +17,7 @@ import Data.Attoparsec.Expr
 import qualified Data.ByteString.Char8 as B
 import Data.Char
 import Data.List
+import Data.Maybe
 
 import Network.Email
 import Mailsh.Maildir
@@ -99,7 +100,10 @@ containsString s m = do
   headers <- getHeaders m
   case headers of
     Nothing -> return False
-    Just headers -> return $ any (isInfixOfCI s) $ lookupField fSubject headers
+    Just headers -> return $ any (isInfixOfCI s) $ concat
+      [ lookupField fSubject headers
+      , mapMaybe nameAddr_name (concat (lookupField fFrom headers))
+      ]
   where
     isInfixOfCI a b = map toLower a `isInfixOf` map toLower b
 
