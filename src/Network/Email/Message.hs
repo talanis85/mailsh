@@ -19,6 +19,7 @@ import Data.Monoid
 import Control.Applicative
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TE
 import qualified Data.Encoding as Enc
 
 import Network.Email.Rfc2822
@@ -103,7 +104,7 @@ decodeCharset :: Charset -> BL.ByteString -> T.Text
 decodeCharset c = fromMaybe (T.pack "CHARSET ERROR") . decodeCharset' c
   where
     decodeCharset' c = case c of
-      Nothing -> Just . TE.decodeUtf8 . BL.toStrict
+      Nothing -> Just . TE.decodeUtf8With TE.lenientDecode . BL.toStrict
       Just c  -> fmap T.pack . either (const Nothing) Just . Enc.decodeLazyByteStringExplicit c
 
 takeLine :: Parser B.ByteString
