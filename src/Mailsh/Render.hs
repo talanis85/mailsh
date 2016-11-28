@@ -1,5 +1,6 @@
 module Mailsh.Render
   ( Renderer
+  , renderPreview
   , renderDefault
   , renderTextParts
   , renderPartList
@@ -21,6 +22,11 @@ import qualified Data.Text.IO as T
 import qualified Data.ByteString.Lazy as BL
 
 type Renderer = PartTree -> IO String
+
+renderPreview :: Renderer
+renderPreview b = do
+  mainPart <- renderMainPart b
+  return (unlines (take 5 (lines mainPart)))
 
 renderDefault :: Renderer
 renderDefault b = do

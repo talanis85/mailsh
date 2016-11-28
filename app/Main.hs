@@ -51,11 +51,11 @@ version = $(gitBranch) ++ "@" ++ $(gitHash)
 commandP :: Parser (MaildirM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> rendererOption) idm)
+                                          <*> rendererOption renderDefault) idm)
   <> command "cat"      (info (cmdCat     <$> msgArgument
                                           <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
-                                          <*> rendererOption) idm)
+                                          <*> rendererOption renderPreview) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
                                           <*> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
@@ -76,14 +76,15 @@ commandP = subparser
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value (return filterUnseen)))
     where
-      rendererOption = option rendererReader (   short 'r'
-                                              <> long "render"
-                                              <> metavar "RENDERER"
-                                              <> value renderDefault
-                                             )
+      rendererOption def = option rendererReader (   short 'r'
+                                                  <> long "render"
+                                                  <> metavar "RENDERER"
+                                                  <> value def
+                                                 )
       rendererReader = eitherReader $ \s -> case s of
         "default" -> Right renderDefault
         "outline" -> Right renderOutline
+        "preview" -> Right renderPreview
         _         -> Left "Invalid renderer"
       {-
       printerOption def =
