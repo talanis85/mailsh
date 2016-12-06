@@ -25,6 +25,7 @@ renderCompose :: (MonadIO m, MonadError String m) => [Field] -> String -> m Stri
 renderCompose headers body = do
   let renderedHeaders = formatHeaders [ IsField fFrom
                                       , IsField fTo
+                                      , IsField fCc
                                       , IsField fSubject
                                       , IsField fReplyTo
                                       , IsField fInReplyTo
