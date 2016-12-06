@@ -2,35 +2,35 @@ module Mailsh.Parse
   ( parseCrlfFile
   , parseFile
   , parseString
-  , fixCrlfL
-  , fixCrlfS
   , Attoparsec
   ) where
 
 import Control.Monad.Except
 import Control.Monad.Trans
-import Data.Attoparsec.ByteString.Lazy
+import Data.Attoparsec.ByteString
+import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy.Char8 as BChar8
+import qualified Data.ByteString.Char8 as BChar8
+import Data.Monoid
 import Data.Word
 
 type Attoparsec = Parser
 
 parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
-parseCrlfFile fp p = eitherResult <$> parse p <$> fixCrlfL <$> B.readFile fp
+parseCrlfFile fp p = parseOnly p <$> B.toStrict <$> fixCrlfL <$> B.readFile fp
 
 parseFile :: FilePath -> Parser a -> IO (Either String a)
-parseFile fp p = eitherResult <$> parse p <$> B.readFile fp
+parseFile fp p = parseOnly p <$> BS.readFile fp
 
 parseString :: Parser a -> String -> Maybe a
 parseString p s = maybeResult (parse p (BChar8.pack s))
 
 fixCrlfL :: B.ByteString -> B.ByteString
-fixCrlfL = B.concatMap fixCrlf'
+fixCrlfL = BB.toLazyByteString . B.foldr fixCrlf' mempty
   where
-    fixCrlf' 10 = B.pack [13, 10]
-    fixCrlf' x  = B.pack [x]
+    fixCrlf' 10 b = BB.word8 13 <> BB.word8 10 <> b
+    fixCrlf' x  b = BB.word8 x <> b
 
 fixCrlfS :: BS.ByteString -> BS.ByteString
 fixCrlfS = BS.concatMap fixCrlf'

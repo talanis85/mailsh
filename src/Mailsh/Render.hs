@@ -20,6 +20,7 @@ import Text.Printf
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
 
 type Renderer = PartTree -> IO String
 
@@ -67,7 +68,7 @@ outputPart n b =
       parts      = partList b
   in case parts !! (n-1) of
        PartText t s   -> renderType t s >>= putStrLn
-       PartBinary t s -> BL.putStr s
+       PartBinary t s -> BS.putStr s
 
 renderType :: String -> T.Text -> IO String
 renderType t = case t of

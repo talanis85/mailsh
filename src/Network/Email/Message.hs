@@ -48,24 +48,25 @@ multipartType _             = MultipartMixed
 
 singlepartTextP :: EncodingType -> Charset -> Parser T.Text
 singlepartTextP e charset =
-  T.filter (/= '\r') <$> decodeCharset charset<$> decodeEncoding e <$> takeLazyByteString
+  T.filter (/= '\r') <$> decodeCharset charset <$> decodeEncoding e <$> takeByteString
 
-singlepartBinaryP :: EncodingType -> Parser BL.ByteString
-singlepartBinaryP e = decodeEncoding e <$> takeLazyByteString
+singlepartBinaryP :: EncodingType -> Parser B.ByteString
+singlepartBinaryP e = decodeEncoding e <$> takeByteString
 
 multipartP :: EncodingType -> String -> Parser [PartTree]
 multipartP e boundary = do
-  bs <- decodeEncoding e <$> takeLazyByteString
+  bs <- decodeEncoding e <$> takeByteString
   let parser = do
-        multipartPartP (B.pack boundary)
-        many1 (multipartPartP (B.pack boundary))
-  case APL.eitherResult (APL.parse parser bs) of
+        multipartPartP boundary
+        many1 (multipartPartP boundary)
+  -- parser
+  case parseOnly parser bs of
     Left err -> fail ("Could not parse multipart: " ++ err)
     Right v  -> return v
 
-multipartPartP :: B.ByteString -> Parser PartTree
+multipartPartP :: String -> Parser PartTree
 multipartPartP boundary = do
-  part <- toLazyByteString <$> mconcat <$> many (multipartLineP boundary)
+  part <- toLazyByteString <$> mconcat <$> many (multipartLineP (B.pack boundary))
   takeLine
   case APL.eitherResult (APL.parse multipartBodyP part) of
     Left err -> fail ("Could not parse part: " ++ err)
@@ -89,23 +90,23 @@ multipartLineP boundary = do
      then fail "End of part"
      else return (byteString (line <> endofline))
 
-decodeEncoding :: EncodingType -> BL.ByteString -> BL.ByteString
-decodeEncoding e = fromMaybe (BL.pack "DECODING ERROR") . decodeEncoding' e
+decodeEncoding :: EncodingType -> B.ByteString -> B.ByteString
+decodeEncoding e = fromMaybe (B.pack "DECODING ERROR") . decodeEncoding' e
   where
     decodeEncoding' e = case e of
       QuotedPrintable ->
-        Just . BL.pack . QuotedPrintable.decode . BL.unpack
+        Just . B.pack . QuotedPrintable.decode . B.unpack
       Base64          ->
-        Just . BL.pack . Base64.decodeToString . BL.unpack
+        Just . B.pack . Base64.decodeToString . B.unpack
       EightBit        ->
         Just
 
-decodeCharset :: Charset -> BL.ByteString -> T.Text
+decodeCharset :: Charset -> B.ByteString -> T.Text
 decodeCharset c = fromMaybe (T.pack "CHARSET ERROR") . decodeCharset' c
   where
     decodeCharset' c = case c of
-      Nothing -> Just . TE.decodeUtf8With TE.lenientDecode . BL.toStrict
-      Just c  -> fmap T.pack . either (const Nothing) Just . Enc.decodeLazyByteStringExplicit c
+      Nothing -> Just . TE.decodeUtf8With TE.lenientDecode
+      Just c  -> fmap T.pack . either (const Nothing) Just . Enc.decodeStrictByteStringExplicit c
 
 takeLine :: Parser B.ByteString
 takeLine = takeWhile (notInClass "\r\n") <* crlf

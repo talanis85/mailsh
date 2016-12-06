@@ -44,11 +44,12 @@ import Text.Printf
 import qualified Data.Text as T
 import Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 data PartTree' a = PartSingle a | PartMulti MultipartType [PartTree' a]
-data Part = PartText String T.Text | PartBinary MimeType BL.ByteString
+data Part = PartText String T.Text | PartBinary MimeType BS.ByteString
 type PartTree = PartTree' Part
 
 data MultipartType = MultipartMixed | MultipartAlternative
