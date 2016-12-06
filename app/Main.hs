@@ -194,6 +194,9 @@ cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> MaildirM ()
 cmdReply nosend strat msg' = do
   msg <- msg'
   mid <- getMID msg
+  myaddr <- liftIO $ lookupEnv "MAILADDR"
+  myname <- liftIO $ lookupEnv "MAILNAME"
+  let mynameaddr = NameAddr <$> pure myname <*> myaddr
   (headers, body) <- parseMaildirFile mid $ do
     h <- parseHeaders
     m <- parseMessage (mimeTextPlain "utf8") h
@@ -204,7 +207,7 @@ cmdReply nosend strat msg' = do
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
         ]
-        ++ replyHeaders strat headers
+        ++ replyHeaders mynameaddr strat headers
   rendered <- liftIO $ renderMainPart body
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
@@ -214,8 +217,8 @@ cmdReply nosend strat msg' = do
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
 
-replyHeaders :: ReplyStrategy -> [Field] -> [Field]
-replyHeaders strat headers =
+replyHeaders :: Maybe NameAddr -> ReplyStrategy -> [Field] -> [Field]
+replyHeaders myaddr strat headers =
   let from    = mconcat (lookupField fFrom headers)
       replyto = mconcat (lookupField fReplyTo headers)
       to      = mconcat (lookupField fTo headers)
@@ -238,6 +241,7 @@ replyHeaders strat headers =
                , Just (mkField fInReplyTo msgids)
                , Just (mkField fSubject subject')
                , Just (mkField fReferences (msgids ++ refs))
+               , mkField fFrom <$> pure <$> myaddr
                ]
 
 composeWith :: [Field] -> String -> IO (Either String ([Field], T.Text))
