@@ -71,7 +71,6 @@ commandP = subparser
   <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
   <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
-  <> command "recache"  (info (pure cmdRecache) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value (return filterUnseen)))
@@ -291,12 +290,6 @@ cmdFlag = modifyMessage (setFlag 'F') "Flagged message."
 cmdUnflag :: MessageNumber' -> MaildirM ()
 cmdUnflag = modifyMessage (unsetFlag 'F') "Unflagged message."
 
-cmdRecache :: MaildirM ()
-cmdRecache = do
-  liftIO $ printf "Rebuilding cache.\n"
-  rebuildMaildirCache
-  liftIO $ printf "Done.\n"
-
 modifyMessage :: (MID -> MaildirM ()) -> String -> MessageNumber' -> MaildirM ()
 modifyMessage f notice msg' = do
   msg <- msg'
@@ -312,9 +305,12 @@ printMessageSingle = printMessageWith $
 printMessageWith :: (MessageNumber -> String -> [Field] -> IO ())
                  -> MessageNumber -> MID -> MaildirM ()
 printMessageWith f n mid = do
-  headers <- parseMaildirFile mid parseHeaders
-  flags <- getFlags mid
-  liftIO $ f n flags headers
+  headers <- fmap messageHeaders <$> getMessage mid
+  case headers of
+    Nothing -> throwError ("No such message: " ++ mid)
+    Just headers -> do
+      flags <- getFlags mid
+      liftIO $ f n flags headers
 
 printWithWidth :: (Int -> String) -> IO ()
 printWithWidth f = do

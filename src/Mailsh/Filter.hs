@@ -103,7 +103,7 @@ runFilter f m = cataM (check m) f
 
 containsString :: String -> MID -> MaildirM Bool
 containsString s m = do
-  headers <- getHeaders m
+  headers <- fmap messageHeaders <$> getMessage m
   case headers of
     Nothing -> return False
     Just headers -> return $ any (isInfixOfCI s) $ concat
@@ -115,7 +115,7 @@ containsString s m = do
 
 hasMessageID :: MsgID -> MID -> MaildirM Bool
 hasMessageID msgid mid = do
-  headers <- getHeaders mid
+  headers <- fmap messageHeaders <$> getMessage mid
   case headers of
     Nothing -> return False
     Just headers -> return $ msgid `elem` lookupField fMessageID headers

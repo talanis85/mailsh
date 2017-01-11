@@ -32,6 +32,7 @@ library
                      , Network.Email.Message
                      , Network.Email.Render
                      , Data.Attoparsec.ByteString.Char8.Utils
+                     , Data.CachedDir
   build-depends:       base
                      , mtl
                      , lens
@@ -52,6 +53,7 @@ library
                      , mime-mail
                      , acid-state
                      , safecopy
+                     , time
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
