@@ -34,8 +34,11 @@ type Charset = Maybe Enc.DynEncoding
 encoded_message :: MimeType -> EncodingType -> Parser PartTree
 encoded_message t e = case mimeType t of
   "multipart" -> do
-    let Just boundary = Map.lookup "boundary" (mimeParams t)
-    PartMulti <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
+    case Map.lookup "boundary" (mimeParams t) of
+      Nothing ->
+        fail "Multipart without boundary"
+      Just boundary ->
+        PartMulti <$> pure (multipartType (mimeSubtype t)) <*> multipartP e boundary
   "text" -> do
     let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
     PartSingle <$> (PartText <$> pure (mimeSubtype t) <*> singlepartTextP e charset)
