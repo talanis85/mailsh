@@ -861,7 +861,9 @@ mime_param      :: Parser (String, String)
 mime_param      = do char ';'
                      many fws
                      key <- many1 alpha
+                     many fws
                      char '='
+                     many fws
                      value <- word
                      return (key, unquote value)
 
