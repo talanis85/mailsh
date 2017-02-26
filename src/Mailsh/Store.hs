@@ -13,6 +13,7 @@ module Mailsh.Store
   , messageNumber
   , Message (..)
   , FilterExp
+  , Limit
   , withStorePath
   , liftMaildir
   , queryStore
@@ -24,6 +25,7 @@ module Mailsh.Store
   , filterNot
   , filterFlag
   , filterUnseen
+  , filterUntrashed
   , filterReferencedBy
   , filterMessageId
   , filterString
@@ -35,7 +37,6 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Morph
 import Control.Monad.Reader
-import Data.Bifunctor
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as T
@@ -51,7 +52,7 @@ import System.FilePath
 
 import Mailsh.Maildir
 import Mailsh.Parse
-import Mailsh.PersistentInstances
+import Mailsh.PersistentInstances ()
 
 import Network.Email
 
@@ -135,6 +136,8 @@ instance Read MessageNumber where
 instance Show MessageNumber where
   show = show . fromSqlKey . getMessageNumber
 
+type Limit = Maybe Int
+
 --------------------------------------------------------------------------------
 
 liftCache :: ReaderT SqlBackend StoreM a -> StoreM a
@@ -187,6 +190,9 @@ filterFlag c (msg, _, _, _) = msg E.^. MessageEFlags `E.like` E.val ("%" ++ [c] 
 filterUnseen :: FilterExp
 filterUnseen = filterNot (filterFlag 'S' `filterOr` filterFlag 'T')
 
+filterUntrashed :: FilterExp
+filterUntrashed = filterNot (filterFlag 'T')
+
 filterMessageNumber :: MessageNumber -> FilterExp
 filterMessageNumber (MessageNumber key) (msg, _, _, _) = msg E.^. MessageEId E.==. E.val key
 
@@ -204,15 +210,18 @@ filterString s (msg, addr, _, _) =
 
 --------------------------------------------------------------------------------
 
-applyFilter :: (MonadIO m) => FilterExp -> ReaderT SqlBackend m [(Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE])]
-applyFilter flt = do
+applyFilter :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m [(Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE])]
+applyFilter flt lim = fmap reverse $ do
   messages <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part) -> do
     E.on (msg E.^. MessageEId E.==. part  E.^. PartEMessageRef)
     E.on (msg E.^. MessageEId E.==. ref   E.^. ReferenceEMessageRef)
     E.on (msg E.^. MessageEId E.==. addr  E.^. AddressEMessageRef)
     E.where_ (flt (msg, addr, ref, part))
     E.groupBy (msg E.^. MessageEId)
-    E.orderBy [E.asc (msg E.^. MessageEDate)]
+    E.orderBy [E.desc (msg E.^. MessageEDate)]
+    case lim of
+      Nothing -> return ()
+      Just lim -> E.limit (fromIntegral lim)
     return msg
   forM messages $ \msg -> do
     addresses <- E.select $ E.from $ \x -> do
@@ -226,9 +235,9 @@ applyFilter flt = do
       return x
     return (entityKey msg, entityVal msg, map entityVal addresses, map entityVal references, map entityVal parts)
 
-filterBy flt = map combineMessage <$> applyFilter flt
+filterBy flt limit = map combineMessage <$> applyFilter flt limit
 
-lookupMessageNumber mn = fmap snd <$> listToMaybe <$> filterBy (filterMessageNumber mn)
+lookupMessageNumber mn = fmap snd <$> listToMaybe <$> filterBy (filterMessageNumber mn) Nothing
 
 queryStore q = liftCache q
 

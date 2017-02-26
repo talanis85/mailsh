@@ -41,7 +41,7 @@ outputPart n b =
 defaultRenderer :: Renderer
 defaultRenderer msg = do
   liftIO $ withWidth (displayMessage msg)
-  refs <- concat <$> mapM (queryStore . filterBy . filterMessageId) (messageReferences msg)
+  refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
   liftIO $ displayReferences refs
   where
     displayMessage :: Message -> Int -> IO ()
@@ -65,7 +65,7 @@ defaultRenderer msg = do
 previewRenderer :: Renderer
 previewRenderer msg = do
   liftIO $ withWidth (displayMessage msg)
-  refs <- concat <$> mapM (queryStore . filterBy . filterMessageId) (messageReferences msg)
+  refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
   liftIO $ displayReferences refs
   where
     displayMessage :: Message -> Int -> IO ()

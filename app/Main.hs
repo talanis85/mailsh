@@ -30,7 +30,6 @@ import Render
 
 -----------------------------------------------------------------------------
 
-type Limit = Int
 type MessageNumber' = StoreM MessageNumber
 
 -----------------------------------------------------------------------------
@@ -65,7 +64,7 @@ commandP = subparser
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                                           <*> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value (return filterUnseen)))
+                                                       (metavar "FILTER" <> value (return filterUntrashed)))
                               idm)
   <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
   <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
@@ -75,7 +74,7 @@ commandP = subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
-                                 (metavar "FILTER" <> value (return filterUnseen)))
+                                 (metavar "FILTER" <> value (return filterUntrashed)))
     where
       rendererOption def = option rendererReader (   short 'r'
                                                   <> long "render"
@@ -109,7 +108,7 @@ setRecentMessageNumber n = (liftMaildir (maildirFile ".recentmessage") >>= liftI
 
 getNextMessageNumber :: MessageNumber'
 getNextMessageNumber = do
-  messages <- queryStore (filterBy filterUnseen)
+  messages <- queryStore (filterBy filterUnseen Nothing)
   setRecentMessageNumber $ fromMaybe (messageNumber 0) $ listToMaybe $ map fst messages
 
 queryStore' q = do
@@ -238,10 +237,10 @@ composeWith headers text = do
            then fail "Empty message"
            else return (headers, body)
 
-cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
+cmdHeaders :: Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit filter' = do
   filter <- filter'
-  messages <- queryStore (filterBy filter)
+  messages <- queryStore (filterBy filter limit)
   liftIO $ case limit of
     Nothing -> mapM_ (uncurry printMessageSingle) messages
     Just l  -> mapM_ (uncurry printMessageSingle) (drop (length messages - l) messages)

@@ -29,6 +29,7 @@ filterTermP = choice
   , char 's' >> return (return (filterFlag 'S'))
   , char 't' >> return (return (filterFlag 'T'))
   , char 'f' >> return (return (filterFlag 'F'))
+  , string (B.pack "new") >> return (return filterUnseen)
   , char '/' >> (return . filterString <$> B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"
