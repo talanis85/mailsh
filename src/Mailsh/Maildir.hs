@@ -1,20 +1,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Mailsh.Maildir
   ( MID
   , MaildirM
-  , CachedMessage (..)
+  , openMaildir
+  , runMaildirM
   , withMaildirPath
   , getMaildirPath
   , listMaildir
   , absoluteMaildirFile
   , purgeMaildir
+  , midOf
   , setFlag
   , unsetFlag
   , hasFlag
   , getFlags
-  , getMessage
   ) where
 
 import Control.Lens
@@ -26,16 +26,10 @@ import Control.Monad.State
 
 import Data.Maybe
 import Data.List
-import Data.Typeable
-import Data.SafeCopy
 import qualified Data.Map as Map
 
 import System.Directory
 import System.FilePath
-
-import Data.CachedDir
-import Mailsh.Parse
-import Network.Email
 
 ------------------------------------------------------------------------------
 
@@ -45,8 +39,12 @@ newtype MaildirM a = MaildirM
   deriving ( Functor, Applicative, Monad, MonadReader Maildir
            , MonadState MaildirState, MonadError String, MonadIO)
 
-runMaildirM :: MaildirM a -> Maildir -> IO (Either String a)
-runMaildirM m = runReaderT (evalStateT (runExceptT (runMaildirM_ m)) mkMaildirState)
+runMaildirM :: Maildir -> MaildirM a -> ExceptT String IO a
+runMaildirM md m = do
+  r <- lift $ runReaderT (evalStateT (runExceptT (runMaildirM_ m)) mkMaildirState) md
+  case r of
+    Left err -> throwError err
+    Right x  -> return x
 
 ------------------------------------------------------------------------------
 
@@ -66,30 +64,14 @@ mkMaildirState = MaildirState
 
 ------------------------------------------------------------------------------
 
-data CachedMessage = CachedMessage
-  { messageHeaders :: [Field]
-  -- , messageMainContentType :: MimeType
-  -- , messageMainBody :: T.Text
-  }
-
 data Maildir = Maildir
   { _maildirPath :: FilePath
-  , _maildirCache :: CachedDir MID CachedMessage
   }
 
 ------------------------------------------------------------------------------
 
 makeLenses ''MaildirState
 makeLenses ''Maildir
-
-------------------------------------------------------------------------------
-
-$(deriveSafeCopy 0 'base ''EncodingType)
-$(deriveSafeCopy 0 'base ''MimeType)
-$(deriveSafeCopy 0 'base ''MsgID)
-$(deriveSafeCopy 0 'base ''NameAddr)
-$(deriveSafeCopy 0 'base ''Field)
-$(deriveSafeCopy 0 'base ''CachedMessage)
 
 ------------------------------------------------------------------------------
 
@@ -158,10 +140,8 @@ openMaildir fp = do
      then return (Left "This is not a valid maildir")
      else do
        updateNew fp
-       cachedDir <- openCachedDir (fp </> "cur") "../.mailsh.cache" midOf (readCachedMessage (fp </> "cur"))
        return $ Right Maildir
          { _maildirPath = fp
-         , _maildirCache = cachedDir
          }
        -- TODO remove old files from tmp
 
@@ -173,6 +153,7 @@ updateNew maildir = do
   newFiles <- filter (\x -> (x /= ".") && (x /= "..")) <$> getDirectoryContents (newOf maildir)
   mapM_ moveNewFile newFiles
 
+{-
 readCachedMessage :: FilePath -> MID -> IO (Maybe CachedMessage)
 readCachedMessage fp mid = do
   fileList <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
@@ -192,6 +173,7 @@ parseCachedMessage = do
   return CachedMessage
     { messageHeaders = headers
     }
+-}
 
 -- | Get a 'MaildirFile' from a 'MID'
 getMaildirFile :: MID -> MaildirM MaildirFile
@@ -203,12 +185,12 @@ getMaildirFile mid = do
 
 ------------------------------------------------------------------------------
 
-withMaildirPath :: MaildirM a -> FilePath -> IO (Either String a)
+withMaildirPath :: MaildirM a -> FilePath -> ExceptT String IO a
 withMaildirPath m p = do
-  maildir <- openMaildir p
+  maildir <- lift $ openMaildir p
   case maildir of
-    Left err -> return (Left err)
-    Right maildir -> runMaildirM m maildir
+    Left err -> throwError err
+    Right maildir -> runMaildirM maildir m
 
 getMaildirPath :: MaildirM FilePath
 getMaildirPath = view maildirPath
@@ -271,8 +253,3 @@ getFlags :: MID -> MaildirM String
 getFlags mid = do
   file <- getMaildirFile mid
   return (snd (breakFlags file))
-
-getMessage :: MID -> MaildirM (Maybe CachedMessage)
-getMessage mid = do
-  cache <- view maildirCache
-  liftIO (lookupCache cache mid)

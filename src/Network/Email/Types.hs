@@ -4,7 +4,7 @@
 module Network.Email.Types
   ( PartTree' (..), PartTree, Part (..), _PartText, _PartBinary
   , MultipartType (..)
-  , partList, collapseAlternatives
+  , partList, typeOfPart, collapseAlternatives
   , outline
   , anyF
   , isSimpleMimeType
@@ -13,6 +13,7 @@ module Network.Email.Types
   , NameAddr (..)
   , MimeType (..)
   , simpleMimeType
+  , mkMimeType
   , mimeApplicationOctetStream, mimeTextPlain
   , EncodingType (..)
   , Field (..)
@@ -59,6 +60,14 @@ partList :: PartTree' a -> [a]
 partList (PartSingle a)   = [a]
 partList (PartMulti _ ps) = concatMap partList ps
 
+typeOfPart :: Part -> MimeType
+typeOfPart (PartText st _) = MimeType
+  { mimeType = "text"
+  , mimeSubtype = st
+  , mimeParams = mempty
+  }
+typeOfPart (PartBinary t _) = t
+
 collapseAlternatives :: (MimeType -> Bool) -> PartTree -> Maybe PartTree
 collapseAlternatives types (PartMulti MultipartAlternative bs) =
   getLast $ mconcat $ map (Last . filterPart types) bs
@@ -91,7 +100,7 @@ anyF :: [a -> Bool] -> a -> Bool
 anyF fs = getAny . foldMap (Any .) fs
 
 newtype MsgID = MsgID { getMsgID :: String }
-  deriving (Show, Eq)
+  deriving (Show, Read, Eq)
 
 formatMsgID :: MsgID -> String
 formatMsgID m = "<" ++ getMsgID m ++ ">"
@@ -102,7 +111,7 @@ formatMsgID m = "<" ++ getMsgID m ++ ">"
 data NameAddr = NameAddr { nameAddr_name :: Maybe String
                          , nameAddr_addr :: String
                          }
-                deriving (Show,Eq)
+                deriving (Show, Read, Eq)
 
 -- |This data type represents any of the header fields defined in this
 -- RFC. Each of the various instances contains with the return value
@@ -142,9 +151,17 @@ data MimeType = MimeType
   , mimeSubtype :: String
   , mimeParams :: Map.Map String String
   }
+  deriving (Show, Read, Eq)
 
 simpleMimeType :: MimeType -> String
 simpleMimeType t = mimeType t ++ "/" ++ mimeSubtype t
+
+mkMimeType :: String -> String -> MimeType
+mkMimeType t st = MimeType
+  { mimeType = t
+  , mimeSubtype = st
+  , mimeParams = mempty
+  }
 
 lookupMimeParam :: String -> MimeType -> Maybe String
 lookupMimeParam k = Map.lookup k . mimeParams
@@ -163,9 +180,11 @@ mimeTextPlain cs = MimeType
   , mimeParams = Map.fromList [("charset", cs)]
   }
 
+{-
 instance Show MimeType where
   show t = mimeType t ++ "/" ++ mimeSubtype t ++ concatMap showParam (Map.toList (mimeParams t))
     where showParam (k,v) = ";" ++ k ++ "=" ++ v
+-}
 
 data EncodingType = EightBit | Base64 | QuotedPrintable
   deriving (Show)

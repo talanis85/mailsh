@@ -4,37 +4,39 @@ module Main where
 
 import Control.Monad
 import Control.Monad.Except
-import Control.Monad.Trans
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Char8 as BLC
 import Data.Maybe
-import Data.String.WordWrap
 import qualified Data.Text as T
 import Development.GitRev
 import Options.Applicative
-import System.Console.Terminal.Size
 import System.Directory
 import System.Environment
 import System.FilePath
 import System.IO
-import System.Time
-import System.Locale
 import System.Process
 import Text.Printf
 
 import Mailsh.Compose
-import Mailsh.Types
 import Mailsh.Filter
+import Mailsh.Types
 import Mailsh.Maildir
-import Mailsh.MessageNumber
 import Mailsh.Parse
-import Mailsh.Render
+import Mailsh.Store
 
 import Network.Email
 
+import Render
+
+-----------------------------------------------------------------------------
+
 type Limit = Int
-type MessageNumber' = MaildirM MessageNumber
+type MessageNumber' = StoreM MessageNumber
+
+-----------------------------------------------------------------------------
 
 data Options = Options
-  { optCommand :: MaildirM ()
+  { optCommand :: StoreM ()
   }
 
 options :: ParserInfo Options
@@ -48,14 +50,14 @@ options = Options <$> info (helper <*> commandP)
 version :: String
 version = $(gitBranch) ++ "@" ++ $(gitHash)
 
-commandP :: Parser (MaildirM ())
+commandP :: Parser (StoreM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> rendererOption renderDefault) idm)
+                                          <*> rendererOption defaultRenderer) idm)
   <> command "cat"      (info (cmdCat     <$> msgArgument
                                           <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
-                                          <*> rendererOption renderPreview) idm)
+                                          <*> rendererOption previewRenderer) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
                                           <*> argument str (metavar "RECIPIENT")) idm)
   <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
@@ -81,23 +83,10 @@ commandP = subparser
                                                   <> value def
                                                  )
       rendererReader = eitherReader $ \s -> case s of
-        "default" -> Right renderDefault
-        "outline" -> Right renderOutline
-        "preview" -> Right renderPreview
+        "default" -> Right defaultRenderer
+        "outline" -> Right outlineRenderer
+        "preview" -> Right previewRenderer
         _         -> Left "Invalid renderer"
-      {-
-      printerOption def =
-        option printerReader (   short 'p'
-                              <> long "printer"
-                              <> metavar "PRINTER"
-                              <> value def
-                             )
-      printerReader = eitherReader $ \s -> case s of
-        "headers"      -> Right (Printer headersOnlyPrinter)
-        "raw"          -> Right (Printer utf8Printer)
-        "default"      -> Right (Printer simplePrinter)
-        _              -> Left "Invalid printer"
-      -}
 
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
 maybeOption r m = option (Just <$> r) (m <> value Nothing)
@@ -112,24 +101,22 @@ maildirFile f = do
   return (p </> f)
 
 getRecentMessageNumber :: MessageNumber'
-getRecentMessageNumber = read <$> (maildirFile ".recentmessage" >>= liftIO . readFile)
+getRecentMessageNumber = read <$> (liftMaildir (maildirFile ".recentmessage") >>= liftIO . readFile)
 
 setRecentMessageNumber :: MessageNumber -> MessageNumber'
-setRecentMessageNumber n = (maildirFile ".recentmessage" >>= liftIO . flip writeFile (show n))
+setRecentMessageNumber n = (liftMaildir (maildirFile ".recentmessage") >>= liftIO . flip writeFile (show n))
                            >> return n
 
 getNextMessageNumber :: MessageNumber'
 getNextMessageNumber = do
-  messages <- checksumListing <$> listMaildir
-  filtered <- filterM (runFilter filterUnseen . snd) messages
-  setRecentMessageNumber $ fromMaybe invalidMessageNumber $ listToMaybe $ map fst filtered
+  messages <- queryStore (filterBy filterUnseen)
+  setRecentMessageNumber $ fromMaybe (messageNumber 0) $ listToMaybe $ map fst messages
 
-defaultHeaders :: [IsField]
-defaultHeaders =
-  [ IsField fDate, IsField fTo, IsField fFrom
-  , IsField fCc, IsField fBcc, IsField fReplyTo
-  , IsField fSubject
-  ]
+queryStore' q = do
+  x <- queryStore q
+  case x of
+    Nothing -> throwError "No such message"
+    Just x  -> return x
 
 throwEither :: (MonadError String m) => String -> m (Either String a) -> m a
 throwEither s m = do
@@ -138,44 +125,31 @@ throwEither s m = do
     Left e -> throwError (s ++ ": " ++ show e)
     Right v -> return v
 
-cmdRead :: MessageNumber' -> Renderer -> MaildirM ()
-cmdRead msg' renderer = do
-  msg <- msg'
-  mid <- getMID msg
-  (headers, body) <- parseMaildirFile mid $ do
-    h <- parseHeaders
-    b <- parseMessage (mimeTextPlain "utf8") h
-    return (h, b)
+-----------------------------------------------------------------------------
 
-  let refs = concat $ lookupField fReferences headers
-      refFilter = foldr (filterOr . filterMessageID) filterNone refs
-  refmsgs <- (checksumListing <$> listMaildir) >>= filterM (runFilter refFilter . snd)
+cmdRead :: MessageNumber' -> Renderer -> StoreM ()
+cmdRead mn' renderer = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  renderer msg
+  liftMaildir $ setFlag 'S' (messageMid msg)
 
-  liftIO $ putStrLn $ formatHeaders defaultHeaders headers
-  liftIO $ renderer body >>= putStrLn
-
-  when (not (null refmsgs)) $ do
-    liftIO $ printf "References:\n"
-    mapM_ (uncurry printMessageSingle) refmsgs
-
-  setFlag 'S' mid
-
-cmdCat :: MessageNumber' -> Maybe Int -> MaildirM ()
-cmdCat msg' part = do
-  msg <- msg'
-  mid <- getMID msg
+cmdCat :: MessageNumber' -> Maybe Int -> StoreM ()
+cmdCat mn' part = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
   case part of
     Nothing -> do
-      fp <- absoluteMaildirFile mid
-      liftIO $ readFile fp >>= putStrLn
+      fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
+      liftIO $ BL.readFile fp >>= BLC.putStrLn
     Just part -> do
-      (headers, body) <- parseMaildirFile mid $ do
+      (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
         h <- parseHeaders
         b <- parseMessage (mimeTextPlain "utf8") h
         return (h, b)
       liftIO $ outputPart part body
 
-cmdCompose :: Bool -> Recipient -> MaildirM ()
+cmdCompose :: Bool -> Recipient -> StoreM ()
 cmdCompose nosend rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
@@ -189,14 +163,16 @@ cmdCompose nosend rcpt = do
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
 
-cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> MaildirM ()
-cmdReply nosend strat msg' = do
-  msg <- msg'
-  mid <- getMID msg
+cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> StoreM ()
+cmdReply nosend strat mn' = return ()
+  {-
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  let mid = messageMid msg
   myaddr <- liftIO $ lookupEnv "MAILADDR"
   myname <- liftIO $ lookupEnv "MAILNAME"
   let mynameaddr = NameAddr <$> pure myname <*> myaddr
-  (headers, body) <- parseMaildirFile mid $ do
+  (headers, body) <- liftMaildir $ parseMaildirFile mid $ do
     h <- parseHeaders
     m <- parseMessage (mimeTextPlain "utf8") h
     return (h, m)
@@ -210,11 +186,12 @@ cmdReply nosend strat msg' = do
   rendered <- liftIO $ renderMainPart body
   let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
-  unless nosend $ do
+  liftMaildir $ unless nosend $ do
     sendMessage headers body
     setFlag 'R' mid
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
+  -}
 
 replyHeaders :: Maybe NameAddr -> ReplyStrategy -> [Field] -> [Field]
 replyHeaders myaddr strat headers =
@@ -261,92 +238,41 @@ composeWith headers text = do
            then fail "Empty message"
            else return (headers, body)
 
-cmdHeaders :: Maybe Limit -> MaildirM FilterExp -> MaildirM ()
+cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit filter' = do
-  messages <- checksumListing <$> listMaildir
   filter <- filter'
-  filtered <- filterM (runFilter filter . snd) messages
-  case limit of
-    Nothing -> mapM_ (uncurry printMessageSingle) filtered
-    Just l  -> mapM_ (uncurry printMessageSingle) (drop (length filtered - l) filtered)
+  messages <- queryStore (filterBy filter)
+  liftIO $ case limit of
+    Nothing -> mapM_ (uncurry printMessageSingle) messages
+    Just l  -> mapM_ (uncurry printMessageSingle) (drop (length messages - l) messages)
 
-cmdTrash :: MessageNumber' -> MaildirM ()
-cmdTrash = modifyMessage (setFlag 'T') "Trashed message."
+cmdTrash :: MessageNumber' -> StoreM ()
+cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."
 
-cmdRecover :: MessageNumber' -> MaildirM ()
-cmdRecover = modifyMessage (unsetFlag 'T') "Recovered message."
+cmdRecover :: MessageNumber' -> StoreM ()
+cmdRecover = modifyMessage (liftMaildir . unsetFlag 'T') "Recovered message."
 
-cmdPurge :: MaildirM ()
+cmdPurge :: StoreM ()
 cmdPurge = do
-  n <- purgeMaildir
+  n <- liftMaildir purgeMaildir
   liftIO $ printf "Purged %d messages.\n" n
 
-cmdUnread :: MessageNumber' -> MaildirM ()
-cmdUnread = modifyMessage (unsetFlag 'S') "Marked message as unread."
+cmdUnread :: MessageNumber' -> StoreM ()
+cmdUnread = modifyMessage (liftMaildir . unsetFlag 'S') "Marked message as unread."
 
-cmdFlag :: MessageNumber' -> MaildirM ()
-cmdFlag = modifyMessage (setFlag 'F') "Flagged message."
+cmdFlag :: MessageNumber' -> StoreM ()
+cmdFlag = modifyMessage (liftMaildir . setFlag 'F') "Flagged message."
 
-cmdUnflag :: MessageNumber' -> MaildirM ()
-cmdUnflag = modifyMessage (unsetFlag 'F') "Unflagged message."
+cmdUnflag :: MessageNumber' -> StoreM ()
+cmdUnflag = modifyMessage (liftMaildir . unsetFlag 'F') "Unflagged message."
 
-modifyMessage :: (MID -> MaildirM ()) -> String -> MessageNumber' -> MaildirM ()
-modifyMessage f notice msg' = do
-  msg <- msg'
-  mid <- getMID msg
-  f mid
+modifyMessage :: (MID -> StoreM ()) -> String -> MessageNumber' -> StoreM ()
+modifyMessage f notice mn' = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  f (messageMid msg)
   liftIO $ putStrLn notice
-  printMessageSingle msg mid
-
-printMessageSingle :: MessageNumber -> MID -> MaildirM ()
-printMessageSingle = printMessageWith $
-  \msg flags hs -> printWithWidth (formatMessageSingle msg flags hs)
-
-printMessageWith :: (MessageNumber -> String -> [Field] -> IO ())
-                 -> MessageNumber -> MID -> MaildirM ()
-printMessageWith f n mid = do
-  headers <- fmap messageHeaders <$> getMessage mid
-  case headers of
-    Nothing -> throwError ("No such message: " ++ mid)
-    Just headers -> do
-      flags <- getFlags mid
-      liftIO $ f n flags headers
-
-printWithWidth :: (Int -> String) -> IO ()
-printWithWidth f = do
-  (Window _ w) <- fromMaybe (Window 80 80) <$> size
-  putStrLn (f w)
-
-formatMessageSingle :: MessageNumber -> String -> [Field] -> Int -> String
-formatMessageSingle msg flags hs width = printf "%c %5s %18s %16s %s"
-                                         (flagSummary flags)
-                                         (show msg)
-                                         (take 18 from)
-                                         (take 16 date)
-                                         (take (width - (1 + 5 + 18 + 16 + 5)) subject)
-  where
-    from = fromMaybe "" (formatNameAddrShort <$> listToMaybe (mconcat (lookupField fFrom hs)))
-    subject = fromMaybe "" (listToMaybe (lookupField fSubject hs))
-    date = fromMaybe "" (formatCalendarTime defaultTimeLocale "%a %b %d %H:%M"
-                         <$> listToMaybe (lookupField fDate hs))
-
-flagSummary :: String -> Char
-flagSummary flags
-  | 'T' `elem` flags                        = 'T'
-  | 'F' `elem` flags                        = 'F'
-  | 'R' `elem` flags                        = 'R'
-  | 'S' `elem` flags && 'T' `notElem` flags = 'O'
-  | otherwise                               = 'N'
-
-getHeaders :: MID -> MaildirM [Field]
-getHeaders mid = parseMaildirFile mid parseHeaders
-
-getMID :: MessageNumber -> MaildirM MID
-getMID msg = do
-  messages <- listMaildir
-  case lookupMessage msg messages of
-    Nothing -> throwError "No such message."
-    Just mid -> return mid
+  liftIO $ printMessageSingle mn msg
 
 parseMaildirFile :: MID -> Attoparsec a -> MaildirM a
 parseMaildirFile mid p = do
@@ -365,7 +291,7 @@ main :: IO ()
 main = do
   opts <- execParser options
   maildirpath <- getCurrentDirectory
-  result <- withMaildirPath (optCommand opts) maildirpath
+  result <- runExceptT $ withStorePath (optCommand opts) maildirpath
   case result of
     Left err -> printf "Error: %s\n" err
     Right () -> return ()

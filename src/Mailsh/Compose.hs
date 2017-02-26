@@ -19,7 +19,6 @@ import Data.Text.Encoding
 
 import Network.Email
 import Network.Email.Rfc2822
-import Mailsh.Render
 
 renderCompose :: (MonadIO m, MonadError String m) => [Field] -> String -> m String
 renderCompose headers body = do

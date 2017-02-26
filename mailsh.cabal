@@ -16,12 +16,12 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Mailsh.Types
-                     , Mailsh.Filter
                      , Mailsh.Maildir
-                     , Mailsh.MessageNumber
+                     , Mailsh.MimeRender
+                     , Mailsh.Store
                      , Mailsh.Parse
-                     , Mailsh.Render
                      , Mailsh.Compose
+                     , Mailsh.Filter
                      , Network.Email
                      , Data.String.WordWrap
   other-modules:       Network.Email.Rfc2234
@@ -32,7 +32,7 @@ library
                      , Network.Email.Message
                      , Network.Email.Render
                      , Data.Attoparsec.ByteString.Char8.Utils
-                     , Data.CachedDir
+                     , Mailsh.PersistentInstances
   build-depends:       base
                      , mtl
                      , lens
@@ -54,13 +54,22 @@ library
                      , acid-state
                      , safecopy
                      , time
+                     , persistent
+                     , persistent-template
+                     , persistent-sqlite
+                     , monad-logger
+                     , mmorph
+                     , esqueleto
+                     , time-compat
   default-language:    Haskell2010
+  ghc-options:         -fwarn-unused-imports
   default-extensions:  RankNTypes
 
 executable mailsh
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  other-modules:       Render
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
   build-depends:       base
                      , mailsh
                      , mtl
@@ -73,6 +82,8 @@ executable mailsh
                      , gitrev
                      , filepath
                      , text
+                     , time
+                     , bytestring
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
@@ -82,7 +93,7 @@ test-suite mailsh-test
   main-is:             Spec.hs
   build-depends:       base
                      , mailsh
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
   default-language:    Haskell2010
 
 -- source-repository head

@@ -6,11 +6,13 @@ module Network.Email
   , parseNameAddr
   , parseNameAddrs
   , formatHeaders
+  , firstTextPart
   ) where
 
 import Control.Applicative
-import qualified Data.Attoparsec.ByteString.Char8 as P
+import Control.Monad
 import Control.Lens
+import qualified Data.Attoparsec.ByteString.Char8 as P
 import Data.List
 import Data.Maybe
 import Data.Monoid
@@ -47,3 +49,9 @@ formatHeaders filter hs = unlines $ concatMap (formatHeader hs) filter
   where
     formatHeader hs (IsField f) = map (formatSingleHeader (fieldName f)) (lookupField f hs)
     formatSingleHeader name value = name ++ ": " ++ showFieldValue value
+
+firstTextPart :: PartTree -> Maybe (String, T.Text)
+firstTextPart msg =
+  let typeFilter t = mimeType t == "text"
+      parts        = partList <$> collapseAlternatives typeFilter msg
+  in join $ listToMaybe <$> mapMaybe (^? _PartText) <$> parts
