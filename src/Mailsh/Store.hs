@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -98,7 +99,7 @@ data Message = Message
   , messageParts       :: [MimeType]
   }
 
-share [mkPersist sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
+share [mkPersist sqlSettings, mkDeleteCascade sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
 MessageE
   mid         MID
   date        UTCTime
@@ -152,7 +153,7 @@ withStorePath m fp = do
   md <- lift $ openMaildir fp
   case md of
     Left err -> throwError err
-    Right md -> runStderrLoggingT $ filterLogger noDebug $ withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
+    Right md -> runStderrLoggingT $ filterLogger allDebug $ withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
       runReaderT initStore db
       let store = Store
             { _storeCache = db
@@ -162,6 +163,7 @@ withStorePath m fp = do
     noDebug _ LevelDebug = False
     noDebug _ LevelInfo = False
     noDebug _ _ = True
+    allDebug _ _ = True
 
 --------------------------------------------------------------------------------
 
@@ -433,4 +435,4 @@ updateMessage t msg = do
       }
 
 -- deleteMessage :: MID -> Update ()
-deleteMessage mid = deleteBy (MessageEUniqueMid mid)
+deleteMessage mid = deleteCascadeWhere [MessageEMid ==. mid]
