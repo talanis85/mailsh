@@ -84,6 +84,7 @@ executable mailsh
                      , text
                      , time
                      , bytestring
+                     , parsec
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 

@@ -35,7 +35,7 @@ renderText = return . T.unpack
 
 renderW3m :: T.Text -> IO String
 renderW3m s = do
-  let w3m = "w3m -T text/html -o display_link_number=1 | cat"
+  let w3m = "w3m -T text/html -o display_link_number=1 -cols 10000 | cat"
   hFlush stdout
   (Just inH, Just outH, _, procH) <-
     createProcess_ "see" (shell w3m) { std_in = CreatePipe

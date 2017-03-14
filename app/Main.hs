@@ -52,7 +52,7 @@ version = $(gitBranch) ++ "@" ++ $(gitHash)
 commandP :: Parser (StoreM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> rendererOption defaultRenderer) idm)
+                                          <*> rendererOption noquoteRenderer) idm)
   <> command "cat"      (info (cmdCat     <$> msgArgument
                                           <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
@@ -82,9 +82,10 @@ commandP = subparser
                                                   <> value def
                                                  )
       rendererReader = eitherReader $ \s -> case s of
-        "default" -> Right defaultRenderer
+        "full"    -> Right fullRenderer
         "outline" -> Right outlineRenderer
         "preview" -> Right previewRenderer
+        "noquote" -> Right noquoteRenderer
         _         -> Left "Invalid renderer"
 
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)

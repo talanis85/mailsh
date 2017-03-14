@@ -1,7 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Render
   ( Renderer
-  , defaultRenderer
+  , fullRenderer
   , previewRenderer
+  , noquoteRenderer
   , outlineRenderer
   , printMessageSingle
   , outputPart
@@ -13,6 +15,7 @@ import Data.Maybe
 import Data.Time.Format
 import Network.Email
 import System.Console.Terminal.Size
+import Text.Parsec
 import Text.Printf
 import qualified Data.Text.IO as T
 import qualified Data.ByteString as BS
@@ -38,32 +41,31 @@ outputPart n b =
        PartText t s   -> T.putStrLn s
        PartBinary t s -> BS.putStr s
 
-defaultRenderer :: Renderer
-defaultRenderer msg = do
-  liftIO $ withWidth (displayMessage msg)
-  refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
-  liftIO $ displayReferences refs
-  where
-    displayMessage :: Message -> Int -> IO ()
-    displayMessage msg width = do
-      putStrLn (replicate width '-')
-      headerName "From" >> addressHeader (messageFrom msg)
-      headerName "To" >> addressHeader (messageTo msg)
-      headerName "Subject" >> textHeader (messageSubject msg)
-      headerName "Date" >> dateHeader (messageDate msg)
-      putStrLn (replicate width '-')
-      putStrLn ""
-      renderType (messageBodyType msg) (messageBody msg) >>= putStrLn
-        where
-          headerName s = printf "%-15s" (s ++ ": ")
-          addressHeader as = putStrLn (intercalate ", " (map formatNameAddr as))
-          textHeader s = putStrLn s
-          dateHeader d = putStrLn (formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" d)
-    displayReferences :: [(MessageNumber, Message)] -> IO ()
-    displayReferences = mapM_ (uncurry printMessageSingle)
+fullRenderer :: Renderer
+fullRenderer = messageRenderer id
 
 previewRenderer :: Renderer
-previewRenderer msg = do
+previewRenderer = messageRenderer (unlines . take 10 . lines)
+
+noquoteRenderer :: Renderer
+noquoteRenderer = messageRenderer (parseFilter noquoteParser)
+
+parseFilter p s = case parse p "<message>" s of
+                    Left _   -> s
+                    Right s' -> s'
+
+noquoteParser :: Parsec String u String
+noquoteParser = unlines <$> many (quotes <|> line)
+  where
+    quotes = do
+      char '>'
+      many (noneOf "\n")
+      newline
+      quotes <|> return "<snip>"
+    line = many (noneOf "\n") <* newline
+
+messageRenderer :: (String -> String) -> Renderer
+messageRenderer flt msg = do
   liftIO $ withWidth (displayMessage msg)
   refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
   liftIO $ displayReferences refs
@@ -77,7 +79,7 @@ previewRenderer msg = do
       headerName "Date" >> dateHeader (messageDate msg)
       putStrLn (replicate width '-')
       putStrLn ""
-      renderType (messageBodyType msg) (messageBody msg) >>= putStrLn . unlines . take 10 . lines
+      renderType (messageBodyType msg) (messageBody msg) >>= putStrLn . flt
         where
           headerName s = printf "%-15s" (s ++ ": ")
           addressHeader as = putStrLn (intercalate ", " (map formatNameAddr as))
