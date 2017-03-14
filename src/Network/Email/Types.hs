@@ -12,6 +12,7 @@ module Network.Email.Types
   , MsgID (..), formatMsgID
   , NameAddr (..)
   , MimeType (..)
+  , formatMimeType
   , simpleMimeType
   , mkMimeType
   , mimeApplicationOctetStream, mimeTextPlain
@@ -152,6 +153,10 @@ data MimeType = MimeType
   , mimeParams :: Map.Map String String
   }
   deriving (Show, Read, Eq)
+
+formatMimeType :: MimeType -> String
+formatMimeType t = mimeType t ++ "/" ++ mimeSubtype t ++ concatMap formatParam (Map.toList (mimeParams t))
+  where formatParam (k,v) = ";" ++ k ++ "=" ++ v
 
 simpleMimeType :: MimeType -> String
 simpleMimeType t = mimeType t ++ "/" ++ mimeSubtype t

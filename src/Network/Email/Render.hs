@@ -74,7 +74,7 @@ parseAttachment s =
 
 mainPart :: T.Text -> Alternatives
 mainPart bodyContent = return Part
-  { partType = T.pack (show (mimeTextPlain "utf8"))
+  { partType = T.pack (formatMimeType (mimeTextPlain "utf8"))
   , partEncoding = QuotedPrintableText
   , partFilename = Nothing
   , partHeaders = []

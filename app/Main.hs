@@ -22,6 +22,7 @@ import Mailsh.Compose
 import Mailsh.Filter
 import Mailsh.Types
 import Mailsh.Maildir
+import Mailsh.MimeRender
 import Mailsh.Parse
 import Mailsh.Store
 
@@ -168,59 +169,42 @@ cmdCompose nosend rcpt = do
   liftIO $ putStrLn msg
 
 cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> StoreM ()
-cmdReply nosend strat mn' = return ()
-  {-
+cmdReply nosend strat mn' = do
   mn <- mn'
   msg <- queryStore' (lookupMessageNumber mn)
   let mid = messageMid msg
-  myaddr <- liftIO $ lookupEnv "MAILADDR"
-  myname <- liftIO $ lookupEnv "MAILNAME"
-  let mynameaddr = NameAddr <$> pure myname <*> myaddr
-  (headers, body) <- liftMaildir $ parseMaildirFile mid $ do
-    h <- parseHeaders
-    m <- parseMessage (mimeTextPlain "utf8") h
-    return (h, m)
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
+    liftIO $ putStrLn $ show x
     return (x >>= parseString parseNameAddr)
-  let initialHeaders = catMaybes
-        [ mkField fFrom <$> return <$> from
-        ]
-        ++ replyHeaders mynameaddr strat headers
-  rendered <- liftIO $ renderMainPart body
-  let quoted = unlines $ map ("> " ++) $ lines $ wordwrap 80 rendered
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders quoted
+  liftIO $ putStrLn $ show from
+  let headers = replyHeaders from strat msg
+  rendered <- liftIO $ renderType (messageBodyType msg) (messageBody msg)
+  let quoted = unlines $ map ("> " ++) $ lines rendered
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
   liftMaildir $ unless nosend $ do
     sendMessage headers body
     setFlag 'R' mid
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
-  -}
 
-replyHeaders :: Maybe NameAddr -> ReplyStrategy -> [Field] -> [Field]
-replyHeaders myaddr strat headers =
-  let from    = mconcat (lookupField fFrom headers)
-      replyto = mconcat (lookupField fReplyTo headers)
-      to      = mconcat (lookupField fTo headers)
-      cc      = mconcat (lookupField fCc headers)
-      subject = listToMaybe (lookupField fSubject headers)
-      msgids  = lookupField fMessageID headers
-      refs     = mconcat (lookupField fReferences headers)
-      from'   = case replyto of
-                  [] -> from
+replyHeaders :: Maybe NameAddr -> ReplyStrategy -> Message -> [Field]
+replyHeaders myaddr strat msg =
+  let from'   = case messageReplyTo msg of
+                  [] -> messageFrom msg
                   xs -> xs
-      to'     = case strat of
-                  GroupReply -> from' ++ to
+      to      = case strat of
+                  GroupReply -> from' ++ messageTo msg
                   SingleReply -> from'
-      cc'     = case strat of
-                  GroupReply -> Just cc
+      cc      = case strat of
+                  GroupReply -> Just (messageCc msg)
                   SingleReply -> Nothing
-      subject' = fromMaybe "Re:" $ ("Re: " ++) <$> subject
-  in catMaybes [ Just (mkField fTo to')
-               , mkField fCc <$> cc'
-               , Just (mkField fInReplyTo msgids)
-               , Just (mkField fSubject subject')
-               , Just (mkField fReferences (msgids ++ refs))
+      subject  = "Re: " ++ messageSubject msg
+  in catMaybes [ Just (mkField fTo to)
+               , mkField fCc <$> cc
+               , Just (mkField fInReplyTo [messageMessageId msg])
+               , Just (mkField fSubject subject)
+               , Just (mkField fReferences (messageMessageId msg : messageReferences msg))
                , mkField fFrom <$> pure <$> myaddr
                ]
 

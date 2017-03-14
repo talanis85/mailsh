@@ -24,7 +24,9 @@ parseFile :: FilePath -> Parser a -> IO (Either String a)
 parseFile fp p = parseOnly p <$> BS.readFile fp
 
 parseString :: Parser a -> String -> Maybe a
-parseString p s = maybeResult (parse p (BChar8.pack s))
+parseString p s = case parseOnly p (BChar8.pack s) of
+                    Left err -> Nothing
+                    Right v -> Just v
 
 fixCrlfL :: B.ByteString -> B.ByteString
 fixCrlfL = BB.toLazyByteString . B.foldr fixCrlf' mempty
