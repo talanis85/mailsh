@@ -4,6 +4,7 @@ module Main where
 
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.Logger
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BLC
 import Data.Maybe
@@ -36,15 +37,18 @@ type MessageNumber' = StoreM MessageNumber
 
 data Options = Options
   { optCommand :: StoreM ()
+  , optDebug :: Bool
   }
 
 options :: ParserInfo Options
-options = Options <$> info (helper <*> commandP)
+options = info (helper <*> (Options <$> commandP <*> debugOption))
   (  fullDesc
   <> progDesc "Manage maildirs from the shell"
   <> header "mailsh - A console maildir tool"
   <> footer ("Version: " ++ version)
   )
+
+debugOption = flag False True (short 'd' <> long "debug")
 
 version :: String
 version = $(gitBranch) ++ "@" ++ $(gitHash)
@@ -291,7 +295,12 @@ main :: IO ()
 main = do
   opts <- execParser options
   maildirpath <- getCurrentDirectory
-  result <- runExceptT $ withStorePath (optCommand opts) maildirpath
+  result <- runExceptT $ runStderrLoggingT $ filterLogger (logFilter (optDebug opts)) $ withStorePath (optCommand opts) maildirpath
   case result of
     Left err -> printf "Error: %s\n" err
     Right () -> return ()
+  where
+    logFilter True _ _ = True
+    logFilter False _ LevelDebug = False
+    logFilter False _ LevelInfo = False
+    logFilter False _ _ = True

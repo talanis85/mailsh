@@ -148,22 +148,17 @@ liftCache m = do
 
 initStore = runMigration migrateTables
 
-withStorePath :: StoreM a -> FilePath -> ExceptT String IO a
+withStorePath :: StoreM a -> FilePath -> LoggingT (ExceptT String IO) a
 withStorePath m fp = do
-  md <- lift $ openMaildir fp
+  md <- liftIO $ openMaildir fp
   case md of
     Left err -> throwError err
-    Right md -> runStderrLoggingT $ filterLogger allDebug $ withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
+    Right md -> withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
       runReaderT initStore db
       let store = Store
             { _storeCache = db
             }
       hoist (runMaildirM md) $ runStoreM (updateStore >> m) store
-  where
-    noDebug _ LevelDebug = False
-    noDebug _ LevelInfo = False
-    noDebug _ _ = True
-    allDebug _ _ = True
 
 --------------------------------------------------------------------------------
 
