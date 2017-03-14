@@ -23,13 +23,13 @@ filterExpP = buildExpressionParser
 
 filterTermP :: Parser (StoreM FilterExp)
 filterTermP = choice
-  [ char 'a' >> return (return filterAll)
+  [ string (B.pack "new") >> return (return filterUnseen)
+  , char 'a' >> return (return filterAll)
   , char 'd' >> return (return (filterFlag 'D'))
   , char 'r' >> return (return (filterFlag 'R'))
   , char 's' >> return (return (filterFlag 'S'))
   , char 't' >> return (return (filterFlag 'T'))
   , char 'f' >> return (return (filterFlag 'F'))
-  , string (B.pack "new") >> return (return filterUnseen)
   , char '/' >> (return . filterString <$> B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"

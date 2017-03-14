@@ -64,7 +64,7 @@ commandP = subparser
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                                           <*> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value (return filterUntrashed)))
+                                                       (metavar "FILTER" <> value (return filterUnseen)))
                               idm)
   <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
   <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
@@ -74,7 +74,7 @@ commandP = subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
-                                 (metavar "FILTER" <> value (return filterUntrashed)))
+                                 (metavar "FILTER" <> value (return filterUnseen)))
     where
       rendererOption def = option rendererReader (   short 'r'
                                                   <> long "render"
