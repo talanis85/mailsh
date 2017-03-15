@@ -61,6 +61,7 @@ headerNameP :: String -> Parser a -> Parser a
 headerNameP s p = do
   tok (string (B.pack s))
   tok (char ':')
+  takeWhile isSpace
   p
 
 unstructuredP :: Parser String
