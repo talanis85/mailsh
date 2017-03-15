@@ -12,6 +12,7 @@ module Render
 import Control.Monad.Trans
 import Data.List
 import Data.Maybe
+import Data.String.WordWrap
 import Data.Time.Format
 import Network.Email
 import System.Console.Terminal.Size
@@ -41,14 +42,23 @@ outputPart n b =
        PartText t s   -> T.putStrLn s
        PartBinary t s -> BS.putStr s
 
+removeBlankLines :: String -> String
+removeBlankLines = unlines . fst . foldr removeBlankLines' ([], 0) . lines
+  where
+    removeBlankLines' x (xs, n) = case x of
+                                    "" -> if n >= 2
+                                             then (xs, n + 1)
+                                             else ("" : xs, n + 1)
+                                    _  -> (x : xs, 0)
+
 fullRenderer :: Renderer
-fullRenderer = messageRenderer id
+fullRenderer = messageRenderer (removeBlankLines . wordwrap 80)
 
 previewRenderer :: Renderer
-previewRenderer = messageRenderer (unlines . take 10 . lines)
+previewRenderer = messageRenderer (wordwrap 80 . unlines . take 10 . lines)
 
 noquoteRenderer :: Renderer
-noquoteRenderer = messageRenderer (parseFilter noquoteParser)
+noquoteRenderer = messageRenderer (removeBlankLines . wordwrap 80 . parseFilter noquoteParser)
 
 parseFilter p s = case parse p "<message>" s of
                     Left _   -> s
