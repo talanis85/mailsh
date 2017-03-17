@@ -79,7 +79,9 @@ messageRenderer :: (String -> String) -> Renderer
 messageRenderer flt msg = do
   liftIO $ withWidth (displayMessage msg)
   refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
+  refby <- queryStore (filterBy (filterReferencedBy (messageMessageId msg)) Nothing)
   liftIO $ displayReferences refs
+  liftIO $ displayReferencedBy refby
   liftIO $ displayParts (messageParts msg)
   where
     displayMessage :: Message -> Int -> IO ()
@@ -104,6 +106,13 @@ messageRenderer flt msg = do
       putStrLn "Referenced messages:"
       setSGR [Reset]
       mapM_ (uncurry printMessageSingle) refs
+    displayReferencedBy :: [(MessageNumber, Message)] -> IO ()
+    displayReferencedBy [] = return ()
+    displayReferencedBy refbys = do
+      setSGR [SetConsoleIntensity BoldIntensity]
+      putStrLn "Referenced by:"
+      setSGR [Reset]
+      mapM_ (uncurry printMessageSingle) refbys
     displayParts [] = return ()
     displayParts [x] = return ()
     displayParts ps = do
