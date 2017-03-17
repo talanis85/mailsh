@@ -844,9 +844,9 @@ content_type    :: Parser MimeType
 content_type    = header "Content-Type" mime_type
 
 mime_type       :: Parser MimeType
-mime_type       = do t <- many1 alpha
+mime_type       = do t <- item_name
                      char '/'
-                     st <- many1 alpha
+                     st <- item_name
                      params <- mime_params
                      return MimeType
                        { mimeType = t
@@ -860,7 +860,7 @@ mime_params     = Map.fromList <$> many mime_param
 mime_param      :: Parser (String, String)
 mime_param      = do char ';'
                      many fws
-                     key <- many1 alpha
+                     key <- item_name
                      many fws
                      char '='
                      many fws
