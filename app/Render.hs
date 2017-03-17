@@ -20,6 +20,7 @@ import Text.Parsec
 import Text.Printf
 import qualified Data.Text.IO as T
 import qualified Data.ByteString as BS
+import System.Console.ANSI
 
 import Mailsh.MimeRender
 import Mailsh.Store
@@ -79,15 +80,16 @@ messageRenderer flt msg = do
   liftIO $ withWidth (displayMessage msg)
   refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
   liftIO $ displayReferences refs
+  liftIO $ displayParts (messageParts msg)
   where
     displayMessage :: Message -> Int -> IO ()
     displayMessage msg width = do
-      putStrLn (replicate width '-')
+      setSGR [SetConsoleIntensity BoldIntensity]
       headerName "From" >> addressHeader (messageFrom msg)
       headerName "To" >> addressHeader (messageTo msg)
       headerName "Subject" >> textHeader (messageSubject msg)
       headerName "Date" >> dateHeader (messageDate msg)
-      putStrLn (replicate width '-')
+      setSGR [Reset]
       putStrLn ""
       renderType (messageBodyType msg) (messageBody msg) >>= putStrLn . flt
         where
@@ -96,7 +98,19 @@ messageRenderer flt msg = do
           textHeader s = putStrLn s
           dateHeader d = putStrLn (formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" d)
     displayReferences :: [(MessageNumber, Message)] -> IO ()
-    displayReferences = mapM_ (uncurry printMessageSingle)
+    displayReferences [] = return ()
+    displayReferences refs = do
+      setSGR [SetConsoleIntensity BoldIntensity]
+      putStrLn "Referenced messages:"
+      setSGR [Reset]
+      mapM_ (uncurry printMessageSingle) refs
+    displayParts [] = return ()
+    displayParts [x] = return ()
+    displayParts ps = do
+      setSGR [SetConsoleIntensity BoldIntensity]
+      putStrLn "Parts:"
+      setSGR [Reset]
+      mapM_ (uncurry (printf "%d: %s\n")) $ zip ([1..] :: [Int]) $ map formatMimeType $ messageParts msg
 
 outlineRenderer :: Renderer
 outlineRenderer msg = return ()
