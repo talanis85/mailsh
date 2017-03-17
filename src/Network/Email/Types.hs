@@ -51,7 +51,9 @@ import qualified Data.ByteString as BS
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 data PartTree' a = PartSingle a | PartMulti MultipartType [PartTree' a]
+  deriving (Show)
 data Part = PartText String T.Text | PartBinary MimeType BS.ByteString
+  deriving (Show)
 type PartTree = PartTree' Part
 
 data MultipartType = MultipartMixed | MultipartAlternative
