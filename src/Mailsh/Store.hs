@@ -40,6 +40,7 @@ import Control.Monad.Morph
 import Control.Monad.Reader
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.List (union)
 import qualified Data.Text as T
 import Data.Time.Calendar
 import Data.Time.Compat
@@ -339,7 +340,7 @@ basicMessage mid flags = do
       , messageTo           = mconcat (lookupField fTo headers)
       , messageCc           = mconcat (lookupField fCc headers)
       , messageBcc          = mconcat (lookupField fBcc headers)
-      , messageReferences   = mconcat (lookupField fReferences headers)
+      , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
       , messageReplyTo      = mconcat (lookupField fReplyTo headers)
       , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
       , messageBody         = mainBody
