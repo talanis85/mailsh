@@ -77,6 +77,8 @@ commandP = subparser
   <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
   <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
+  <> command "filename" (info (cmdFilename <$> msgArgument) idm)
+  <> command "outline"  (info (cmdOutline <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value (return filterUnseen)))
@@ -253,6 +255,24 @@ cmdFlag = modifyMessage (liftMaildir . setFlag 'F') "Flagged message."
 
 cmdUnflag :: MessageNumber' -> StoreM ()
 cmdUnflag = modifyMessage (liftMaildir . unsetFlag 'F') "Unflagged message."
+
+cmdFilename :: MessageNumber' -> StoreM ()
+cmdFilename mn' = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  let mid = messageMid msg
+  filename <- liftMaildir $ absoluteMaildirFile mid
+  liftIO $ putStrLn filename
+
+cmdOutline :: MessageNumber' -> StoreM ()
+cmdOutline mn' = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
+    h <- parseHeaders
+    b <- parseMessage (mimeTextPlain "utf8") h
+    return (h, b)
+  liftIO $ putStrLn $ outline body
 
 modifyMessage :: (MID -> StoreM ()) -> String -> MessageNumber' -> StoreM ()
 modifyMessage f notice mn' = do
