@@ -6,6 +6,7 @@ module Render
   , noquoteRenderer
   , outlineRenderer
   , printMessageSingle
+  , printResultCount
   , outputPart
   ) where
 
@@ -78,8 +79,8 @@ noquoteParser = unlines <$> many (quotes <|> line)
 messageRenderer :: (String -> String) -> Renderer
 messageRenderer flt msg = do
   liftIO $ withWidth (displayMessage msg)
-  refs <- concat <$> mapM (queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
-  refby <- queryStore (filterBy (filterReferencedBy (messageMessageId msg)) Nothing)
+  refs <- concat <$> mapM (fmap resultRows . queryStore . flip filterBy Nothing . filterMessageId) (messageReferences msg)
+  refby <- resultRows <$> queryStore (filterBy (filterReferencedBy (messageMessageId msg)) Nothing)
   liftIO $ displayReferences refs
   liftIO $ displayReferencedBy refby
   liftIO $ displayParts (messageParts msg)
@@ -126,6 +127,12 @@ outlineRenderer msg = return ()
 
 printMessageSingle :: MessageNumber -> Message -> IO ()
 printMessageSingle mn msg = withWidth $ putStrLn . formatMessageSingle mn msg
+
+printResultCount :: FilterResult a -> IO ()
+printResultCount r = do
+  setSGR [SetConsoleIntensity BoldIntensity]
+  printf "%d/%d messages\n" (length (resultRows r)) (resultTotal r)
+  setSGR [Reset]
 
 withWidth :: (Int -> IO a) -> IO a
 withWidth f = do

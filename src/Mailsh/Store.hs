@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -14,6 +17,7 @@ module Mailsh.Store
   , messageNumber
   , Message (..)
   , FilterExp
+  , FilterResult (..)
   , Limit
   , withStorePath
   , liftMaildir
@@ -170,6 +174,11 @@ type FilterExp
     , E.SqlExpr (Entity PartE)
     ) -> E.SqlExpr (E.Value Bool)
 
+data FilterResult a = FilterResult
+  { resultRows :: [a]
+  , resultTotal :: Int
+  } deriving (Functor, Foldable, Traversable)
+
 filterAll :: FilterExp
 filterAll _ = E.val True
 
@@ -208,8 +217,8 @@ filterString s (msg, addr, _, _) =
 
 --------------------------------------------------------------------------------
 
-applyFilter :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m [(Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE])]
-applyFilter flt lim = fmap reverse $ do
+applyFilter :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]))
+applyFilter flt lim = do
   messages <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part) -> do
     E.on (msg E.^. MessageEId E.==. part  E.^. PartEMessageRef)
     E.on (msg E.^. MessageEId E.==. ref   E.^. ReferenceEMessageRef)
@@ -221,7 +230,13 @@ applyFilter flt lim = fmap reverse $ do
       Nothing -> return ()
       Just lim -> E.limit (fromIntegral lim)
     return msg
-  forM messages $ \msg -> do
+  withoutLimit <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part) -> do
+    E.on (msg E.^. MessageEId E.==. part  E.^. PartEMessageRef)
+    E.on (msg E.^. MessageEId E.==. ref   E.^. ReferenceEMessageRef)
+    E.on (msg E.^. MessageEId E.==. addr  E.^. AddressEMessageRef)
+    E.where_ (flt (msg, addr, ref, part))
+    E.groupBy (msg E.^. MessageEId)
+  combined <- forM messages $ \msg -> do
     addresses <- E.select $ E.from $ \x -> do
       E.where_ (x E.^. AddressEMessageRef E.==. E.val (entityKey msg))
       return x
@@ -232,12 +247,19 @@ applyFilter flt lim = fmap reverse $ do
       E.where_ (x E.^. PartEMessageRef E.==. E.val (entityKey msg))
       return x
     return (entityKey msg, entityVal msg, map entityVal addresses, map entityVal references, map entityVal parts)
+  return FilterResult
+    { resultRows = reverse combined
+    , resultTotal = length withoutLimit
+    }
 
-filterBy flt limit = map combineMessage <$> applyFilter flt limit
+filterBy :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (MessageNumber, Message))
+filterBy flt limit = fmap combineMessage <$> applyFilter flt limit
 
-lookupMessageNumber mn = fmap snd <$> listToMaybe <$> filterBy (filterMessageNumber mn) Nothing
+lookupMessageNumber :: (MonadIO m) => MessageNumber -> ReaderT SqlBackend m (Maybe Message)
+lookupMessageNumber mn = fmap snd . listToMaybe . resultRows <$> filterBy (filterMessageNumber mn) Nothing
 
-queryStore q = liftCache q
+queryStore :: ReaderT SqlBackend StoreM a -> StoreM a
+queryStore = liftCache
 
 combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]) -> (MessageNumber, Message)
 combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, Message

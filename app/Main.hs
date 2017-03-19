@@ -116,7 +116,7 @@ setRecentMessageNumber n = (liftMaildir (maildirFile ".recentmessage") >>= liftI
 
 getNextMessageNumber :: MessageNumber'
 getNextMessageNumber = do
-  messages <- queryStore (filterBy filterUnseen Nothing)
+  messages <- resultRows <$> queryStore (filterBy filterUnseen Nothing)
   setRecentMessageNumber $ fromMaybe (messageNumber 0) $ listToMaybe $ map fst messages
 
 queryStore' q = do
@@ -231,10 +231,10 @@ composeWith headers text = do
 cmdHeaders :: Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit filter' = do
   filter <- filter'
-  messages <- queryStore (filterBy filter limit)
-  liftIO $ case limit of
-    Nothing -> mapM_ (uncurry printMessageSingle) messages
-    Just l  -> mapM_ (uncurry printMessageSingle) (drop (length messages - l) messages)
+  result <- queryStore (filterBy filter limit)
+  let messages = resultRows result
+  liftIO $ mapM_ (uncurry printMessageSingle) messages
+  liftIO $ printResultCount result
 
 cmdTrash :: MessageNumber' -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."
