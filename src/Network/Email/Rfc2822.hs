@@ -104,6 +104,13 @@ fws             = do r <- many1 $ choice [ blanks, linebreak]
     blanks      = many1 wsp
     linebreak   = try $ do { r1 <- crlf; r2 <- blanks; return (r1 ++ r2) }
 
+fws'            :: Parser String
+fws'            = do r <- many1 $ choice [ blanks, linebreak]
+                     return (concat r)
+    where
+    blanks      = many1 wsp
+    linebreak   = try $ do { _ <- crlf; _ <- blanks; return " " }
+
 -- |Match any non-whitespace, non-control character except for \"@(@\",
 -- \"@)@\", and \"@\\@\". This is used to describe the legal content of
 -- 'comment's.
@@ -220,10 +227,15 @@ utext           = no_ws_ctl <|> satisfy (\c -> ord c `elem` [33..126])
 -- follows the actual 'utext' is /included/ in the returned string.
 
 unstructured    :: Parser String
-unstructured    = do r1 <- option [] fws
-                     r2 <- many (do r3 <- (mconcat <$> try encoded_word `sepBy1` fws) <|> (return <$> utext)
-                                    r4 <- option [] fws
-                                    return (r3 ++ r4))
+unstructured    = do r1 <- option [] fws'
+                     r2 <- many $ choice
+                       [ do r3 <- try encoded_word
+                            _  <- option [] fws'
+                            return r3
+                       , do r3 <- utext
+                            r4 <- option [] fws'
+                            return (r3 : r4)
+                       ]
                      return (r1 ++ concat r2)
                   <?> "unstructured text"
 
