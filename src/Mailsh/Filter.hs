@@ -1,5 +1,6 @@
 module Mailsh.Filter
   ( parseFilterExp
+  , parseLimit
   ) where
 
 import Control.Monad
@@ -34,3 +35,14 @@ filterTermP = choice
   , char '/' >> (return . filterString <$> B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"
+
+parseLimit :: String -> Either String (Maybe Limit)
+parseLimit str = case parseOnly (limitP <* endOfInput) (B.pack str) of
+                   Left err -> Left ("Limit parse error: " ++ show err)
+                   Right v -> Right v
+
+limitP :: Parser (Maybe Limit)
+limitP = choice
+  [ string (B.pack "auto") >> return Nothing
+  , Just . read . B.unpack <$> takeWhile1 isDigit
+  ]

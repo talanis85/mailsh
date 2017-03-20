@@ -67,7 +67,7 @@ commandP = subparser
   <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
                                           <*> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
-  <> command "headers"  (info (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
+  <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value (return filterUnseen)))
                               idm)
@@ -79,10 +79,11 @@ commandP = subparser
   <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
   <> command "filename" (info (cmdFilename <$> msgArgument) idm)
   <> command "outline"  (info (cmdOutline <$> msgArgument) idm)
-  ) <|> (cmdHeaders <$> maybeOption auto (short 'l' <> metavar "LIMIT")
+  ) <|> (cmdHeaders <$> limitOption Nothing
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value (return filterUnseen)))
     where
+      limitOption def = option (eitherReader parseLimit) (short 'l' <> long "limit" <> metavar "LIMIT" <> value def)
       rendererOption def = option rendererReader (   short 'r'
                                                   <> long "render"
                                                   <> metavar "RENDERER"
@@ -228,9 +229,12 @@ composeWith headers text = do
            then fail "Empty message"
            else return (headers, body)
 
-cmdHeaders :: Limit -> StoreM FilterExp -> StoreM ()
-cmdHeaders limit filter' = do
+cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
+cmdHeaders limit' filter' = do
   filter <- filter'
+  limit <- case limit' of
+    Just x -> return x
+    Nothing -> Just . subtract 2 <$> liftIO terminalHeight
   result <- queryStore (filterBy filter limit)
   let messages = resultRows result
   liftIO $ mapM_ (uncurry printMessageSingle) messages

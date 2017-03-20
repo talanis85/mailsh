@@ -8,6 +8,7 @@ module Render
   , printMessageSingle
   , printResultCount
   , outputPart
+  , terminalHeight
   ) where
 
 import Control.Monad.Trans
@@ -138,6 +139,11 @@ withWidth :: (Int -> IO a) -> IO a
 withWidth f = do
   (Window _ w) <- fromMaybe (Window 80 80) <$> size
   f w
+
+terminalHeight :: IO Int
+terminalHeight = do
+  (Window h _) <- fromMaybe (Window 80 80) <$> size
+  return h
 
 formatMessageSingle :: MessageNumber -> Message -> Int -> String
 formatMessageSingle mn msg width = printf "%c %5s %18s %16s %s"
