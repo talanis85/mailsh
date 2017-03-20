@@ -7,6 +7,7 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BLC
+import qualified Data.ByteString.Char8 as BSC
 import Data.Maybe
 import qualified Data.Text as T
 import Development.GitRev
@@ -60,6 +61,8 @@ commandP = subparser
                                           <*> rendererOption noquoteRenderer) idm)
   <> command "cat"      (info (cmdCat     <$> msgArgument
                                           <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
+  <> command "view"     (info (cmdView    <$> msgArgument
+                                          <*> option auto (short 'p' <> metavar "PART")) idm)
   <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
                                           <*> rendererOption previewRenderer) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
@@ -156,6 +159,18 @@ cmdCat mn' part = do
         b <- parseMessage (mimeTextPlain "utf8") h
         return (h, b)
       liftIO $ outputPart part body
+
+cmdView :: MessageNumber' -> Int -> StoreM ()
+cmdView mn' part = do
+  mn <- mn'
+  msg <- queryStore' (lookupMessageNumber mn)
+  (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
+    h <- parseHeaders
+    b <- parseMessage (mimeTextPlain "utf8") h
+    return (h, b)
+  case partList body !! (part-1) of
+    PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (BSC.pack (T.unpack s))
+    PartBinary t s -> liftIO $ runMailcap t s
 
 cmdCompose :: Bool -> Recipient -> StoreM ()
 cmdCompose nosend rcpt = do

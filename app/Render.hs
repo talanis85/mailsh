@@ -9,6 +9,7 @@ module Render
   , printResultCount
   , outputPart
   , terminalHeight
+  , runMailcap
   ) where
 
 import Control.Monad.Trans
@@ -23,6 +24,8 @@ import Text.Printf
 import qualified Data.Text.IO as T
 import qualified Data.ByteString as BS
 import System.Console.ANSI
+import System.IO
+import System.Process
 
 import Mailsh.MimeRender
 import Mailsh.Store
@@ -157,4 +160,12 @@ formatMessageSingle mn msg width = printf "%c %5s %18s %16s %s"
     subject = messageSubject msg
     date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" (messageDate msg)
 
-
+runMailcap :: MimeType -> BS.ByteString -> IO ()
+runMailcap t s = do
+  let cmd = printf "run-mailcap %s:-" (simpleMimeType t)
+  hFlush stdout
+  (Just inH, _, _, procH) <-
+    createProcess_ "see" (shell cmd) { std_in = CreatePipe }
+  BS.hPutStrLn inH s
+  waitForProcess procH
+  return ()
