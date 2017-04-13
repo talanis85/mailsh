@@ -55,13 +55,12 @@ headerP = choice $ map try
   ]
 
 tok :: Parser a -> Parser a
-tok p = try (takeWhile isSpace >> p)
+tok p = try (p <* takeWhile (inClass "\t "))
 
 headerNameP :: String -> Parser a -> Parser a
 headerNameP s p = do
   tok (string (B.pack s))
   tok (char ':')
-  takeWhile isSpace
   p
 
 unstructuredP :: Parser String
@@ -87,25 +86,24 @@ mailboxListP :: Parser [NameAddr]
 mailboxListP = mailboxP `sepBy` tok (char ',')
 
 wordP :: String -> Parser String
-wordP except = B.unpack <$> tok (takeWhile1 (notInClass (" " ++ except)))
+wordP except = B.unpack <$> tok (takeWhile1 (notInClass (" \n'" ++ except)))
 
 displayNameP :: Parser String
-displayNameP = quotedWordP <|> (unwords <$> many1 (wordP "<"))
+displayNameP = tok quotedWordP <|> (unwords <$> many1 (wordP "<,"))
 
 quotedWordP :: Parser String
 quotedWordP = do
-  tok (char '"')
+  char '"'
   r <- takeWhile1 (notInClass "\"")
-  tok (char '"')
+  char '"'
   return (B.unpack r)
 
 angleAddrP :: Parser String
-angleAddrP = try (unfold (do _ <- tok (char '<')
-                             r <- tok addrSpecP
-                             _ <- tok (char '>')
-                             return r)
+angleAddrP = try (do _ <- tok (char '<')
+                     r <- tok addrSpecP
+                     _ <- tok (char '>')
+                     return r)
                   <?> "angle address"
-                 )
 
 addrSpecP :: Parser String
-addrSpecP = B.unpack <$> takeWhile1 (notInClass ">\n")
+addrSpecP = B.unpack <$> takeWhile1 (notInClass ">\n ,")
