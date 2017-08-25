@@ -2,6 +2,7 @@ module Mailsh.Parse
   ( parseCrlfFile
   , parseFile
   , parseString
+  , detectCrlf
   , Attoparsec
   ) where
 
@@ -16,6 +17,20 @@ import Data.Monoid
 import Data.Word
 
 type Attoparsec = Parser
+
+detectCrlf :: FilePath -> IO Bool
+detectCrlf fp = do
+  f <- B.readFile fp
+  let detect s = do
+        (c, s') <- B.uncons s
+        if c == 10
+           then do
+             (c', s'') <- B.uncons s'
+             if c' == 13
+                then return True
+                else return False
+           else detect s'
+  return (fromMaybe True (detect f))
 
 parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
 parseCrlfFile fp p = parseOnly p <$> B.toStrict <$> fixCrlfL <$> B.readFile fp

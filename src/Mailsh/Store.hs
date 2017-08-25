@@ -16,6 +16,7 @@ module Mailsh.Store
   , MessageNumber
   , messageNumber
   , Message (..)
+  , parseMessageFile
   , FilterExp
   , FilterResult (..)
   , Limit
@@ -339,10 +340,17 @@ updateStore = do
       cacheFun mid = do
         flags <- getFlags mid
         fp <- absoluteMaildirFile mid
-        result <- liftIO (parseCrlfFile fp (basicMessage mid flags))
-        case result of
-          Left err -> return Nothing
-          Right result -> Just <$> liftIO result
+        liftIO $ either (const Nothing) Just <$> parseMessageFile mid flags fp
+
+parseMessageFile :: MID -> String -> String -> IO (Either String Message)
+parseMessageFile mid flags fp = do
+  hasCrlf <- detectCrlf fp
+  result <- if hasCrlf
+               then liftIO (parseCrlfFile fp (basicMessage mid flags))
+               else liftIO (parseFile fp (basicMessage mid flags))
+  case result of
+    Left err -> return (Left err)
+    Right result -> Right <$> result
 
 basicMessage :: MID -> String -> Attoparsec (IO Message)
 basicMessage mid flags = do

@@ -7,6 +7,7 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BLC
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Maybe
 import qualified Data.Text as T
@@ -17,6 +18,9 @@ import System.Environment
 import System.FilePath
 import System.IO
 import System.Process
+import qualified Text.ParserCombinators.ReadPrec as Read
+import qualified Text.ParserCombinators.ReadP as Read
+import qualified GHC.Read as Read
 import Text.Printf
 
 import Mailsh.Compose
@@ -34,6 +38,10 @@ import Render
 -----------------------------------------------------------------------------
 
 type MessageNumber' = StoreM MessageNumber
+data MessageRef = MessageRefNumber MessageNumber' | MessageRefPath FilePath
+
+messageRefReader :: ReadM MessageRef
+messageRefReader = (MessageRefNumber . setRecentMessageNumber <$> auto) <|> (MessageRefPath <$> str)
 
 -----------------------------------------------------------------------------
 
@@ -63,7 +71,10 @@ commandP = subparser
                                           <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
   <> command "view"     (info (cmdView    <$> msgArgument
                                           <*> option auto (short 'p' <> metavar "PART")) idm)
-  <> command "next"     (info (cmdRead    <$> pure getNextMessageNumber
+  <> command "save"     (info (cmdSave    <$> msgArgument
+                                          <*> option auto (short 'p' <> metavar "PART")
+                                          <*> option str (short 'd' <> metavar "DIR")) idm)
+  <> command "next"     (info (cmdRead    <$> pure (MessageRefNumber getNextMessageNumber)
                                           <*> rendererOption previewRenderer) idm)
   <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
                                           <*> argument str (metavar "RECIPIENT")) idm)
@@ -74,13 +85,13 @@ commandP = subparser
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value (return filterUnseen)))
                               idm)
-  <> command "trash"    (info (cmdTrash   <$> msgArgument) idm)
-  <> command "recover"  (info (cmdRecover <$> msgArgument) idm)
+  <> command "trash"    (info (cmdTrash   <$> mnArgument) idm)
+  <> command "recover"  (info (cmdRecover <$> mnArgument) idm)
   <> command "purge"    (info (pure cmdPurge) idm)
-  <> command "unread"   (info (cmdUnread  <$> msgArgument) idm)
-  <> command "flag"     (info (cmdFlag    <$> msgArgument) idm)
-  <> command "unflag"   (info (cmdUnflag  <$> msgArgument) idm)
-  <> command "filename" (info (cmdFilename <$> msgArgument) idm)
+  <> command "unread"   (info (cmdUnread  <$> mnArgument) idm)
+  <> command "flag"     (info (cmdFlag    <$> mnArgument) idm)
+  <> command "unflag"   (info (cmdUnflag  <$> mnArgument) idm)
+  <> command "filename" (info (cmdFilename <$> mnArgument) idm)
   <> command "outline"  (info (cmdOutline <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> limitOption Nothing
                     <*> argument (eitherReader parseFilterExp)
@@ -102,23 +113,27 @@ commandP = subparser
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
 maybeOption r m = option (Just <$> r) (m <> value Nothing)
 
-msgArgument :: Parser MessageNumber'
-msgArgument = argument (setRecentMessageNumber <$> auto)
-                       (metavar "MESSAGE" <> value getRecentMessageNumber)
+msgArgument :: Parser MessageRef
+msgArgument = argument messageRefReader
+                       (metavar "MESSAGE" <> value (MessageRefNumber getRecentMessageNumber))
+
+mnArgument :: Parser MessageNumber'
+mnArgument = argument (setRecentMessageNumber <$> auto)
+                      (metavar "MESSAGE" <> value getRecentMessageNumber)
 
 maildirFile :: String -> MaildirM FilePath
 maildirFile f = do
   p <- getMaildirPath
   return (p </> f)
 
-getRecentMessageNumber :: MessageNumber'
+getRecentMessageNumber :: StoreM MessageNumber
 getRecentMessageNumber = read <$> (liftMaildir (maildirFile ".recentmessage") >>= liftIO . readFile)
 
-setRecentMessageNumber :: MessageNumber -> MessageNumber'
+setRecentMessageNumber :: MessageNumber -> StoreM MessageNumber
 setRecentMessageNumber n = (liftMaildir (maildirFile ".recentmessage") >>= liftIO . flip writeFile (show n))
                            >> return n
 
-getNextMessageNumber :: MessageNumber'
+getNextMessageNumber :: StoreM MessageNumber
 getNextMessageNumber = do
   messages <- resultRows <$> queryStore (filterBy filterUnseen Nothing)
   setRecentMessageNumber $ fromMaybe (messageNumber 0) $ listToMaybe $ map fst messages
@@ -138,39 +153,60 @@ throwEither s m = do
 
 -----------------------------------------------------------------------------
 
-cmdRead :: MessageNumber' -> Renderer -> StoreM ()
-cmdRead mn' renderer = do
-  mn <- mn'
-  msg <- queryStore' (lookupMessageNumber mn)
+getMessage :: MessageRef -> StoreM (Message, FilePath)
+getMessage mref = case mref of
+  MessageRefNumber mn' -> do
+    mn <- mn'
+    msg <- queryStore' (lookupMessageNumber mn)
+    fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
+    return (msg, fp)
+  MessageRefPath path -> do
+    msg' <- liftIO $ parseMessageFile "" "" path
+    case msg' of
+      Left err -> throwError ("Could not parse message:\n" ++ err)
+      Right msg -> return (msg, path)
+
+cmdRead :: MessageRef -> Renderer -> StoreM ()
+cmdRead mref renderer = do
+  (msg, _) <- getMessage mref
   renderer msg
   liftMaildir $ setFlag 'S' (messageMid msg)
 
-cmdCat :: MessageNumber' -> Maybe Int -> StoreM ()
-cmdCat mn' part = do
-  mn <- mn'
-  msg <- queryStore' (lookupMessageNumber mn)
+cmdCat :: MessageRef -> Maybe Int -> StoreM ()
+cmdCat mref part = do
+  (msg, fp) <- getMessage mref
   case part of
-    Nothing -> do
-      fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
-      liftIO $ BL.readFile fp >>= BLC.putStrLn
+    Nothing -> liftIO $ BL.readFile fp >>= BLC.putStrLn
     Just part -> do
-      (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
+      (headers, body) <- liftMaildir $ parseMailfile fp $ do
         h <- parseHeaders
         b <- parseMessage (mimeTextPlain "utf8") h
         return (h, b)
       liftIO $ outputPart part body
 
-cmdView :: MessageNumber' -> Int -> StoreM ()
-cmdView mn' part = do
-  mn <- mn'
-  msg <- queryStore' (lookupMessageNumber mn)
-  (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
+cmdView :: MessageRef -> Int -> StoreM ()
+cmdView mref part = do
+  (msg, fp) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailfile fp $ do
     h <- parseHeaders
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
   case partList body !! (part-1) of
     PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (BSC.pack (T.unpack s))
     PartBinary t s -> liftIO $ runMailcap t s
+
+cmdSave :: MessageRef -> Int -> FilePath -> StoreM ()
+cmdSave mref part path = do
+  (msg, fp) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailfile fp $ do
+    h <- parseHeaders
+    b <- parseMessage (mimeTextPlain "utf8") h
+    return (h, b)
+  case partList body !! (part-1) of
+    PartBinary t s -> case lookupMimeParam "name" t of
+      Nothing -> throwError "Part has no filename"
+      Just fn -> liftIO $ BS.writeFile (path </> fn) s
+    PartText t s -> throwError "Cannot save text parts"
 
 cmdCompose :: Bool -> Recipient -> StoreM ()
 cmdCompose nosend rcpt = do
@@ -186,10 +222,9 @@ cmdCompose nosend rcpt = do
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
 
-cmdReply :: Bool -> ReplyStrategy -> MessageNumber' -> StoreM ()
-cmdReply nosend strat mn' = do
-  mn <- mn'
-  msg <- queryStore' (lookupMessageNumber mn)
+cmdReply :: Bool -> ReplyStrategy -> MessageRef -> StoreM ()
+cmdReply nosend strat mref = do
+  (msg, fp) <- getMessage mref
   let mid = messageMid msg
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
@@ -283,11 +318,10 @@ cmdFilename mn' = do
   filename <- liftMaildir $ absoluteMaildirFile mid
   liftIO $ putStrLn filename
 
-cmdOutline :: MessageNumber' -> StoreM ()
-cmdOutline mn' = do
-  mn <- mn'
-  msg <- queryStore' (lookupMessageNumber mn)
-  (headers, body) <- liftMaildir $ parseMaildirFile (messageMid msg) $ do
+cmdOutline :: MessageRef -> StoreM ()
+cmdOutline mref = do
+  (msg, fp) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailfile fp $ do
     h <- parseHeaders
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
@@ -304,6 +338,13 @@ modifyMessage f notice mn' = do
 parseMaildirFile :: MID -> Attoparsec a -> MaildirM a
 parseMaildirFile mid p = do
   fp <- absoluteMaildirFile mid
+  r <- liftIO $ parseCrlfFile fp p
+  case r of
+    Left err -> throwError ("Cannot parse message " ++ err)
+    Right v  -> return v
+
+parseMailfile :: (MonadError String m, MonadIO m) => FilePath -> Attoparsec a -> m a
+parseMailfile fp p = do
   r <- liftIO $ parseCrlfFile fp p
   case r of
     Left err -> throwError ("Cannot parse message " ++ err)
