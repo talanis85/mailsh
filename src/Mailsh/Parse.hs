@@ -13,6 +13,7 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BChar8
+import Data.Maybe
 import Data.Monoid
 import Data.Word
 

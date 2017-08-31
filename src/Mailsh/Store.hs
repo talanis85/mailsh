@@ -316,8 +316,8 @@ updateStore = do
     now        <- liftIO getCurrentTime
     newMessage <- liftMaildir $ cacheFun mid
     case newMessage of
-      Nothing         -> return ()
-      Just newMessage -> liftCache $ updateMessage now newMessage
+      Left err         -> logInfoN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
+      Right newMessage -> liftCache $ updateMessage now newMessage
 
   forM_ (Map.toList toRemove) $ \(mid, _) -> liftCache $ deleteMessage mid
 
@@ -325,8 +325,8 @@ updateStore = do
     now        <- liftIO getCurrentTime
     newMessage <- liftMaildir $ cacheFun mid
     case newMessage of
-      Nothing         -> return ()
-      Just newMessage -> liftCache $ updateMessage now newMessage
+      Left err         -> logInfoN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
+      Right newMessage -> liftCache $ updateMessage now newMessage
 
   forM_ (Map.toList toReflag) $ \(mid, flags) -> do
     liftCache $ updateWhere [MessageEMid ==. mid] [MessageEFlags =. flags]
@@ -340,14 +340,14 @@ updateStore = do
       cacheFun mid = do
         flags <- getFlags mid
         fp <- absoluteMaildirFile mid
-        liftIO $ either (const Nothing) Just <$> parseMessageFile mid flags fp
+        liftIO $ parseMessageFile mid flags fp
 
 parseMessageFile :: MID -> String -> String -> IO (Either String Message)
 parseMessageFile mid flags fp = do
   hasCrlf <- detectCrlf fp
   result <- if hasCrlf
-               then liftIO (parseCrlfFile fp (basicMessage mid flags))
-               else liftIO (parseFile fp (basicMessage mid flags))
+               then liftIO (parseFile fp (basicMessage mid flags))
+               else liftIO (parseCrlfFile fp (basicMessage mid flags))
   case result of
     Left err -> return (Left err)
     Right result -> Right <$> result
