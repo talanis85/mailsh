@@ -14,6 +14,9 @@ import Data.Maybe
 import Network.Email.Types
 import Network.Mail.Mime
 
+sendmailPath :: FilePath
+sendmailPath = "/usr/sbin/sendmail"
+
 renderMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m B.ByteString
 renderMessage fields body = do
   m <- genMail fields body
@@ -25,7 +28,7 @@ renderMessageS fields body = B.unpack <$> renderMessage fields body
 sendMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m ()
 sendMessage fields body = do
   m <- genMail fields body
-  liftIO $ renderSendMail m
+  liftIO $ renderSendMailCustom sendmailPath ["-t"] m
 
 maybeError :: (MonadError String m) => String -> Maybe a -> m a
 maybeError s m = case m of

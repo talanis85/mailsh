@@ -12,6 +12,9 @@ import Network.Email
 import System.IO
 import System.Process
 
+w3mPath :: FilePath
+w3mPath = "/usr/bin/w3m"
+
 {-
 renderPartList :: Renderer
 renderPartList b =
@@ -35,7 +38,7 @@ renderText = return . T.unpack
 
 renderW3m :: T.Text -> IO String
 renderW3m s = do
-  let w3m = "w3m -T text/html -o display_link_number=1 -cols 10000 | cat"
+  let w3m = w3mPath ++ " -T text/html -o display_link_number=1 -cols 10000 | cat"
   hFlush stdout
   (Just inH, Just outH, _, procH) <-
     createProcess_ "see" (shell w3m) { std_in = CreatePipe
