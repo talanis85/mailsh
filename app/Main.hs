@@ -34,6 +34,7 @@ import Mailsh.Store
 
 import Network.Email
 
+import Browse
 import Render
 
 -----------------------------------------------------------------------------
@@ -83,6 +84,10 @@ commandP = subparser
                                           <*> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
   <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
+                                          <*> argument (eitherReader parseFilterExp)
+                                                       (metavar "FILTER" <> value (return filterUnseen)))
+                              idm)
+  <> command "browse"   (info (cmdBrowse  <$> limitOption Nothing
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value (return filterUnseen)))
                               idm)
@@ -290,6 +295,16 @@ cmdHeaders limit' filter' = do
   let messages = resultRows result
   liftIO $ mapM_ (uncurry printMessageSingle) messages
   liftIO $ printResultCount result
+
+cmdBrowse :: Maybe Limit -> StoreM FilterExp -> StoreM ()
+cmdBrowse limit' filter' = do
+  filter <- filter'
+  limit <- case limit' of
+    Just x -> return x
+    Nothing -> Just . subtract 2 <$> liftIO terminalHeight
+  result <- queryStore (filterBy filter limit)
+  let messages = resultRows result
+  liftIO $ browseMessages messages
 
 cmdTrash :: MessageNumber' -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."

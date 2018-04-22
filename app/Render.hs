@@ -5,6 +5,7 @@ module Render
   , previewRenderer
   , noquoteRenderer
   , outlineRenderer
+  , formatMessageSingle
   , printMessageSingle
   , printResultCount
   , outputPart
