@@ -41,8 +41,8 @@ drawBrowser s = [ui]
   where
     drawHeader sel (mn, msg) =
       if sel
-         then str ("> " ++ formatMessageSingle mn msg 100)
-         else str (formatMessageSingle mn msg 100)
+         then withAttr listSelectedAttr (str (formatMessageSingle mn msg 100))
+         else withAttr listAttr (str (formatMessageSingle mn msg 100))
     ui = renderList (bsList s) drawHeader
 
 appEvent :: BrowserState -> Event -> EventM (Next BrowserState)
@@ -54,4 +54,6 @@ appEvent s e =
       continue $ s { bsList = l' }
 
 theMap :: AttrMap
-theMap = attrMap defAttr []
+theMap = attrMap defAttr
+  [ (listSelectedAttr, defAttr `withStyle` reverseVideo)
+  ]
