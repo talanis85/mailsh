@@ -238,7 +238,7 @@ cmdReply nosend strat mref = do
     return (x >>= parseString parseNameAddr)
   liftIO $ putStrLn $ show from
   let headers = replyHeaders from strat msg
-  rendered <- liftIO $ renderType (messageBodyType msg) (messageBody msg)
+  let rendered = renderType (messageBodyType msg) (messageBody msg)
   let quoted = unlines $ map ("> " ++) $ lines rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
   liftMaildir $ unless nosend $ do

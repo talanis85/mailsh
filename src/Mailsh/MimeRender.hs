@@ -2,18 +2,10 @@ module Mailsh.MimeRender
   ( renderType
   ) where
 
-import Control.Lens
-import Control.Monad
-import qualified Data.ByteString as BS
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Network.Email
-import System.IO
-import System.Process
-
-w3mPath :: FilePath
-w3mPath = "/usr/bin/w3m"
+import Text.Pandoc
 
 {-
 renderPartList :: Renderer
@@ -28,22 +20,23 @@ renderPartList b =
                            Just n  -> printf "%s (%s)" (simpleMimeType t) n
 -}
 
-renderType :: String -> T.Text -> IO String
+renderType :: String -> T.Text -> String
 renderType t = case t of
-  "html" -> renderW3m
+  "html" -> renderHtml
   _      -> renderText
 
-renderText :: T.Text -> IO String
-renderText = return . T.unpack
+renderText :: T.Text -> String
+renderText = T.unpack
 
-renderW3m :: T.Text -> IO String
-renderW3m s = do
-  let w3m = w3mPath ++ " -T text/html -o display_link_number=1 -cols 10000 | cat"
-  hFlush stdout
-  (Just inH, Just outH, _, procH) <-
-    createProcess_ "see" (shell w3m) { std_in = CreatePipe
-                                     , std_out = CreatePipe }
-  T.hPutStrLn inH s
-  r <- hGetContents outH
-  void $ waitForProcess procH
-  return r
+renderHtml :: T.Text -> String
+renderHtml s =
+  let readOpts = def
+        { readerStandalone = True
+        }
+      writeOpts = def
+        { writerReferenceLinks = True
+        }
+      result = writePlain writeOpts <$> readHtml readOpts (T.unpack s)
+  in case result of
+       Left err -> "PandocError: " ++ show err
+       Right s' -> s'

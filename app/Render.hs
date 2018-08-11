@@ -16,7 +16,6 @@ module Render
 import Control.Monad.Trans
 import Data.List
 import Data.Maybe
-import Data.String.WordWrap
 import Data.Time.Format
 import Network.Email
 import System.Console.Terminal.Size
@@ -59,13 +58,13 @@ removeBlankLines = unlines . fst . foldr removeBlankLines' ([], 0) . lines
                                     _  -> (x : xs, 0)
 
 fullRenderer :: Renderer
-fullRenderer = messageRenderer (removeBlankLines . wordwrap 80)
+fullRenderer = messageRenderer (removeBlankLines)
 
 previewRenderer :: Renderer
-previewRenderer = messageRenderer (wordwrap 80 . unlines . take 10 . lines)
+previewRenderer = messageRenderer (unlines . take 10 . lines)
 
 noquoteRenderer :: Renderer
-noquoteRenderer = messageRenderer (removeBlankLines . wordwrap 80 . parseFilter noquoteParser)
+noquoteRenderer = messageRenderer (removeBlankLines . parseFilter noquoteParser)
 
 parseFilter p s = case parse p "<message>" s of
                     Left _   -> s
@@ -99,7 +98,8 @@ messageRenderer flt msg = do
       headerName "Date" >> dateHeader (messageDate msg)
       setSGR [Reset]
       putStrLn ""
-      renderType (messageBodyType msg) (messageBody msg) >>= putStrLn . flt
+      let rendered = renderType (messageBodyType msg) (messageBody msg)
+      putStrLn $ flt rendered
         where
           headerName s = printf "%-15s" (s ++ ": ")
           addressHeader as = putStrLn (intercalate ", " (map formatNameAddr as))

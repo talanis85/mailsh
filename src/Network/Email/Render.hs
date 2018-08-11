@@ -15,7 +15,7 @@ import Network.Email.Types
 import Network.Mail.Mime
 
 sendmailPath :: FilePath
-sendmailPath = "/usr/sbin/sendmail"
+sendmailPath = "sendmail"
 
 renderMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m B.ByteString
 renderMessage fields body = do
