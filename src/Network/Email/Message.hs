@@ -82,7 +82,12 @@ multipartBodyP = do
         fromMaybe mimeApplicationOctetStream (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
-  encoded_message contentType contentTransferEncoding
+      filename =
+        listToMaybe (lookupField fContentDisposition headers) >>= attachmentFileName
+      contentType' = case filename of
+        Nothing -> contentType
+        Just filename' -> withMimeParam "name" filename' contentType
+  encoded_message contentType' contentTransferEncoding
 
 multipartLineP :: B.ByteString -> Parser Builder
 multipartLineP boundary = do

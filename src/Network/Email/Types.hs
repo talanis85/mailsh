@@ -15,7 +15,11 @@ module Network.Email.Types
   , formatMimeType
   , simpleMimeType
   , mkMimeType
+  , withMimeParam
   , mimeApplicationOctetStream, mimeTextPlain
+  , DispositionType (..), Disposition (..)
+  , formatDispositionType, formatDisposition
+  , attachmentFileName
   , EncodingType (..)
   , Field (..)
   , AField (..)
@@ -28,7 +32,7 @@ module Network.Email.Types
   , fDate
   -- , _Resent*
   -- , fReceived, fObsReceived
-  , fContentType, fContentTransferEncoding
+  , fContentType, fContentTransferEncoding, fContentDisposition
   , mkField
   , lookupField, lookupOptionalField, filterFields
   , ShowField (..)
@@ -147,6 +151,7 @@ data Field      = OptionalField       String String
                 | ObsReceived         [(String,String)]
                 | ContentType         MimeType
                 | ContentTransferEncoding EncodingType
+                | ContentDisposition  Disposition
                 deriving (Show)
 
 data MimeType = MimeType
@@ -173,6 +178,9 @@ mkMimeType t st = MimeType
 lookupMimeParam :: String -> MimeType -> Maybe String
 lookupMimeParam k = Map.lookup k . mimeParams
 
+withMimeParam :: String -> String -> MimeType -> MimeType
+withMimeParam k v t = t { mimeParams = Map.insert k v (mimeParams t) }
+
 mimeApplicationOctetStream :: MimeType
 mimeApplicationOctetStream = MimeType
   { mimeType = "application"
@@ -192,6 +200,27 @@ instance Show MimeType where
   show t = mimeType t ++ "/" ++ mimeSubtype t ++ concatMap showParam (Map.toList (mimeParams t))
     where showParam (k,v) = ";" ++ k ++ "=" ++ v
 -}
+
+data DispositionType = DispositionInline | DispositionAttachment
+data Disposition = Disposition DispositionType (Map.Map String String)
+
+instance Show Disposition where
+  show = formatDisposition
+
+formatDispositionType :: DispositionType -> String
+formatDispositionType DispositionInline = "inline"
+formatDispositionType DispositionAttachment = "attachment"
+
+formatDisposition :: Disposition -> String
+formatDisposition (Disposition t params) =
+  formatDispositionType t ++ concatMap formatParam (Map.toList params)
+  where formatParam (k,v) = ";" ++ k ++ "=" ++ v
+
+attachmentFileName :: Disposition -> Maybe String
+attachmentFileName (Disposition t p) =
+  case t of
+    DispositionAttachment -> Map.lookup "filename" p
+    _ -> Nothing
 
 data EncodingType = EightBit | Base64 | QuotedPrintable
   deriving (Show)
@@ -214,6 +243,7 @@ fSubject            = AField "Subject"     _Subject
 fDate               = AField "Date"        _Date
 fContentType        = AField "Content-Type" _ContentType
 fContentTransferEncoding = AField "Content-Transfer-Encoding" _ContentTransferEncoding
+fContentDisposition = AField "Content-Disposition" _ContentDisposition
 
 isOptionalField :: String -> Prism' (String, String) String
 isOptionalField key = prism' (\x -> (key, x)) (\(key', x) -> if key' == key then Just x else Nothing)

@@ -60,6 +60,17 @@ obs_header n p   = let nameString = caseString n >> many wsp >> char ':'
                    in
                    between (nameString >> fws) crlf p <?> ("obsolete " ++ n ++ " header line")
 
+-- ** Tokens and values according to RFC 2045
+
+ttext           :: Parser Char
+ttext           = (alpha <|> digit <|> oneOf "-!#$%&'*+^_`{|}~.")
+                  <?> "US-ASCII character (excluding controls, space, and specials but including dot)"
+
+token           :: Parser String
+token           = unfold (many1 ttext) <?> "token"
+
+value           :: Parser String
+value           = token <|> quoted_string <?> "value"
 
 -- ** Primitive Tokens (section 3.2.1)
 
@@ -624,6 +635,7 @@ fields          = many (    try (do { r <- from; return (From r) })
                         <|> try (do { r <- received; return (Received r) })
                         <|> try (do { r <- content_type; return (ContentType r) })
                         <|> try (do { r <- content_transfer_encoding; return (ContentTransferEncoding r) })
+                        <|> try (do { r <- content_disposition; return (ContentDisposition r) })
                          -- catch all
                         <|> (do { (name,cont) <- optional_field; return (OptionalField name cont) })
                        )
@@ -876,8 +888,8 @@ mime_param      = do char ';'
                      many fws
                      char '='
                      many fws
-                     value <- word
-                     return (key, unquote value)
+                     val <- word
+                     return (key, unquote val)
 
 content_transfer_encoding :: Parser EncodingType
 content_transfer_encoding = header "Content-Transfer-Encoding" $ do
@@ -889,6 +901,29 @@ content_transfer_encoding = header "Content-Transfer-Encoding" $ do
     "base64" -> return Base64
     "quoted-printable" -> return QuotedPrintable
     _ -> fail "Unknown transfer encoding"
+
+content_disposition :: Parser Disposition
+content_disposition = header "Content-Disposition" $ do
+  t <- atom
+  t' <- case t of
+    "inline" -> return DispositionInline
+    "attachment" -> return DispositionAttachment
+    _ -> fail "Unknown content disposition"
+  params <- disposition_params
+  return (Disposition t' params)
+
+disposition_params :: Parser (Map.Map String String)
+disposition_params = Map.fromList <$> many disposition_param
+
+disposition_param :: Parser (String, String)
+disposition_param = do char ';'
+                       many fws
+                       key <- item_name
+                       many fws
+                       char '='
+                       many fws
+                       val <- value
+                       return (key, unquote val)
 
 name_val_list   :: Parser [(String,String)]
 name_val_list   = do optional cfws
