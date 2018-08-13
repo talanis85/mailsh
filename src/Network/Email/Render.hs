@@ -13,6 +13,7 @@ import qualified Data.Text.Encoding as T
 import Data.Maybe
 import Network.Email.Types
 import Network.Mail.Mime
+import Network.Mime
 
 sendmailPath :: FilePath
 sendmailPath = "sendmail"
@@ -73,7 +74,10 @@ convertAddr na = Address
 parseAttachment :: (MonadError String m) => String -> m (T.Text, FilePath)
 parseAttachment s =
   let (filename, ct) = break (== ';') s
-  in return (T.pack (tail ct), filename)
+      ct' = if null ct then ct else tail ct
+      ct'' = if null ct' then BS.unpack (defaultMimeLookup (T.pack filename))
+                         else ct'
+  in return (T.pack ct'', filename)
 
 mainPart :: T.Text -> Alternatives
 mainPart bodyContent = return Part

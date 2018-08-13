@@ -50,6 +50,7 @@ library
                      , encoding
                      , base64-string
                      , mime
+                     , mime-types
                      , attoparsec-expr
                      , mime-mail
                      , acid-state
