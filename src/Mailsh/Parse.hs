@@ -2,6 +2,7 @@ module Mailsh.Parse
   ( parseCrlfFile
   , parseFile
   , parseString
+  , parseStringMaybe
   , detectCrlf
   , Attoparsec
   ) where
@@ -39,10 +40,11 @@ parseCrlfFile fp p = parseOnly p <$> B.toStrict <$> fixCrlfL <$> B.readFile fp
 parseFile :: FilePath -> Parser a -> IO (Either String a)
 parseFile fp p = parseOnly p <$> BS.readFile fp
 
-parseString :: Parser a -> String -> Maybe a
-parseString p s = case parseOnly p (BChar8.pack s) of
-                    Left err -> Nothing
-                    Right v -> Just v
+parseString :: Parser a -> String -> Either String a
+parseString p s = parseOnly p (BChar8.pack s)
+
+parseStringMaybe :: Parser a -> String -> Maybe a
+parseStringMaybe p s = either (const Nothing) Just (parseString p s)
 
 fixCrlfL :: B.ByteString -> B.ByteString
 fixCrlfL = BB.toLazyByteString . B.foldr fixCrlf' mempty

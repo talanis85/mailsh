@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Mailsh.Types
   ( Recipient
-  , ReplyStrategy (..)
   , Flag (..)
   , flagToChar
   , Flags
@@ -15,9 +14,6 @@ import Control.Lens
 import Data.Fix
 
 type Recipient = String
-
-data ReplyStrategy = SingleReply | GroupReply
-  deriving (Show)
 
 data Flag = FlagD | FlagR | FlagS | FlagT | FlagF
   deriving (Show)

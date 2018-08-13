@@ -17,14 +17,8 @@ import Options.Applicative
 import System.Directory
 import System.Environment
 import System.FilePath
-import System.IO
-import System.Process
-import qualified Text.ParserCombinators.ReadPrec as Read
-import qualified Text.ParserCombinators.ReadP as Read
-import qualified GHC.Read as Read
 import Text.Printf
 
-import Mailsh.Compose
 import Mailsh.Filter
 import Mailsh.Types
 import Mailsh.Maildir
@@ -34,6 +28,7 @@ import Mailsh.Store
 
 import Network.Email
 
+import Compose
 import Browse
 import Render
 
@@ -218,10 +213,10 @@ cmdCompose :: Bool -> Recipient -> StoreM ()
 cmdCompose nosend rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= parseString parseNameAddr)
+    return (x >>= parseStringMaybe parseNameAddr)
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> parseString parseNameAddrs rcpt
+        , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
   unless nosend $ sendMessage headers body
@@ -235,7 +230,7 @@ cmdReply nosend strat mref = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     liftIO $ putStrLn $ show x
-    return (x >>= parseString parseNameAddr)
+    return (x >>= parseStringMaybe parseNameAddr)
   liftIO $ putStrLn $ show from
   let headers = replyHeaders from strat msg
   let rendered = renderType (messageBodyType msg) (messageBody msg)
@@ -246,44 +241,6 @@ cmdReply nosend strat mref = do
     setFlag 'R' mid
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
-
-replyHeaders :: Maybe NameAddr -> ReplyStrategy -> Message -> [Field]
-replyHeaders myaddr strat msg =
-  let from'   = case messageReplyTo msg of
-                  [] -> messageFrom msg
-                  xs -> xs
-      to      = case strat of
-                  GroupReply -> from' ++ messageTo msg
-                  SingleReply -> from'
-      cc      = case strat of
-                  GroupReply -> Just (messageCc msg)
-                  SingleReply -> Nothing
-      subject  = "Re: " ++ messageSubject msg
-  in catMaybes [ Just (mkField fTo to)
-               , mkField fCc <$> cc
-               , Just (mkField fInReplyTo [messageMessageId msg])
-               , Just (mkField fSubject subject)
-               , Just (mkField fReferences (messageMessageId msg : messageReferences msg))
-               , mkField fFrom <$> pure <$> myaddr
-               ]
-
-composeWith :: [Field] -> String -> IO (Either String ([Field], T.Text))
-composeWith headers text = do
-  tempdir <- getTemporaryDirectory
-  (tempf, temph) <- openTempFile tempdir "message"
-  msg <- runExceptT $ renderCompose headers text
-  case msg of
-    Left err -> return (Left err)
-    Right msg -> do
-      hPutStrLn temph msg
-      hClose temph
-      editFile tempf
-      parseFile tempf $ do
-        headers <- parseComposedHeaders
-        body <- parseComposedMessage
-        if T.null body
-           then fail "Empty message"
-           else return (headers, body)
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do
@@ -365,11 +322,6 @@ parseMailfile fp p = do
   case r of
     Left err -> throwError ("Cannot parse message " ++ err)
     Right v  -> return v
-
-editFile :: FilePath -> IO ()
-editFile fp = do
-  editor <- fromMaybe "vim" <$> lookupEnv "EDITOR"
-  callCommand (editor ++ " " ++ fp)
 
 main :: IO ()
 main = do
