@@ -17,6 +17,7 @@ module Mailsh.Store
   , messageNumber
   , Message (..)
   , parseMessageFile
+  , parseMessageString
   , FilterExp
   , FilterResult (..)
   , Limit
@@ -43,6 +44,7 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Morph
 import Control.Monad.Reader
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.List (union)
@@ -342,15 +344,18 @@ updateStore = do
         fp <- absoluteMaildirFile mid
         liftIO $ parseMessageFile mid flags fp
 
-parseMessageFile :: MID -> String -> String -> IO (Either String Message)
-parseMessageFile mid flags fp = do
-  hasCrlf <- detectCrlf fp
-  result <- if hasCrlf
-               then liftIO (parseFile fp (basicMessage mid flags))
-               else liftIO (parseCrlfFile fp (basicMessage mid flags))
+parseMessageString :: MID -> String -> BL.ByteString -> IO (Either String Message)
+parseMessageString mid flags bs = do
+  let hasCrlf = detectCrlf bs
+      result = if hasCrlf
+                  then parseByteString bs (basicMessage mid flags)
+                  else parseCrlfByteString bs (basicMessage mid flags)
   case result of
     Left err -> return (Left err)
-    Right result -> Right <$> result
+    Right x  -> Right <$> x
+
+parseMessageFile :: MID -> String -> String -> IO (Either String Message)
+parseMessageFile mid flags fp = BL.readFile fp >>= parseMessageString mid flags
 
 basicMessage :: MID -> String -> Attoparsec (IO Message)
 basicMessage mid flags = do

@@ -35,10 +35,14 @@ import Render
 -----------------------------------------------------------------------------
 
 type MessageNumber' = StoreM MessageNumber
-data MessageRef = MessageRefNumber MessageNumber' | MessageRefPath FilePath
+data MessageRef = MessageRefNumber MessageNumber' | MessageRefPath FilePath | MessageRefStdin
 
 messageRefReader :: ReadM MessageRef
-messageRefReader = (MessageRefNumber . setRecentMessageNumber <$> auto) <|> (MessageRefPath <$> str)
+messageRefReader =   (stdinToken >> return MessageRefStdin)
+                 <|> (MessageRefNumber . setRecentMessageNumber <$> auto)
+                 <|> (MessageRefPath <$> str)
+  where
+    stdinToken = eitherReader $ \x -> if x == "-" then Right () else Left "Expected '-'"
 
 -----------------------------------------------------------------------------
 
@@ -156,23 +160,29 @@ throwEither s m = do
 
 -----------------------------------------------------------------------------
 
-getMessage :: MessageRef -> StoreM (Message, FilePath)
+getMessage :: MessageRef -> StoreM (Message, BL.ByteString)
 getMessage mref = case mref of
   MessageRefNumber mn' -> do
     mn <- mn'
     msg <- queryStore' (lookupMessageNumber mn)
     fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
-    return (msg, fp)
+    bs <- liftIO $ BL.readFile fp
+    return (msg, bs)
   MessageRefPath path -> do
-    msg' <- liftIO $ parseMessageFile "" "" path
+    bs <- liftIO $ BL.readFile path
+    msg' <- liftIO $ parseMessageString "" "" bs
     case msg' of
       Left err -> throwError ("Could not parse message:\n" ++ err)
-      Right msg -> return (msg, path)
+      Right msg -> return (msg, bs)
+  MessageRefStdin -> do
+    bs <- liftIO $ BL.getContents
+    msg' <- liftIO $ parseMessageString "" "" bs
+    case msg' of
+      Left err -> throwError ("Could not parse message:\n" ++ err)
+      Right msg -> return (msg, bs)
 
 getRawMessage :: MessageRef -> StoreM BL.ByteString
-getRawMessage mref = do
-  (_, fp) <- getMessage mref
-  liftIO $ BL.readFile fp
+getRawMessage mref = snd <$> getMessage mref
 
 cmdRead :: MessageRef -> Renderer -> StoreM ()
 cmdRead mref renderer = do
@@ -182,11 +192,11 @@ cmdRead mref renderer = do
 
 cmdCat :: MessageRef -> Maybe Int -> StoreM ()
 cmdCat mref part = do
-  (msg, fp) <- getMessage mref
+  (msg, bs) <- getMessage mref
   case part of
-    Nothing -> liftIO $ BL.readFile fp >>= BLC.putStrLn
+    Nothing -> liftIO $ BLC.putStrLn bs
     Just part -> do
-      (headers, body) <- liftMaildir $ parseMailfile fp $ do
+      (headers, body) <- liftMaildir $ parseMailstring bs $ do
         h <- parseHeaders
         b <- parseMessage (mimeTextPlain "utf8") h
         return (h, b)
@@ -194,8 +204,8 @@ cmdCat mref part = do
 
 cmdView :: MessageRef -> Int -> StoreM ()
 cmdView mref part = do
-  (msg, fp) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailfile fp $ do
+  (msg, bs) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailstring bs $ do
     h <- parseHeaders
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
@@ -205,8 +215,8 @@ cmdView mref part = do
 
 cmdSave :: MessageRef -> Int -> FilePath -> StoreM ()
 cmdSave mref part path = do
-  (msg, fp) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailfile fp $ do
+  (msg, bs) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailstring bs $ do
     h <- parseHeaders
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
@@ -234,7 +244,7 @@ cmdCompose nosend rcpt = do
 
 cmdReply :: Bool -> ReplyStrategy -> MessageRef -> StoreM ()
 cmdReply nosend strat mref = do
-  (msg, fp) <- getMessage mref
+  (msg, _) <- getMessage mref
   let mid = messageMid msg
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
@@ -318,8 +328,8 @@ cmdFilename mn' = do
 
 cmdOutline :: MessageRef -> StoreM ()
 cmdOutline mref = do
-  (msg, fp) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailfile fp $ do
+  (msg, bs) <- getMessage mref
+  (headers, body) <- liftMaildir $ parseMailstring bs $ do
     h <- parseHeaders
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
@@ -344,6 +354,13 @@ parseMaildirFile mid p = do
 parseMailfile :: (MonadError String m, MonadIO m) => FilePath -> Attoparsec a -> m a
 parseMailfile fp p = do
   r <- liftIO $ parseCrlfFile fp p
+  case r of
+    Left err -> throwError ("Cannot parse message " ++ err)
+    Right v  -> return v
+
+parseMailstring :: (MonadError String m) => BL.ByteString -> Attoparsec a -> m a
+parseMailstring s p = do
+  let r = parseCrlfByteString s p
   case r of
     Left err -> throwError ("Cannot parse message " ++ err)
     Right v  -> return v

@@ -1,6 +1,8 @@
 module Mailsh.Parse
   ( parseCrlfFile
+  , parseCrlfByteString
   , parseFile
+  , parseByteString
   , parseString
   , parseStringMaybe
   , detectCrlf
@@ -20,9 +22,8 @@ import Data.Word
 
 type Attoparsec = Parser
 
-detectCrlf :: FilePath -> IO Bool
-detectCrlf fp = do
-  f <- B.readFile fp
+detectCrlf :: B.ByteString -> Bool
+detectCrlf bs =
   let detect s = do
         (c, s') <- B.uncons s
         if c == 10
@@ -32,13 +33,19 @@ detectCrlf fp = do
                 then return True
                 else return False
            else detect s'
-  return (fromMaybe True (detect f))
+  in fromMaybe True (detect bs)
 
 parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
-parseCrlfFile fp p = parseOnly p <$> B.toStrict <$> fixCrlfL <$> B.readFile fp
+parseCrlfFile fp p = flip parseCrlfByteString p <$> B.readFile fp
+
+parseCrlfByteString :: B.ByteString -> Parser a -> Either String a
+parseCrlfByteString bs p = parseOnly p $ B.toStrict $ fixCrlfL bs
 
 parseFile :: FilePath -> Parser a -> IO (Either String a)
 parseFile fp p = parseOnly p <$> BS.readFile fp
+
+parseByteString :: B.ByteString -> Parser a -> Either String a
+parseByteString bs p = parseOnly p (B.toStrict bs)
 
 parseString :: Parser a -> String -> Either String a
 parseString p s = parseOnly p (BChar8.pack s)
