@@ -78,6 +78,8 @@ commandP = subparser
   <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
                                           <*> flag SingleReply GroupReply (long "group")
                                           <*> msgArgument) idm)
+  <> command "forward"  (info (cmdForward <$> msgArgument
+                                          <*> argument str (metavar "RECIPIENT")) idm)
   <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
                                           <*> argument (eitherReader parseFilterExp)
                                                        (metavar "FILTER" <> value (return filterUnseen)))
@@ -167,6 +169,11 @@ getMessage mref = case mref of
       Left err -> throwError ("Could not parse message:\n" ++ err)
       Right msg -> return (msg, path)
 
+getRawMessage :: MessageRef -> StoreM BL.ByteString
+getRawMessage mref = do
+  (_, fp) <- getMessage mref
+  liftIO $ BL.readFile fp
+
 cmdRead :: MessageRef -> Renderer -> StoreM ()
 cmdRead mref renderer = do
   (msg, _) <- getMessage mref
@@ -219,7 +226,9 @@ cmdCompose nosend rcpt = do
         , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
-  unless nosend $ sendMessage headers body
+  unless nosend $ do
+    mail <- generateMessage headers body
+    liftIO $ sendMessage mail
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
 
@@ -236,11 +245,27 @@ cmdReply nosend strat mref = do
   let rendered = renderType (messageBodyType msg) (messageBody msg)
   let quoted = unlines $ map ("> " ++) $ lines rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
-  liftMaildir $ unless nosend $ do
-    sendMessage headers body
-    setFlag 'R' mid
+  unless nosend $ do
+    mail <- generateMessage headers body
+    liftIO $ sendMessage mail
+    liftMaildir $ setFlag 'R' mid
   msg <- renderMessageS headers body
   liftIO $ putStrLn msg
+
+cmdForward :: MessageRef -> Recipient -> StoreM ()
+cmdForward mref rcpt = do
+  from <- do
+    x <- liftIO (lookupEnv "MAILFROM")
+    return (x >>= parseStringMaybe parseNameAddr)
+  let initialHeaders = catMaybes
+        [ mkField fFrom <$> return <$> from
+        , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
+        ]
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
+  mail <- generateMessage headers body
+  attachment <- getRawMessage mref
+  let mail' = addAttachmentBS (T.pack "message/rfc822") (T.pack "original") attachment mail
+  liftIO $ sendMessage mail'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do

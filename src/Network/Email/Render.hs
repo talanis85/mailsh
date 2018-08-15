@@ -3,6 +3,8 @@ module Network.Email.Render
   ( renderMessage
   , renderMessageS
   , sendMessage
+  , generateMessage
+  , addAttachmentBS
   ) where
 
 import Control.Monad.Except
@@ -20,24 +22,22 @@ sendmailPath = "sendmail"
 
 renderMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m B.ByteString
 renderMessage fields body = do
-  m <- genMail fields body
+  m <- generateMessage fields body
   liftIO $ renderMail' m
 
 renderMessageS :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m String
 renderMessageS fields body = B.unpack <$> renderMessage fields body
 
-sendMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m ()
-sendMessage fields body = do
-  m <- genMail fields body
-  liftIO $ renderSendMailCustom sendmailPath ["-t"] m
+sendMessage :: Mail -> IO ()
+sendMessage mail = renderSendMailCustom sendmailPath ["-t"] mail
 
 maybeError :: (MonadError String m) => String -> Maybe a -> m a
 maybeError s m = case m of
                    Nothing -> throwError s
                    Just v  -> return v
 
-genMail :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m Mail
-genMail fields body = do
+generateMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m Mail
+generateMessage fields body = do
   from <- maybeError "Missing header: From" $
     listToMaybe $ concat $ lookupField fFrom fields
   let mainMail = Mail
