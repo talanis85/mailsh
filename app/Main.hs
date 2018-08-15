@@ -28,21 +28,10 @@ import Mailsh.Store
 
 import Network.Email
 
-import Compose
 import Browse
+import Compose
+import MessageRef
 import Render
-
------------------------------------------------------------------------------
-
-type MessageNumber' = StoreM MessageNumber
-data MessageRef = MessageRefNumber MessageNumber' | MessageRefPath FilePath | MessageRefStdin
-
-messageRefReader :: ReadM MessageRef
-messageRefReader =   (stdinToken >> return MessageRefStdin)
-                 <|> (MessageRefNumber . setRecentMessageNumber <$> auto)
-                 <|> (MessageRefPath <$> str)
-  where
-    stdinToken = eitherReader $ \x -> if x == "-" then Right () else Left "Expected '-'"
 
 -----------------------------------------------------------------------------
 
@@ -128,23 +117,6 @@ mnArgument :: Parser MessageNumber'
 mnArgument = argument (setRecentMessageNumber <$> auto)
                       (metavar "MESSAGE" <> value getRecentMessageNumber)
 
-maildirFile :: String -> MaildirM FilePath
-maildirFile f = do
-  p <- getMaildirPath
-  return (p </> f)
-
-getRecentMessageNumber :: StoreM MessageNumber
-getRecentMessageNumber = read <$> (liftMaildir (maildirFile ".recentmessage") >>= liftIO . readFile)
-
-setRecentMessageNumber :: MessageNumber -> StoreM MessageNumber
-setRecentMessageNumber n = (liftMaildir (maildirFile ".recentmessage") >>= liftIO . flip writeFile (show n))
-                           >> return n
-
-getNextMessageNumber :: StoreM MessageNumber
-getNextMessageNumber = do
-  messages <- resultRows <$> queryStore (filterBy filterUnseen Nothing)
-  setRecentMessageNumber $ fromMaybe (messageNumber 0) $ listToMaybe $ map fst messages
-
 queryStore' q = do
   x <- queryStore q
   case x of
@@ -180,6 +152,23 @@ getMessage mref = case mref of
     case msg' of
       Left err -> throwError ("Could not parse message:\n" ++ err)
       Right msg -> return (msg, bs)
+  MessageRefPart n mref' -> do
+    (msg', bs) <- getMessage mref'
+    body <- liftMaildir $ parseMailstring bs $ do
+      h <- parseHeaders
+      b <- parseMessage (mimeTextPlain "utf8") h
+      return b
+    case partList body !! (n-1) of
+      PartBinary t s ->
+        if isSimpleMimeType "message/rfc822" t
+        then do
+          let bs = BL.fromStrict s
+          msg'' <- liftIO $ parseMessageString "" "" bs
+          case msg'' of
+            Left err -> throwError ("Could not parse message:\n" ++ err)
+            Right msg -> return (msg, bs)
+        else throwError "Part must be of type message/rfc822"
+      _ -> throwError "Part must be of type message/rfc822"
 
 getRawMessage :: MessageRef -> StoreM BL.ByteString
 getRawMessage mref = snd <$> getMessage mref
