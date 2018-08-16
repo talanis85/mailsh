@@ -131,6 +131,11 @@ throwEither s m = do
 
 -----------------------------------------------------------------------------
 
+getPartNumber n body
+  | n < 1 = throwError "No such part"
+  | n > length (partList body) = throwError "No such part"
+  | otherwise = return (partList body !! (n-1))
+
 getMessage :: MessageRef -> StoreM (Message, BL.ByteString)
 getMessage mref = case mref of
   MessageRefNumber mn' -> do
@@ -157,7 +162,8 @@ getMessage mref = case mref of
       h <- parseHeaders
       b <- parseMessage (mimeTextPlain "utf8") h
       return b
-    case partList body !! (n-1) of
+    part <- getPartNumber n body
+    case part of
       PartBinary t s ->
         if isSimpleMimeType "message/rfc822" t
         then do
@@ -196,7 +202,7 @@ getPart mref = case mref of
             h <- parseHeaders
             b <- parseMessage (mimeTextPlain "utf8") h
             return b
-          return (partList body !! (n-1))
+          getPartNumber n body
         else throwError "Expected type message/rfc822"
       _ -> throwError "Expected type message/rfc822"
 
