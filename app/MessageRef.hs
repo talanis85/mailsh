@@ -45,12 +45,13 @@ messageRefReader = eitherReader $ \x -> case parse messageRefParser "" x of
   Right v  -> Right v
 
 messageRefParser :: Parsec String u MessageRef
-messageRefParser =
-      (MessageRefPart <$> partNumber <*> messageRefParser)
-  <|> (stdinToken >> return MessageRefStdin)
-  <|> (currentToken >> return (MessageRefNumber getRecentMessageNumber))
-  <|> (MessageRefNumber . setRecentMessageNumber <$> anyNumber)
-  <|> (MessageRefPath <$> anyString)
+messageRefParser = choice $ map try
+  [ MessageRefPart <$> partNumber <*> messageRefParser
+  , stdinToken >> return MessageRefStdin
+  , currentToken >> return (MessageRefNumber getRecentMessageNumber)
+  , MessageRefNumber . setRecentMessageNumber <$> anyNumber
+  , MessageRefPath <$> anyString
+  ]
   where
     anyNumber = read <$> many1 digit
     anyString = many1 anyChar
