@@ -8,7 +8,6 @@ module Render
   , formatMessageSingle
   , printMessageSingle
   , printResultCount
-  , outputPart
   , terminalHeight
   , runMailcap
   ) where
@@ -39,14 +38,6 @@ flagSummary flags
   | 'R' `elem` flags                        = 'R'
   | 'S' `elem` flags && 'T' `notElem` flags = 'O'
   | otherwise                               = 'N'
-
-outputPart :: Int -> PartTree -> IO ()
-outputPart n b =
-  let typeFilter = const True
-      parts      = partList b
-  in case parts !! (n-1) of
-       PartText t s   -> T.putStrLn s
-       PartBinary t s -> BS.putStr s
 
 removeBlankLines :: String -> String
 removeBlankLines = unlines . fst . foldr removeBlankLines' ([], 0) . lines

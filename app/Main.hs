@@ -12,6 +12,8 @@ import qualified Data.ByteString.Char8 as BSC
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 import Development.GitRev
 import Options.Applicative
 import System.Directory
@@ -57,12 +59,9 @@ commandP :: Parser (StoreM ())
 commandP = subparser
   (  command "read"     (info (cmdRead    <$> msgArgument
                                           <*> rendererOption noquoteRenderer) idm)
-  <> command "cat"      (info (cmdCat     <$> msgArgument
-                                          <*> maybeOption auto (short 'p' <> metavar "PART")) idm)
-  <> command "view"     (info (cmdView    <$> msgArgument
-                                          <*> option auto (short 'p' <> metavar "PART")) idm)
+  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
+  <> command "view"     (info (cmdView    <$> msgArgument) idm)
   <> command "save"     (info (cmdSave    <$> msgArgument
-                                          <*> option auto (short 'p' <> metavar "PART")
                                           <*> option str (short 'd' <> metavar "DIR")) idm)
   <> command "next"     (info (cmdRead    <$> pure (MessageRefNumber getNextMessageNumber)
                                           <*> rendererOption previewRenderer) idm)
@@ -173,43 +172,58 @@ getMessage mref = case mref of
 getRawMessage :: MessageRef -> StoreM BL.ByteString
 getRawMessage mref = snd <$> getMessage mref
 
+getPart :: MessageRef -> StoreM Part
+getPart mref = case mref of
+  MessageRefNumber mn' -> do
+    mn <- mn'
+    msg <- queryStore' (lookupMessageNumber mn)
+    fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
+    bs <- liftIO $ BS.readFile fp
+    return (PartBinary (mkMimeType "message" "rfc822") bs)
+  MessageRefPath path -> do
+    bs <- liftIO $ BS.readFile path
+    return (PartBinary (mkMimeType "message" "rfc822") bs)
+  MessageRefStdin -> do
+    bs <- liftIO $ BS.getContents
+    return (PartBinary (mkMimeType "message" "rfc822") bs)
+  MessageRefPart n mref' -> do
+    part' <- getPart mref'
+    case part' of
+      PartBinary t bs -> do
+        if isSimpleMimeType "message/rfc822" t
+        then do
+          body <- liftMaildir $ parseMailstring (BL.fromStrict bs) $ do
+            h <- parseHeaders
+            b <- parseMessage (mimeTextPlain "utf8") h
+            return b
+          return (partList body !! (n-1))
+        else throwError "Expected type message/rfc822"
+      _ -> throwError "Expected type message/rfc822"
+
 cmdRead :: MessageRef -> Renderer -> StoreM ()
 cmdRead mref renderer = do
   (msg, _) <- getMessage mref
   renderer msg
   liftMaildir $ setFlag 'S' (messageMid msg)
 
-cmdCat :: MessageRef -> Maybe Int -> StoreM ()
-cmdCat mref part = do
-  (msg, bs) <- getMessage mref
+cmdCat :: MessageRef -> StoreM ()
+cmdCat mref = do
+  part <- getPart mref
   case part of
-    Nothing -> liftIO $ BLC.putStrLn bs
-    Just part -> do
-      (headers, body) <- liftMaildir $ parseMailstring bs $ do
-        h <- parseHeaders
-        b <- parseMessage (mimeTextPlain "utf8") h
-        return (h, b)
-      liftIO $ outputPart part body
+    PartText t s -> liftIO $ T.putStrLn s
+    PartBinary t s -> liftIO $ BSC.putStrLn s
 
-cmdView :: MessageRef -> Int -> StoreM ()
-cmdView mref part = do
-  (msg, bs) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailstring bs $ do
-    h <- parseHeaders
-    b <- parseMessage (mimeTextPlain "utf8") h
-    return (h, b)
-  case partList body !! (part-1) of
+cmdView :: MessageRef -> StoreM ()
+cmdView mref = do
+  part <- getPart mref
+  case part of
     PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (BSC.pack (T.unpack s))
     PartBinary t s -> liftIO $ runMailcap t s
 
-cmdSave :: MessageRef -> Int -> FilePath -> StoreM ()
-cmdSave mref part path = do
-  (msg, bs) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailstring bs $ do
-    h <- parseHeaders
-    b <- parseMessage (mimeTextPlain "utf8") h
-    return (h, b)
-  case partList body !! (part-1) of
+cmdSave :: MessageRef -> FilePath -> StoreM ()
+cmdSave mref path = do
+  part <- getPart mref
+  case part of
     PartBinary t s -> case lookupMimeParam "name" t of
       Nothing -> throwError "Part has no filename"
       Just fn -> liftIO $ BS.writeFile (path </> fn) s
@@ -262,8 +276,18 @@ cmdForward mref rcpt = do
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
   mail <- generateMessage headers body
-  attachment <- getRawMessage mref
-  let mail' = addAttachmentBS (T.pack "message/rfc822") (T.pack "original") attachment mail
+  part <- getPart mref
+  let mail' = case part of
+        PartBinary t s ->
+          addAttachmentBS (T.pack (simpleMimeType t))
+                          (T.pack "original")
+                          (BL.fromStrict s)
+                          mail
+        PartText t s ->
+          addAttachmentBS (T.pack ("text/" ++ t ++ "; charset=utf-8"))
+                          (T.pack "original")
+                          (BL.fromStrict (T.encodeUtf8 s))
+                          mail
   liftIO $ sendMessage mail'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
