@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Main where
 
+import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Archive.Tar.Entry as Tar
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Logger
@@ -88,6 +90,7 @@ commandP = subparser
   <> command "unflag"   (info (cmdUnflag  <$> mnArgument) idm)
   <> command "filename" (info (cmdFilename <$> mnArgument) idm)
   <> command "outline"  (info (cmdOutline <$> msgArgument) idm)
+  <> command "tar"      (info (cmdTar     <$> msgArgument) idm)
   ) <|> (cmdHeaders <$> limitOption Nothing
                     <*> argument (eitherReader parseFilterExp)
                                  (metavar "FILTER" <> value (return filterUnseen)))
@@ -353,6 +356,21 @@ cmdOutline mref = do
     b <- parseMessage (mimeTextPlain "utf8") h
     return (h, b)
   liftIO $ putStrLn $ outline body
+
+cmdTar :: MessageRef -> StoreM ()
+cmdTar mref = do
+  bs <- getRawMessage mref
+  parts <- liftMaildir $ parseMailstring bs $ do
+    h <- parseHeaders
+    parseMessage (mimeTextPlain "utf8") h
+  let mkAttachmentEntry (PartText _ _) = return Nothing
+      mkAttachmentEntry (PartBinary mt bs) = case lookupMimeParam "name" mt of
+        Nothing -> return Nothing
+        Just fn -> case Tar.toTarPath False fn of
+          Left err -> throwError $ printf "Invalid path '%s': %s" fn err
+          Right tp -> return $ Just $ Tar.fileEntry tp (BL.fromStrict bs)
+  attachments <- catMaybes <$> mapM mkAttachmentEntry (partList parts)
+  liftIO $ BL.putStr (Tar.write attachments)
 
 modifyMessage :: (MID -> StoreM ()) -> String -> MessageNumber' -> StoreM ()
 modifyMessage f notice mn' = do

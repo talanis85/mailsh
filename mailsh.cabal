@@ -86,6 +86,7 @@ executable mailsh
                      , process
                      , gitrev
                      , filepath
+                     , tar
                      , text
                      , time
                      , bytestring
