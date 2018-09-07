@@ -21,6 +21,7 @@ import Options.Applicative
 import System.Directory
 import System.Environment
 import System.FilePath
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Text.Printf
 
 import Mailsh.Filter
@@ -58,66 +59,126 @@ version :: String
 version = $(gitBranch) ++ "@" ++ $(gitHash)
 
 commandP :: Parser (StoreM ())
-commandP = subparser
+commandP = hsubparser
   (  command "read"     (info (cmdRead    <$> msgArgument
-                                          <*> rendererOption noquoteRenderer) idm)
-  <> command "cat"      (info (cmdCat     <$> msgArgument) idm)
-  <> command "view"     (info (cmdView    <$> msgArgument) idm)
+                                          <*> rendererOption noquoteRenderer)
+                              (progDesc "Read a message."))
+  <> command "cat"      (info (cmdCat     <$> msgArgument)
+                              (progDesc "Output raw message data."))
+  <> command "view"     (info (cmdView    <$> msgArgument)
+                              (progDesc "View a message or part with mailcap."))
   <> command "save"     (info (cmdSave    <$> msgArgument
-                                          <*> option str (short 'd' <> metavar "DIR")) idm)
+                                          <*> option str (short 'd' <> metavar "DIR" <> help "Where to save the attachment."))
+                              (progDesc "Save a part to disk using its given filename."))
   <> command "next"     (info (cmdRead    <$> pure (MessageRefNumber getNextMessageNumber)
-                                          <*> rendererOption previewRenderer) idm)
-  <> command "compose"  (info (cmdCompose <$> flag False True (long "nosend")
-                                          <*> argument str (metavar "RECIPIENT")) idm)
-  <> command "reply"    (info (cmdReply   <$> flag False True (long "nosend")
-                                          <*> flag SingleReply GroupReply (long "group")
-                                          <*> msgArgument) idm)
-  <> command "forward"  (info (cmdForward <$> msgArgument
-                                          <*> argument str (metavar "RECIPIENT")) idm)
+                                          <*> rendererOption previewRenderer)
+                              (progDesc "Read the next unread message."))
+  <> command "compose"  (info (cmdCompose <$> dryFlag
+                                          <*> argument str (metavar "RECIPIENT" <> help "The recipient's address"))
+                              (progDesc "Compose a new message using your EDITOR"))
+  <> command "reply"    (info (cmdReply   <$> dryFlag
+                                          <*> flag SingleReply GroupReply (short 'g' <> long "group" <> help "Group reply")
+                                          <*> msgArgument)
+                              (progDesc "Reply to a message using your EDITOR."))
+  <> command "forward"  (info (cmdForward <$> dryFlag
+                                          <*> argument str (metavar "RECIPIENT" <> help "The recipient's address")
+                                          <*> msgArgument)
+                              (progDesc "Forward a message."))
   <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
-                                          <*> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value (return filterUnseen)))
-                              idm)
+                                          <*> filterArgument (return filterUnseen))
+                              (headersHelp <> progDesc "List all headers given a filter expression."))
   <> command "browse"   (info (cmdBrowse  <$> limitOption Nothing
-                                          <*> argument (eitherReader parseFilterExp)
-                                                       (metavar "FILTER" <> value (return filterUnseen)))
-                              idm)
-  <> command "trash"    (info (cmdTrash   <$> mnArgument) idm)
-  <> command "recover"  (info (cmdRecover <$> mnArgument) idm)
-  <> command "purge"    (info (pure cmdPurge) idm)
-  <> command "unread"   (info (cmdUnread  <$> mnArgument) idm)
-  <> command "flag"     (info (cmdFlag    <$> mnArgument) idm)
-  <> command "unflag"   (info (cmdUnflag  <$> mnArgument) idm)
-  <> command "filename" (info (cmdFilename <$> mnArgument) idm)
-  <> command "outline"  (info (cmdOutline <$> msgArgument) idm)
-  <> command "tar"      (info (cmdTar     <$> msgArgument) idm)
+                                          <*> filterArgument (return filterUnseen))
+                              (progDesc "Open an interactive message browser (unfinished)."))
+  <> command "trash"    (info (cmdTrash   <$> mnArgument)
+                              (progDesc "Trash a message."))
+  <> command "recover"  (info (cmdRecover <$> mnArgument)
+                              (progDesc "Recover a trashed message."))
+  <> command "purge"    (info (pure cmdPurge)
+                              (progDesc "Permanently delete trashed messages."))
+  <> command "unread"   (info (cmdUnread  <$> mnArgument)
+                              (progDesc "Mark a message as unread."))
+  <> command "flag"     (info (cmdFlag    <$> mnArgument)
+                              (progDesc "Mark a message as flagged."))
+  <> command "unflag"   (info (cmdUnflag  <$> mnArgument)
+                              (progDesc "Mark a message as unflagged."))
+  <> command "filename" (info (cmdFilename <$> mnArgument)
+                              (progDesc "Get the filename of a message."))
+  <> command "outline"  (info (cmdOutline <$> msgArgument)
+                              (progDesc "Display an outline of a message."))
+  <> command "tar"      (info (cmdTar     <$> msgArgument)
+                              (progDesc "Output all attachments of a message to stdout as a tar archive."))
   ) <|> (cmdHeaders <$> limitOption Nothing
-                    <*> argument (eitherReader parseFilterExp)
-                                 (metavar "FILTER" <> value (return filterUnseen)))
-    where
-      limitOption def = option (eitherReader parseLimit) (short 'l' <> long "limit" <> metavar "LIMIT" <> value def)
-      rendererOption def = option rendererReader (   short 'r'
-                                                  <> long "render"
-                                                  <> metavar "RENDERER"
-                                                  <> value def
-                                                 )
-      rendererReader = eitherReader $ \s -> case s of
-        "full"    -> Right fullRenderer
-        "outline" -> Right outlineRenderer
-        "preview" -> Right previewRenderer
-        "noquote" -> Right noquoteRenderer
-        _         -> Left "Invalid renderer"
+                    <*> filterArgument (return filterUnseen))
+
+headersHelp :: InfoMod a
+headersHelp = footerDoc $ Just $ PP.vcat $ map PP.string
+  [ "Valid filter expressions are:"
+  , ""
+  , "  /string/       'Subject' or 'From' contains 'string'"
+  , "  a              Matches all messages"
+  , "  d              Matches draft messages"
+  , "  r              Matches replied messages"
+  , "  s              Matches seen messages"
+  , "  t              Matches trashed messages"
+  , "  f              Matches flagged messages"
+  , "  all            Equivalent to '~t' (all non-trashed messages)"
+  , "  new            Equivalent to '~s' (all unseen messages)"
+  , ""
+  , "All of these expressions can be combined with the logical operators '&' (and), '|' (or) and '~' (not)."
+  , ""
+  , "Examples:"
+  , "  f&~d                All flagged messages that are not a draft"
+  , "  r&/hello/           All replied messages that contain the string 'hello'"
+  , "  (t&/foo/)|(d&/bar/) All trashed messages containing 'foo' and all drafts containing 'bar'"
+  ]
+
+dryFlag :: Parser Bool
+dryFlag = flag False True (long "dry" <> help "Dont actually send the message")
+
+filterArgument :: StoreM FilterExp -> Parser (StoreM FilterExp)
+filterArgument def = argument (eitherReader parseFilterExp) $
+     metavar "FILTER"
+  <> help "A filter expression"
+  <> value def
+
+limitOption :: Maybe Limit -> Parser (Maybe Limit)
+limitOption def = option (eitherReader parseLimit) $
+     short 'l'
+  <> long "limit"
+  <> metavar "LIMIT"
+  <> help "How many headers to display"
+  <> value def
+
+rendererOption :: Renderer -> Parser Renderer
+rendererOption def = option rendererReader $
+     short 'r'
+  <> long "render"
+  <> metavar "RENDERER"
+  <> help "Available renderers are: full, outlint, preview, noquote"
+  <> value def
+  where
+    rendererReader = eitherReader $ \s -> case s of
+      "full"    -> Right fullRenderer
+      "outline" -> Right outlineRenderer
+      "preview" -> Right previewRenderer
+      "noquote" -> Right noquoteRenderer
+      _         -> Left "Invalid renderer"
 
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
 maybeOption r m = option (Just <$> r) (m <> value Nothing)
 
 msgArgument :: Parser MessageRef
-msgArgument = argument messageRefReader
-                       (metavar "MESSAGE" <> value (MessageRefNumber getRecentMessageNumber))
+msgArgument = argument messageRefReader $
+     metavar "MESSAGE"
+  <> help "Either a message number (e.g. 123), a part reference (e.g. 2#123) or '-' for stdin. Default is the last accessed message."
+  <> value (MessageRefNumber getRecentMessageNumber)
 
 mnArgument :: Parser MessageNumber'
-mnArgument = argument (setRecentMessageNumber <$> auto)
-                      (metavar "MESSAGE" <> value getRecentMessageNumber)
+mnArgument = argument (setRecentMessageNumber <$> auto) $
+     metavar "MESSAGE"
+  <> help "Message number. Default is the last accessed message."
+  <> value getRecentMessageNumber
 
 queryStore' q = do
   x <- queryStore q
@@ -239,7 +300,7 @@ cmdSave mref path = do
     PartText t s -> throwError "Cannot save text parts"
 
 cmdCompose :: Bool -> Recipient -> StoreM ()
-cmdCompose nosend rcpt = do
+cmdCompose dry rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseStringMaybe parseNameAddr)
@@ -248,14 +309,16 @@ cmdCompose nosend rcpt = do
         , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
-  unless nosend $ do
+  if dry
+  then do
+    msg <- renderMessageS headers body
+    liftIO $ putStrLn msg
+  else do
     mail <- generateMessage headers body
     liftIO $ sendMessage mail
-  msg <- renderMessageS headers body
-  liftIO $ putStrLn msg
 
 cmdReply :: Bool -> ReplyStrategy -> MessageRef -> StoreM ()
-cmdReply nosend strat mref = do
+cmdReply dry strat mref = do
   (msg, _) <- getMessage mref
   let mid = messageMid msg
   from <- do
@@ -267,15 +330,17 @@ cmdReply nosend strat mref = do
   let rendered = renderType (messageBodyType msg) (messageBody msg)
   let quoted = unlines $ map ("> " ++) $ lines rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
-  unless nosend $ do
+  if dry
+  then do
+    msg <- renderMessageS headers body
+    liftIO $ putStrLn msg
+  else do
     mail <- generateMessage headers body
     liftIO $ sendMessage mail
     liftMaildir $ setFlag 'R' mid
-  msg <- renderMessageS headers body
-  liftIO $ putStrLn msg
 
-cmdForward :: MessageRef -> Recipient -> StoreM ()
-cmdForward mref rcpt = do
+cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
+cmdForward dry rcpt mref = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseStringMaybe parseNameAddr)
@@ -297,7 +362,12 @@ cmdForward mref rcpt = do
                           (T.pack "original")
                           (BL.fromStrict (T.encodeUtf8 s))
                           mail
-  liftIO $ sendMessage mail'
+  if dry
+  then do
+    msg <- liftIO $ renderMail' mail'
+    liftIO $ BL.putStr msg
+  else do
+    liftIO $ sendMessage mail'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do

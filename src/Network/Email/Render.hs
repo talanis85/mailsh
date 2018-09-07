@@ -2,6 +2,7 @@
 module Network.Email.Render
   ( renderMessage
   , renderMessageS
+  , renderMail'
   , sendMessage
   , generateMessage
   , addAttachmentBS

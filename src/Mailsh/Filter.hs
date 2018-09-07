@@ -24,7 +24,8 @@ filterExpP = buildExpressionParser
 
 filterTermP :: Parser (StoreM FilterExp)
 filterTermP = choice
-  [ string (B.pack "new") >> return (return filterUnseen)
+  [ char '(' *> filterExpP <* char ')'
+  , string (B.pack "new") >> return (return filterUnseen)
   , string (B.pack "all") >> return (return filterUntrashed)
   , char 'a' >> return (return filterAll)
   , char 'd' >> return (return (filterFlag 'D'))
