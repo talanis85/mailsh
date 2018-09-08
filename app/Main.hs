@@ -33,7 +33,6 @@ import Mailsh.Store
 
 import Network.Email
 
-import Browse
 import Compose
 import MessageRef
 import Render
@@ -87,9 +86,6 @@ commandP = hsubparser
   <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
                                           <*> filterArgument (return filterUnseen))
                               (headersHelp <> progDesc "List all headers given a filter expression."))
-  <> command "browse"   (info (cmdBrowse  <$> limitOption Nothing
-                                          <*> filterArgument (return filterUnseen))
-                              (progDesc "Open an interactive message browser (unfinished)."))
   <> command "trash"    (info (cmdTrash   <$> mnArgument)
                               (progDesc "Trash a message."))
   <> command "recover"  (info (cmdRecover <$> mnArgument)
@@ -379,16 +375,6 @@ cmdHeaders limit' filter' = do
   let messages = resultRows result
   liftIO $ mapM_ (uncurry printMessageSingle) messages
   liftIO $ printResultCount result
-
-cmdBrowse :: Maybe Limit -> StoreM FilterExp -> StoreM ()
-cmdBrowse limit' filter' = do
-  filter <- filter'
-  limit <- case limit' of
-    Just x -> return x
-    Nothing -> Just . subtract 2 <$> liftIO terminalHeight
-  result <- queryStore (filterBy filter limit)
-  let messages = resultRows result
-  liftIO $ browseMessages messages
 
 cmdTrash :: MessageNumber' -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."

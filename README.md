@@ -163,15 +163,6 @@ Command reference
         r&/hello/           All replied messages that contain the string 'hello'
         (t&/foo/)|(d&/bar/) All trashed messages containing 'foo' and all drafts containing 'bar'
 
-* `mailsh browse [-l|--limit LIMIT] [FILTER]`
-
-        Open an interactive message browser (unfinished).
-
-      Available options:
-        -l,--limit LIMIT         How many headers to display
-        FILTER                   A filter expression
-        -h,--help                Show this help text
-
 * `mailsh trash [MESSAGE]`
 
         Trash a message.
