@@ -26,8 +26,8 @@ import System.IO
 
 parseHeaders :: P.Parser [Field]
 parseHeaders = do
-  r <- fields
-  crlf
+  r <- fields P.<?> "headers"
+  crlf P.<?> "crlf after headers"
   return r
 
 parseMessage :: MimeType -> [Field] -> P.Parser PartTree
@@ -36,7 +36,7 @@ parseMessage defMime headers =
         fromMaybe defMime (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
-  in encoded_message contentType contentTransferEncoding
+  in encoded_message contentType contentTransferEncoding P.<?> "encoded_message"
 
 parseNameAddr :: P.Parser NameAddr
 parseNameAddr = name_addr
