@@ -27,14 +27,14 @@ detectCrlf :: B.ByteString -> Bool
 detectCrlf bs =
   let detect s = do
         (c, s') <- B.uncons s
-        if c == 10
+        if c == 13
            then do
              (c', s'') <- B.uncons s'
-             if c' == 13
+             if c' == 10
                 then return True
                 else return False
            else detect s'
-  in fromMaybe True (detect bs)
+  in fromMaybe False (detect bs)
 
 parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
 parseCrlfFile fp p = flip parseCrlfByteString p <$> B.readFile fp
