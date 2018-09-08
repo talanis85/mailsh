@@ -1,6 +1,7 @@
 module Email where
 
 import qualified Data.ByteString.Lazy as BL
+import Data.List
 import qualified Data.Text as T
 import Test.HUnit
 import Text.Printf
@@ -10,8 +11,8 @@ import Mailsh.Parse
 import Network.Email
 
 test :: Test
-test = TestList $ map testMsg $ [1..18] ++ [20..24] ++ [26..34] ++ [36..46]
-       -- 19, 25 and 35 are WONTFIX
+test = TestList $ map testMsg $ [1..46] \\ [19,25,35,43]
+       -- 19, 25, 35 and 43 are WONTFIX
 
 testMsg :: Integer -> Test
 testMsg n =
