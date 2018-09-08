@@ -155,7 +155,7 @@ rendererOption def = option rendererReader $
      short 'r'
   <> long "render"
   <> metavar "RENDERER"
-  <> help "Available renderers are: full, outlint, preview, noquote"
+  <> help "Available renderers are: full, outline, preview, noquote"
   <> value def
   where
     rendererReader = eitherReader $ \s -> case s of

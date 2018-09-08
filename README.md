@@ -58,7 +58,7 @@ Command reference
         MESSAGE                  Either a message number (e.g. 123), a part reference
                                  (e.g. 2#123) or '-' for stdin. Default is the last
                                  accessed message.
-        -r,--render RENDERER     Available renderers are: full, outlint, preview,
+        -r,--render RENDERER     Available renderers are: full, outline, preview,
                                  noquote
         -h,--help                Show this help text
 
@@ -98,7 +98,7 @@ Command reference
         Read the next unread message.
 
       Available options:
-        -r,--render RENDERER     Available renderers are: full, outlint, preview,
+        -r,--render RENDERER     Available renderers are: full, outline, preview,
                                  noquote
         -h,--help                Show this help text
 
