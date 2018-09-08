@@ -1,8 +1,8 @@
 name:                mailsh
-version:             0.1.0.0
+version:             0.1.0
 synopsis:            Mail at the shell.
-description:         Command line mail reader for maildirs.
--- homepage:            https://github.com/githubuser/mailsh#readme
+description:         Command line mail user agent for maildirs.
+homepage:            https://github.com/talanis85/mailsh#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Philip Kranz
@@ -10,58 +10,57 @@ maintainer:          philip.kranz@googlemail.com
 copyright:           2016 Philip Kranz
 category:            Network
 build-type:          Simple
--- extra-source-files:
 cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Mailsh.Types
-                     , Mailsh.Maildir
-                     , Mailsh.MimeRender
-                     , Mailsh.Store
-                     , Mailsh.Parse
+  exposed-modules:     Data.String.WordWrap
                      , Mailsh.Compose
                      , Mailsh.Filter
+                     , Mailsh.Maildir
+                     , Mailsh.MimeRender
+                     , Mailsh.Parse
+                     , Mailsh.Store
+                     , Mailsh.Types
                      , Network.Email
-                     , Data.String.WordWrap
-  other-modules:       Network.Email.Rfc2234
-                     , Network.Email.Rfc2822
-                     , Network.Email.Rfc2047
-                     , Network.Email.Types
+  other-modules:       Data.Attoparsec.ByteString.Char8.Utils
+                     , Mailsh.PersistentInstances
                      , Network.Email.Charset
                      , Network.Email.Message
                      , Network.Email.Render
-                     , Data.Attoparsec.ByteString.Char8.Utils
-                     , Mailsh.PersistentInstances
-  build-depends:       base
-                     , mtl
-                     , lens
+                     , Network.Email.Rfc2047
+                     , Network.Email.Rfc2234
+                     , Network.Email.Rfc2822
+                     , Network.Email.Types
+  build-depends:       base >=4.8 && <5
+                     , acid-state
+                     , attoparsec
+                     , attoparsec-expr
+                     , base64-string
+                     , bytestring
+                     , containers
                      , data-fix
                      , directory
-                     , filepath
-                     , bytestring
-                     , text
-                     , attoparsec
-                     , pandoc
-                     , process
-                     , containers
-                     , old-time
-                     , old-locale
                      , encoding
-                     , base64-string
-                     , mime
-                     , mime-types
-                     , attoparsec-expr
-                     , mime-mail
-                     , acid-state
-                     , safecopy
-                     , time
-                     , persistent
-                     , persistent-template
-                     , persistent-sqlite
-                     , monad-logger
-                     , mmorph
                      , esqueleto
+                     , filepath
+                     , lens
+                     , mime
+                     , mime-mail
+                     , mime-types
+                     , mmorph
+                     , monad-logger
+                     , mtl
+                     , old-locale
+                     , old-time
+                     , pandoc
+                     , persistent
+                     , persistent-sqlite
+                     , persistent-template
+                     , process
+                     , safecopy
+                     , text
+                     , time
                      , time-compat
   default-language:    Haskell2010
   ghc-options:         -fwarn-unused-imports
@@ -75,28 +74,28 @@ executable mailsh
                      , MessageRef
                      , Render
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
-  build-depends:       base
-                     , mailsh
+  build-depends:       base >=4.8 && <5
+                     , ansi-terminal
                      , ansi-wl-pprint
-                     , mtl
-                     , optparse-applicative
-                     , old-time
-                     , old-locale
-                     , terminal-size
+                     , brick
+                     , bytestring
                      , directory
-                     , process
-                     , gitrev
                      , filepath
+                     , gitrev
+                     , mailsh
+                     , monad-logger
+                     , mtl
+                     , old-locale
+                     , old-time
+                     , optparse-applicative
+                     , parsec
+                     , process
                      , tar
+                     , terminal-size
                      , text
                      , time
-                     , bytestring
-                     , parsec
-                     , monad-logger
-                     , ansi-terminal
-                     , brick
-                     , vty
                      , vector
+                     , vty
   default-language:    Haskell2010
   default-extensions:  RankNTypes
 
@@ -104,11 +103,11 @@ test-suite mailsh-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  build-depends:       base
+  build-depends:       base >=4.8 && <5
                      , mailsh
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
   default-language:    Haskell2010
 
--- source-repository head
---   type:     git
---   location: https://github.com/githubuser/mailsh
+source-repository head
+  type:     git
+  location: https://github.com/talanis85/mailsh
