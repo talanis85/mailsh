@@ -11,6 +11,7 @@ copyright:           2016 Philip Kranz
 category:            Network
 build-type:          Simple
 cabal-version:       >=1.10
+extra-source-files:  test/data/*.txt
 
 library
   hs-source-dirs:      src
@@ -99,8 +100,10 @@ executable mailsh
 test-suite mailsh-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Main.hs
+  other-modules:       Email
   build-depends:       base >=4.8 && <5
+                     , HUnit
                      , mailsh
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
   default-language:    Haskell2010
