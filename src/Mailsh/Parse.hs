@@ -12,6 +12,7 @@ module Mailsh.Parse
 import Control.Monad.Except
 import Control.Monad.Trans
 import Data.Attoparsec.ByteString
+import Data.Attoparsec.ByteString.Utils
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString as BS
@@ -39,16 +40,16 @@ parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
 parseCrlfFile fp p = flip parseCrlfByteString p <$> B.readFile fp
 
 parseCrlfByteString :: B.ByteString -> Parser a -> Either String a
-parseCrlfByteString bs p = parseOnly p $ B.toStrict $ fixCrlfL bs
+parseCrlfByteString bs p = parseOnlyPretty p $ B.toStrict $ fixCrlfL bs
 
 parseFile :: FilePath -> Parser a -> IO (Either String a)
-parseFile fp p = parseOnly p <$> BS.readFile fp
+parseFile fp p = parseOnlyPretty p <$> BS.readFile fp
 
 parseByteString :: B.ByteString -> Parser a -> Either String a
-parseByteString bs p = parseOnly p (B.toStrict bs)
+parseByteString bs p = parseOnlyPretty p (B.toStrict bs)
 
 parseString :: Parser a -> String -> Either String a
-parseString p s = parseOnly p (BChar8.pack s)
+parseString p s = parseOnlyPretty p (BChar8.pack s)
 
 parseStringMaybe :: Parser a -> String -> Maybe a
 parseStringMaybe p s = either (const Nothing) Just (parseString p s)

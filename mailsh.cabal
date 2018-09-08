@@ -25,6 +25,7 @@ library
                      , Mailsh.Types
                      , Network.Email
   other-modules:       Data.Attoparsec.ByteString.Char8.Utils
+                     , Data.Attoparsec.ByteString.Utils
                      , Mailsh.PersistentInstances
                      , Network.Email.Charset
                      , Network.Email.Message

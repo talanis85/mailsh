@@ -12,6 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
+import Data.Attoparsec.ByteString.Utils
 import qualified Data.Attoparsec.ByteString.Lazy as APL
 import qualified Data.Map as Map
 import Data.Maybe
@@ -63,7 +64,7 @@ multipartP e boundary = do
         multipartPartP boundary
         many1 (multipartPartP boundary)
   -- parser
-  case parseOnly parser bs of
+  case parseOnlyPretty parser bs of
     Left err -> fail ("Could not parse multipart: " ++ err)
     Right v  -> return v
 
@@ -72,7 +73,7 @@ multipartPartP boundary = do
   part <- toLazyByteString <$> mconcat <$> many (multipartLineP (B.pack boundary))
   takeLine
   case APL.eitherResult (APL.parse multipartBodyP part) of
-    Left err -> fail ("Could not parse part: " ++ err)
+    Left err -> fail (subparserError "Could not parse part." err)
     Right v  -> return v
 
 multipartBodyP :: Parser PartTree
