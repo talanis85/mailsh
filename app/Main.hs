@@ -218,10 +218,7 @@ getMessage mref = case mref of
       Right msg -> return (msg, bs)
   MessageRefPart n mref' -> do
     (msg', bs) <- getMessage mref'
-    body <- liftMaildir $ parseMailstring bs $ do
-      h <- parseHeaders
-      b <- parseMessage (mimeTextPlain "utf8") h
-      return b
+    (headers, body) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
     part <- getPartNumber n body
     case part of
       PartBinary t s ->
@@ -258,10 +255,7 @@ getPart mref = case mref of
       PartBinary t bs -> do
         if isSimpleMimeType "message/rfc822" t
         then do
-          body <- liftMaildir $ parseMailstring (BL.fromStrict bs) $ do
-            h <- parseHeaders
-            b <- parseMessage (mimeTextPlain "utf8") h
-            return b
+          (headers, body) <- liftMaildir $ parseMailstring (BL.fromStrict bs) $ messageP (mimeTextPlain "utf8")
           getPartNumber n body
         else throwError "Expected type message/rfc822"
       _ -> throwError "Expected type message/rfc822"
@@ -299,10 +293,10 @@ cmdCompose :: Bool -> Recipient -> StoreM ()
 cmdCompose dry rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= parseStringMaybe parseNameAddr)
+    return (x >>= parseStringMaybe nameAddrP)
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
+        , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
   if dry
@@ -320,7 +314,7 @@ cmdReply dry strat mref = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     liftIO $ putStrLn $ show x
-    return (x >>= parseStringMaybe parseNameAddr)
+    return (x >>= parseStringMaybe nameAddrP)
   liftIO $ putStrLn $ show from
   let headers = replyHeaders from strat msg
   let rendered = renderType (messageBodyType msg) (messageBody msg)
@@ -339,10 +333,10 @@ cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= parseStringMaybe parseNameAddr)
+    return (x >>= parseStringMaybe nameAddrP)
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> parseStringMaybe parseNameAddrs rcpt
+        , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
         ]
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
   mail <- generateMessage headers body
@@ -407,18 +401,13 @@ cmdFilename mn' = do
 cmdOutline :: MessageRef -> StoreM ()
 cmdOutline mref = do
   (msg, bs) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailstring bs $ do
-    h <- parseHeaders
-    b <- parseMessage (mimeTextPlain "utf8") h
-    return (h, b)
+  (headers, body) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
   liftIO $ putStrLn $ outline body
 
 cmdTar :: MessageRef -> StoreM ()
 cmdTar mref = do
   bs <- getRawMessage mref
-  parts <- liftMaildir $ parseMailstring bs $ do
-    h <- parseHeaders
-    parseMessage (mimeTextPlain "utf8") h
+  (headers, parts) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
   let mkAttachmentEntry (PartText _ _) = return Nothing
       mkAttachmentEntry (PartBinary mt bs) = case lookupMimeParam "name" mt of
         Nothing -> return Nothing

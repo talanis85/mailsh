@@ -19,14 +19,11 @@ testMsg n =
   let filename = printf "msg_%02d.txt" n
       test = TestCase $ do
         file <- BL.readFile ("test/data/" ++ filename)
-        let parser = do
-              h <- parseHeaders
-              b <- parseMessage (mimeTextPlain "utf8") h
-              return (b, h)
-        let result = if detectCrlf file then parseByteString file parser else parseCrlfByteString file parser
+        let parser = messageP (mimeTextPlain "utf8")
+            result = if detectCrlf file then parseByteString file parser else parseCrlfByteString file parser
         case result of
           Left err -> assertFailure err
-          Right (b, h) -> do
+          Right (h, b) -> do
             createDirectoryIfMissing False "test/results"
             writeFile ("test/results/" ++ filename) (prettyHeaders h ++ "\n" ++ prettyBody b)
   in TestLabel filename test

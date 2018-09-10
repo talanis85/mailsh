@@ -17,7 +17,7 @@ import qualified Data.Text as T
 import Data.Maybe
 import Data.Text.Encoding
 
-import Network.Email
+import Network.Email hiding (nameAddrP)
 import Network.Email.Rfc2822
 
 renderCompose :: (MonadIO m, MonadError String m) => [Field] -> String -> m String

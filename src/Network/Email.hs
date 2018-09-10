@@ -1,48 +1,21 @@
 module Network.Email
   ( module Network.Email.Types
+  , module Network.Email.Parser
   , module Network.Email.Render
-  , parseHeaders
-  , parseMessage
-  , parseNameAddr
-  , parseNameAddrs
   , formatHeaders
   , firstTextPart
   ) where
 
 import Control.Applicative
-import Control.Monad
 import Control.Lens
-import qualified Data.Attoparsec.ByteString.Char8 as P
+import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
-import Network.Email.Rfc2234 (crlf)
-import Network.Email.Rfc2822
-import Network.Email.Message
-import Network.Email.Types
+import Network.Email.Parser
 import Network.Email.Render
-import System.IO
-
-parseHeaders :: P.Parser [Field]
-parseHeaders = do
-  r <- fields P.<?> "headers"
-  crlf P.<?> "crlf after headers"
-  return r
-
-parseMessage :: MimeType -> [Field] -> P.Parser PartTree
-parseMessage defMime headers =
-  let contentType =
-        fromMaybe defMime (listToMaybe (lookupField fContentType headers))
-      contentTransferEncoding =
-        fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
-  in encoded_message contentType contentTransferEncoding P.<?> "encoded_message"
-
-parseNameAddr :: P.Parser NameAddr
-parseNameAddr = name_addr
-
-parseNameAddrs :: P.Parser [NameAddr]
-parseNameAddrs = mailbox_list
+import Network.Email.Types
 
 formatHeaders :: [IsField] -> [Field] -> String
 formatHeaders filter hs = unlines $ concatMap (formatHeader hs) filter

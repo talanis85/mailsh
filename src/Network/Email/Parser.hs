@@ -1,5 +1,9 @@
-module Network.Email.Message
-  ( encoded_message
+module Network.Email.Parser
+  ( messageBodyP
+  , messageHeaderP
+  , messageP
+  , nameAddrP
+  , nameAddrsP
   ) where
 
 import Prelude hiding (takeWhile)
@@ -32,8 +36,8 @@ import Network.Email.Types
 
 type Charset = Maybe Enc.DynEncoding
 
-encoded_message :: MimeType -> EncodingType -> Parser PartTree
-encoded_message t e = case mimeType t of
+encodedMessageP :: MimeType -> EncodingType -> Parser PartTree
+encodedMessageP t e = case mimeType t of
   "multipart" -> do
     case Map.lookup "boundary" (mimeParams t) of
       Nothing ->
@@ -94,15 +98,25 @@ multipartPartP :: String -> Parser (PartTree, Bool)
 multipartPartP boundary = do
   (partBuilder, last) <- multipartPartContentP (B.pack boundary) <?> "multipartPartContentP"
   let part = toLazyByteString partBuilder
-  case APL.eitherResult (APL.parse multipartBodyP part) of
+  case APL.eitherResult (APL.parse (messageP (mimeTextPlain "utf8")) part) of
     Left err -> fail (subparserError ("Could not parse part (boundary='" ++ boundary ++ "')") err)
-    Right v  -> return (v, last)
+    Right (h, b)  -> return (b, last)
 
-multipartBodyP :: Parser PartTree
-multipartBodyP = do
+messageHeaderP :: Parser [Field]
+messageHeaderP = fields
+
+messageP :: MimeType -> Parser ([Field], PartTree)
+messageP defMime = do
+  h <- messageHeaderP <?> "messageHeaderP"
+  crlf <?> "crlf after headers"
+  b <- messageBodyP defMime h <?> "messageBodyP"
+  return (h, b)
+
+messageBodyP :: MimeType -> [Field] -> Parser PartTree
+messageBodyP defMime headers = do
   headers <- fields
   let contentType =
-        fromMaybe (mimeTextPlain "utf8") (listToMaybe (lookupField fContentType headers))
+        fromMaybe defMime (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
         fromMaybe EightBit (listToMaybe (lookupField fContentTransferEncoding headers))
       filename =
@@ -110,7 +124,7 @@ multipartBodyP = do
       contentType' = case filename of
         Nothing -> contentType
         Just filename' -> withMimeParam "name" filename' contentType
-  encoded_message contentType' contentTransferEncoding <?> "encoded_message"
+  encodedMessageP contentType' contentTransferEncoding <?> "encodedMessageP"
 
 decodeEncoding :: EncodingType -> B.ByteString -> B.ByteString
 decodeEncoding e = fromMaybe (B.pack "DECODING ERROR") . decodeEncoding' e
@@ -132,3 +146,9 @@ decodeCharset c = fromMaybe (T.pack "CHARSET ERROR") . decodeCharset' c
 
 takeLine :: Parser B.ByteString
 takeLine = (takeWhile (notInClass "\r\n") <* crlf) <?> "takeLine"
+
+nameAddrP :: Parser NameAddr
+nameAddrP = name_addr
+
+nameAddrsP :: Parser [NameAddr]
+nameAddrsP = mailbox_list

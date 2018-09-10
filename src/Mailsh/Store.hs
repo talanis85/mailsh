@@ -359,8 +359,7 @@ parseMessageFile mid flags fp = BL.readFile fp >>= parseMessageString mid flags
 
 basicMessage :: MID -> String -> Attoparsec (IO Message)
 basicMessage mid flags = do
-  headers <- parseHeaders
-  msg     <- parseMessage (mimeTextPlain "utf8") headers
+  (headers, msg) <- messageP (mimeTextPlain "utf8")
 
   let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
 

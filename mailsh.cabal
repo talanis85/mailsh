@@ -28,7 +28,7 @@ library
                      , Data.Attoparsec.ByteString.Utils
                      , Mailsh.PersistentInstances
                      , Network.Email.Charset
-                     , Network.Email.Message
+                     , Network.Email.Parser
                      , Network.Email.Render
                      , Network.Email.Rfc2047
                      , Network.Email.Rfc2234
