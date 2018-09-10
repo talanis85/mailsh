@@ -10,25 +10,20 @@ import Prelude hiding (takeWhile)
 
 import qualified Codec.MIME.Base64 as Base64
 import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
-import Control.Monad
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder
 import Data.Attoparsec.ByteString.Char8
-import Data.Attoparsec.ByteString.Char8.Utils
 import Data.Attoparsec.ByteString.Utils
 import qualified Data.Attoparsec.ByteString.Lazy as APL
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Monoid
-import Control.Applicative
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
 import qualified Data.Encoding as Enc
 
 import Network.Email.Rfc2822
-import Network.Email.Rfc2047
 import Network.Email.Rfc2234
 import Network.Email.Types
 

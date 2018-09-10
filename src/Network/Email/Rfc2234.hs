@@ -16,7 +16,6 @@
 
 module Network.Email.Rfc2234 where
 
-import qualified Data.ByteString.Char8 as B
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
 import Data.Char ( toUpper, chr, ord )

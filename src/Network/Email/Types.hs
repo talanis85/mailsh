@@ -48,8 +48,6 @@ import System.Time
 import System.Locale
 import Text.Printf
 import qualified Data.Text as T
-import Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 
 {-# ANN module "HLint: ignore Use camelCase" #-}

@@ -19,12 +19,10 @@ module Mailsh.Maildir
 
 import Control.Lens
 
-import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 
-import Data.Maybe
 import Data.List
 import qualified Data.Map as Map
 

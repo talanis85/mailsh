@@ -9,8 +9,6 @@ module Mailsh.Parse
   , Attoparsec
   ) where
 
-import Control.Monad.Except
-import Control.Monad.Trans
 import Data.Attoparsec.ByteString
 import Data.Attoparsec.ByteString.Utils
 import qualified Data.ByteString.Builder as BB
@@ -19,7 +17,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BChar8
 import Data.Maybe
 import Data.Monoid
-import Data.Word
 
 type Attoparsec = Parser
 

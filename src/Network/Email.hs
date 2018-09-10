@@ -6,12 +6,9 @@ module Network.Email
   , firstTextPart
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad
-import Data.List
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as T
 import Network.Email.Parser
 import Network.Email.Render

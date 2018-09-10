@@ -2,9 +2,7 @@ module Mailsh.MimeRender
   ( renderType
   ) where
 
-import Data.Maybe
 import qualified Data.Text as T
-import Network.Email
 import Text.Pandoc
 
 {-

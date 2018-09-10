@@ -3,7 +3,6 @@ module Network.Email.Rfc2047 where
 import qualified Codec.MIME.Base64 as Base64
 import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
 import Control.Applicative
-import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.ByteString.Char8.Utils
 import Data.Encoding

@@ -9,7 +9,6 @@ module Mailsh.Types
   , module Data.Fix
   ) where
 
-import Control.Monad.Reader
 import Control.Lens
 import Data.Fix
 

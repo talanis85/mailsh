@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Mailsh.PersistentInstances where
 
-import Database.Persist
 import Database.Persist.TH
 
 import Network.Email
