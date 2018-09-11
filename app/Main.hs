@@ -296,7 +296,13 @@ cmdCompose dry rcpt = do
         [ mkField fFrom <$> return <$> from
         , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
         ]
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
+
+  initialMessage <- liftIO $ do
+    signaturePath <- (</> ".config/mailsh/signature") <$> getHomeDirectory
+    signatureExists <- doesFileExist signaturePath
+    if signatureExists then readFile signaturePath else return ""
+
+  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders initialMessage
   if dry
   then do
     msg <- renderMessageS headers body
