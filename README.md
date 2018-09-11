@@ -102,22 +102,24 @@ Command reference
                                  noquote
         -h,--help                Show this help text
 
-* `mailsh compose [--dry] RECIPIENT`
+* `mailsh compose [--dry] [-a|--attachment FILE] RECIPIENT`
 
         Compose a new message using your EDITOR
 
       Available options:
         --dry                    Dont actually send the message
+        -a,--attachment FILE     Attach a file (can occur multiple times)
         RECIPIENT                The recipient's address
         -h,--help                Show this help text
 
-* `mailsh reply [--dry] [-g|--group] [MESSAGE]`
+* `mailsh reply [--dry] [-g|--group] [-a|--attachment FILE] [MESSAGE]`
 
         Reply to a message using your EDITOR.
 
       Available options:
         --dry                    Dont actually send the message
         -g,--group               Group reply
+        -a,--attachment FILE     Attach a file (can occur multiple times)
         MESSAGE                  Either a message number (e.g. 123), a part reference
                                  (e.g. 2#123) or '-' for stdin. Default is the last
                                  accessed message.

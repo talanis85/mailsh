@@ -28,6 +28,7 @@ renderCompose headers body = do
                                       , IsField fReplyTo
                                       , IsField fInReplyTo
                                       , IsField fReferences
+                                      , IsField (fOptionalField "Attachment")
                                       ] headers
   return (renderedHeaders ++ "\n" ++ body)
 

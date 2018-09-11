@@ -73,10 +73,12 @@ commandP = hsubparser
                                           <*> rendererOption previewRenderer)
                               (progDesc "Read the next unread message."))
   <> command "compose"  (info (cmdCompose <$> dryFlag
+                                          <*> many (option str (short 'a' <> long "attachment" <> metavar "FILE" <> help "Attach a file (can occur multiple times)"))
                                           <*> argument str (metavar "RECIPIENT" <> help "The recipient's address"))
                               (progDesc "Compose a new message using your EDITOR"))
   <> command "reply"    (info (cmdReply   <$> dryFlag
                                           <*> flag SingleReply GroupReply (short 'g' <> long "group" <> help "Group reply")
+                                          <*> many (option str (short 'a' <> long "attachment" <> metavar "FILE" <> help "Attach a file (can occur multiple times)"))
                                           <*> msgArgument)
                               (progDesc "Reply to a message using your EDITOR."))
   <> command "forward"  (info (cmdForward <$> dryFlag
@@ -289,8 +291,8 @@ cmdSave mref path = do
       Just fn -> liftIO $ BS.writeFile (path </> fn) s
     PartText t s -> throwError "Cannot save text parts"
 
-cmdCompose :: Bool -> Recipient -> StoreM ()
-cmdCompose dry rcpt = do
+cmdCompose :: Bool -> [FilePath] -> Recipient -> StoreM ()
+cmdCompose dry attachments rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
     return (x >>= parseStringMaybe nameAddrP)
@@ -298,6 +300,7 @@ cmdCompose dry rcpt = do
         [ mkField fFrom <$> return <$> from
         , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
         ]
+        ++ map (mkField (fOptionalField "Attachment")) attachments
 
   initialMessage <- liftIO $ do
     signaturePath <- (</> ".config/mailsh/signature") <$> getHomeDirectory
@@ -320,8 +323,8 @@ cmdCompose dry rcpt = do
       liftIO $ putStrLn "Ok, mail sent."
     else liftIO $ putStrLn "Ok, mail discarded."
 
-cmdReply :: Bool -> ReplyStrategy -> MessageRef -> StoreM ()
-cmdReply dry strat mref = do
+cmdReply :: Bool -> ReplyStrategy -> [FilePath] -> MessageRef -> StoreM ()
+cmdReply dry strat attachments mref = do
   (msg, _) <- getMessage mref
   let mid = messageMid msg
   from <- do
@@ -330,6 +333,7 @@ cmdReply dry strat mref = do
     return (x >>= parseStringMaybe nameAddrP)
   liftIO $ putStrLn $ show from
   let headers = replyHeaders from strat msg
+                ++ map (mkField (fOptionalField "Attachment")) attachments
   let rendered = renderType (messageBodyType msg) (messageBody msg)
   let quoted = unlines $ map ("> " ++) $ lines rendered
   (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
