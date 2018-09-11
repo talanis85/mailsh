@@ -19,9 +19,11 @@ import Options.Applicative
 import System.Directory
 import System.Environment
 import System.FilePath
+import System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Text.Printf
 
+import Mailsh.Compose
 import Mailsh.Filter
 import Mailsh.Types
 import Mailsh.Maildir
@@ -308,8 +310,15 @@ cmdCompose dry rcpt = do
     msg <- renderMessageS headers body
     liftIO $ putStrLn msg
   else do
-    mail <- generateMessage headers body
-    liftIO $ sendMessage mail
+    preview <- renderCompose headers (T.unpack body)
+    liftIO $ putStrLn preview
+    sendIt <- liftIO $ askYesNo "Send this message?"
+    if sendIt
+    then do
+      mail <- generateMessage headers body
+      liftIO $ sendMessage mail
+      liftIO $ putStrLn "Ok, mail sent."
+    else liftIO $ putStrLn "Ok, mail discarded."
 
 cmdReply :: Bool -> ReplyStrategy -> MessageRef -> StoreM ()
 cmdReply dry strat mref = do
@@ -329,9 +338,16 @@ cmdReply dry strat mref = do
     msg <- renderMessageS headers body
     liftIO $ putStrLn msg
   else do
-    mail <- generateMessage headers body
-    liftIO $ sendMessage mail
-    liftMaildir $ setFlag 'R' mid
+    preview <- renderCompose headers (T.unpack body)
+    liftIO $ putStrLn preview
+    sendIt <- liftIO $ askYesNo "Send this message?"
+    if sendIt
+    then do
+      mail <- generateMessage headers body
+      liftIO $ sendMessage mail
+      liftMaildir $ setFlag 'R' mid
+      liftIO $ putStrLn "Ok, mail sent."
+    else liftIO $ putStrLn "Ok, mail discarded."
 
 cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
@@ -450,6 +466,13 @@ parseMailstring s p = do
   case r of
     Left err -> throwError ("Cannot parse message " ++ err)
     Right v  -> return v
+
+askYesNo :: String -> IO Bool
+askYesNo prompt = do
+  putStr (prompt ++ " (y/n) ")
+  hFlush stdout
+  r <- getChar
+  if r == 'y' then return True else return False
 
 main :: IO ()
 main = do
