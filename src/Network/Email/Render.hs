@@ -83,8 +83,11 @@ parseAttachment s =
 mainPart :: T.Text -> Alternatives
 mainPart bodyContent = return Part
   { partType = T.pack (formatMimeType (mimeTextPlain "utf8"))
-  , partEncoding = QuotedPrintableText
+  , partEncoding = if isPGPMessage bodyContent then None else QuotedPrintableText
   , partFilename = Nothing
   , partHeaders = []
   , partContent = B.fromStrict $ T.encodeUtf8 bodyContent
   }
+
+isPGPMessage :: T.Text -> Bool
+isPGPMessage content = T.pack "---BEGIN PGP MESSAGE---" `T.isInfixOf` content
