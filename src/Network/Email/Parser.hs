@@ -59,18 +59,20 @@ singlepartBinaryP e = decodeEncoding e <$> takeByteString
 multipartP :: EncodingType -> String -> Parser [PartTree]
 multipartP e boundary = do
   bs <- decodeEncoding e <$> takeByteString
-  let parser n = do
+  let parts n = do
         (part, last) <- multipartPartP boundary <?> ("part" ++ show n)
         if last
         then return [part]
         else do
-          rest <- parser (n + 1)
+          rest <- parts (n + 1)
           return (part : rest)
-  case parseOnlyPretty (parser 0) bs of
+  let parser = do
+        (_, last) <- multipartPartContentP (B.pack boundary) <?> ("part0")
+        if last then return []
+                else parts 1
+  case parseOnlyPretty parser bs of
     Left err -> fail (subparserError ("Could not parse multipart (boundary='" ++ boundary ++ "')") err)
-    Right [] -> return []
-    Right [x] -> return [x]
-    Right (x:xs) -> return xs -- Drop first part that says "This is a multi-part message..."
+    Right xs -> return xs
 
 multipartPartContentP :: B.ByteString -> Parser (Builder, Bool)
 multipartPartContentP boundary = do
@@ -103,13 +105,12 @@ messageHeaderP = fields
 messageP :: MimeType -> Parser ([Field], PartTree)
 messageP defMime = do
   h <- messageHeaderP <?> "messageHeaderP"
-  crlf <?> "crlf after headers"
+  if null h then return () else (crlf <?> "crlf after headers") >> return ()
   b <- messageBodyP defMime h <?> "messageBodyP"
   return (h, b)
 
 messageBodyP :: MimeType -> [Field] -> Parser PartTree
 messageBodyP defMime headers = do
-  headers <- fields
   let contentType =
         fromMaybe defMime (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
