@@ -14,6 +14,8 @@ import System.IO
 import Data.Text (Text)
 import qualified Data.Text as T
 
+import qualified Data.ByteString.Lazy as BL
+
 import Mailsh.Compose
 import Mailsh.Parse
 import Mailsh.Store
@@ -38,10 +40,8 @@ composeWith headers text = do
       hPutStr temph msg
       hClose temph
       editFile tempf
-      msg' <- readFile tempf
-      if msg == msg'
-      then return (Left "Unchanged message")
-      else return $ flip parseString msg' $ do
+      msg' <- BL.readFile tempf
+      return $ parseByteString msg' $ do
         headers <- parseComposedHeaders
         body <- parseComposedMessage
         if T.null body
