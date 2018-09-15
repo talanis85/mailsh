@@ -11,21 +11,29 @@ import Mailsh.Parse
 import Network.Email
 
 test :: Test
-test = TestList $ map testMsg $ [1..46] \\ [19,25,35,43]
-       -- 19, 25, 35 and 43 are WONTFIX
+test = TestList [cpythonTests, myTests]
 
-testMsg :: Integer -> Test
-testMsg n =
-  let filename = printf "msg_%02d.txt" n
-      test = TestCase $ do
-        file <- BL.readFile ("test/data/" ++ filename)
+testFile :: Integer -> String
+testFile = printf "msg_%02d.txt"
+
+cpythonTests :: Test
+cpythonTests = TestList $ map (testMsg "cpython" . testFile) $ [1..46] \\ [19,25,35,43]
+               -- 19, 25, 35 and 43 are WONTFIX
+
+myTests :: Test
+myTests = TestList $ map (testMsg "misc" . testFile) $ [1]
+
+testMsg :: String -> String -> Test
+testMsg dir filename =
+  let test = TestCase $ do
+        file <- BL.readFile ("test/data/" ++ dir ++ "/" ++ filename)
         let parser = messageP (mimeTextPlain "utf8")
             result = if detectCrlf file then parseByteString file parser else parseCrlfByteString file parser
         case result of
           Left err -> assertFailure err
           Right (h, b) -> do
-            createDirectoryIfMissing False "test/results"
-            writeFile ("test/results/" ++ filename) (prettyHeaders h ++ "\n" ++ prettyBody b)
+            createDirectoryIfMissing True ("test/results/" ++ dir)
+            writeFile ("test/results/" ++ dir ++ "/" ++ filename) (prettyHeaders h ++ "\n" ++ prettyBody b)
   in TestLabel filename test
 
 prettyBody :: PartTree -> String

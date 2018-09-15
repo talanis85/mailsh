@@ -11,7 +11,8 @@ copyright:           2016 Philip Kranz
 category:            Network
 build-type:          Simple
 cabal-version:       >=1.10
-extra-source-files:  test/data/*.txt
+extra-source-files:  test/data/misc/*.txt
+                   , test/data/cpython/*.txt
 
 library
   hs-source-dirs:      src

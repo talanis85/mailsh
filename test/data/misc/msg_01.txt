@@ -1,0 +1,376 @@
+From: Travis CI <builds@travis-ci.org>
+Subject: Errored: talanis85/mailsh#1 (master - 8718b9b)
+Received: from [54.198.250.124] by mandrillapp.com id 10b5103f6e964b44977c01b74667349d; Mon, 10 Sep 2018 08:34:02 +0000
+To: <pk@pmlk.net>
+Message-Id: <5b962c78c2212_43fc1e08ab2181202260@35f4794e-7e8c-44a0-b696-46a994c1aa8e.mail>
+In-Reply-To: <talanis85/mailsh+426575484+errored@travis-ci.org>
+Date: Mon, 10 Sep 2018 08:34:02 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="_av-I4BGRkx2NAh7WgNZ9wvAdA"
+
+
+--_av-I4BGRkx2NAh7WgNZ9wvAdA
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Build Update for talanis85/mailsh
+-------------------------------------
+
+Build: #1
+Status: Errored
+
+Duration: 58 secs
+Commit: 8718b9b (master)
+Author: Philip Kranz
+Message: Add .travis.yml
+
+View the changeset: https://github.com/talanis85/mailsh/compare/b42ccbb892bdaf91f1f357f31bfdce95393023dc...8718b9b10c1cbd614f5b224f90a7e3fa66ddd3b9
+
+View the full build log and details: https://travis-ci.org/talanis85/mailsh/builds/426575484?utm_source=email&utm_medium=notification
+
+--
+
+You can configure recipients for build notifications in your .travis.yml file. See https://docs.travis-ci.com/user/notifications
+
+
+
+
+
+
+
+This email was sent to pk@pmlk.net (mailto:pk@pmlk.net)
+unsubscribe from this list (http://clicks.travis-ci.com/track/unsub.php?u=14313403&id=10b5103f6e964b44977c01b74667349d.W3s%2FkMzDrBb05OpdayTfYesWbtw%3D&r=https%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dpk%2540pmlk.net)
+--_av-I4BGRkx2NAh7WgNZ9wvAdA
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DUTF-8=
+">
+    <meta http-equiv=3D"X-UA-Compatible" content=3D"ie=3Dedge">
+    <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=
+=3D1">
+    
+  <style>#repo-username-link:visited{color:#333333}
+#repo-username-link:hover{color:#333333}
+#repo-username-link:active{color:#333333}
+#branch-name-link:visited{color:#333333}
+#branch-name-link:hover{color:#333333}
+#branch-name-link:active{color:#333333}
+.success:visited{color:#32D282}
+.success:hover{color:#32D282}
+.success:active{color:#32D282}
+.failure:visited{color:#DB4545}
+.failure:hover{color:#DB4545}
+.failure:active{color:#DB4545}
+.error:visited{color:#666766}
+.error:hover{color:#666766}
+.error:active{color:#666766}
+#changeset-link:visited{color:#0068FF}
+#changeset-link:hover{color:#0068FF}
+#changeset-link:active{color:#0068FF}
+#documentation-link:visited{color:#0068FF}
+#documentation-link:hover{color:#0068FF}
+#documentation-link:active{color:#0068FF}
+#configuration-link:visited{color:#9EA3A8}
+#configuration-link:hover{color:#9EA3A8}
+#configuration-link:active{color:#9EA3A8}
+#email-footer-section a:active{color:#9EA3A8}
+#email-footer-section a:hover{color:#9EA3A8}
+#email-footer-section a:visited{color:#9EA3A8}</style></head>
+  <body style=3D"min-width: 100%;height: 100%;margin: 0;padding: 0;">
+    <table id=3D"travis-ci-email-container" align=3D"center" border=3D"0" c=
+ellpadding=3D"0" cellspacing=3D"0" height=3D"100%" width=3D"100%" style=3D"=
+height:100%;width:100%;padding:10px;font-family:'Source Sans Pro', 'Helveti=
+ca Neue', Helvetica, Arial, sans-serif;line-height:150%;text-align:center;c=
+olor:#333333;background-color:#F4F5F9;background-image:url('https://s3.amaz=
+onaws.com/travis-email-assets/build_background.png');height: 100%;width: 10=
+0%;padding: 10px;font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetic=
+a, Arial, sans-serif;line-height: 150%;text-align: center;color: #333333;ba=
+ckground-color: #F4F5F9;background-image: url(https://s3.amazonaws.com/trav=
+is-email-assets/build_background.png);">
+      <tr>
+        <td align=3D"center" valign=3D"top" style=3D"padding-bottom: 20px;"=
+>
+          <table id=3D"email-content-container" border=3D"0" cellpadding=3D=
+"0" cellspacing=3D"0" style=3D"width:500px;padding:32px;background-color:#F=
+FFFFF;width: 500px; padding: 32px; background-color: #FFFFFF;">
+            <!-- Repository Username Section -->
+            <tr>
+              <td id=3D"repo-username-section" align=3D"center" valign=3D"t=
+op" style=3D"padding-bottom:20px;padding-bottom: 20px;">
+                <a href=3D"https://travis-ci.org/talanis85/mailsh?utm_sourc=
+e=3Demail&amp;utm_medium=3Dnotification" id=3D"repo-username-link" style=3D=
+"color:#333333;text-decoration:none;border-bottom:1px solid #333333;padding=
+-bottom:4px;color: #333333; border-bottom: 1px solid #333333; text-decorati=
+on: none; padding-bottom: 4px;">
+                  <p class=3D"repo-slug" style=3D"margin:0px;font-size:30px=
+;font-weight:600;line-height:36px;padding-left:5px;display: inline; font-si=
+ze: 30px; font-weight: 600; line-height: 36px; padding-right: 5px; padding-=
+left: 0px;">talanis85</p>
+                  <p id=3D"repo-slug-divider" style=3D"margin:0px;font-size=
+:30px;font-weight:100;color:#9EA3A8;display: inline; font-size: 30px; font-=
+weight: 100; color: #9EA3A8;">/</p>
+                  <p class=3D"repo-slug" style=3D"margin:0px;font-size:30px=
+;font-weight:600;line-height:36px;padding-left:5px;display: inline; font-si=
+ze: 30px; font-weight: 600; line-height: 36px; padding-left: 5px;">mailsh</=
+p>
+</a>              </td>
+            </tr>
+            <!-- Branch Name Section -->
+            <tr>
+              <td id=3D"branch-name-section" align=3D"center" valign=3D"top=
+" style=3D"padding-bottom: 35px;">
+                <p id=3D"branch-name" style=3D"margin:0px;font-size:28px;fo=
+nt-weight:300;margin: 0px; font-size: 28px; font-weight: 300;">
+                  <img alt=3D"branch icon" src=3D"https://s3.amazonaws.com/=
+travis-email-assets/branch.png" style=3D"width:16px;height:auto;padding-rig=
+ht:8px;vertical-align:bottom;width: 16px; height: auto; padding-right: 8px;=
+ vertical-align: bottom;"><a href=3D"https://github.com/talanis85/mailsh/tr=
+ee/master" id=3D"branch-name-link" style=3D"color:#333333;line-height:36px;=
+text-decoration:none;border-bottom:1px solid #333333;text-decoration: none;=
+ border-bottom: 1px solid #333333; padding-bottom: 2px; line-height: 36px;"=
+>master</a>
+                </p>
+              </td>
+            </tr>
+            <!-- Build Status Section -->
+            <tr>
+              <td align=3D"center" valign=3D"top" style=3D"padding-bottom: =
+20px;">
+                <table cellpadding=3D"0" cellspacing=3D"0" class=3D"build-s=
+tatus-border build-status-border-error" style=3D"border-radius:3px;border:1=
+px solid #666766;width: 100%;">
+                  <tr class=3D"build-status-background-error" style=3D"back=
+ground:rgba(102, 103, 102, 0.1)">
+                    <td id=3D"status-icon-section" align=3D"center" valign=
+=3D"top" class=3D"build-status-border-bottom-error" style=3D"border-bottom:=
+1px solid #666766;padding: 15px 15px;">
+                    <div style=3D"float: left;">
+                      <div style=3D"display: inline;"><img alt=3D"build has=
+ errored" src=3D"https://s3.amazonaws.com/travis-email-assets/status-errore=
+d.png" style=3D"display: inline; vertical-align: sub; width: 17px; height: =
+17px; padding-right: 8px;"></div><div style=3D"display: inline;"><a href=3D=
+"https://travis-ci.org/talanis85/mailsh/builds/426575484?utm_source=3Demail=
+&amp;utm_medium=3Dnotification" class=3D"error" id=3D"status-section-messag=
+e" style=3D"color:#666766;font-size: 16px; font-weight: 600;">Build #1 has =
+errored</a></div>
+                    </div>
+                      <div style=3D"display: inline; float: left;"><img alt=
+=3D"arrow to build time" id=3D"arrow" src=3D"https://s3.amazonaws.com/travi=
+s-email-assets/error-arrow.png" style=3D"width: 7px; height: auto; vertical=
+-align: text-bottom; padding: 0px 8px;"></div>
+                    <div style=3D"float: right;">
+                      <span><img alt=3D"clock icon" id=3D"build-time-clock-=
+icon" src=3D"https://s3.amazonaws.com/travis-email-assets/time.png" style=
+=3D"width: 15px; height: 17px; padding-right: 8px; vertical-align: sub"></s=
+pan><span style=3D"font-size: 14px;">58 secs</span>
+                    </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td id=3D"user-avatar-changeset-section" align=3D"cente=
+r" valign=3D"top" style=3D"padding-bottom:32px;padding: 20px 15px 35px 15px=
+;">
+                      <div id=3D"user-avatar-changeset-left" style=3D"float=
+:left;float: left;">
+                        <p style=3D"margin:0px;display: inline; font-size: =
+14px; font-weight: 700; color: #333333;">
+                          <img alt=3D"Philip Kranz avatar" src=3D"https://s=
+ecure.gravatar.com/avatar/f0e5b900848db6b5f2040bdef9721227" style=3D"width:=
+ 22px; height: auto; border-radius: 10px; vertical-align: middle; margin-ri=
+ght: 8px;">Philip Kranz
+                        </p>
+                      </div>
+                      <div id=3D"user-avatar-changeset-right" style=3D"floa=
+t:right;float: right;">
+                        <a href=3D"https://github.com/talanis85/mailsh/comp=
+are/b42ccbb892bdaf91f1f357f31bfdce95393023dc...8718b9b10c1cbd614f5b224f90a7=
+e3fa66ddd3b9" id=3D"changeset-link" style=3D"font-size:14px;font-weight:600=
+;color:#0068FF;font-size: 14px; color: #0068FF; font-weight: 600;">8718b9b =
+CHANGESET =E2=86=92</a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td id=3D"commit-message-section" align=3D"center" vali=
+gn=3D"top" style=3D"min-height:104px;padding:0px 20px 20px 20px;min-height:=
+ 104px; padding: 0px 15px 20px 15px;">
+                      <p id=3D"commit-message" style=3D"margin:0px;font-fam=
+ily:cousine, monospace;font-size:14px;line-height:22px;font-family: cousine=
+, monospace; font-size: 14px; text-align: left; line-height: 22px;">Add .tr=
+avis.yml</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Broadcast Section -->
+      <!-- Build Environment Updates Section -->
+      <tr>
+        <td id=3D"update-section" align=3D"center" valign=3D"top" style=3D"=
+padding-bottom:20px;padding-bottom: 20px;">
+          <table id=3D"update-container" border=3D"0" cellpadding=3D"0" cel=
+lspacing=3D"0" style=3D"width:500px;padding:32px 32px 42px 32px;background-=
+color:#FFFFFF;width: 500px; padding: 32px 32px 42px 32px; background-color:=
+ #FFFFFF">
+            <tr>
+              <td align=3D"center" valign=3D"top">
+                <p id=3D"update-header" style=3D"margin:0px;font-size:24px;=
+line-height:31px;margin-bottom:20px;padding-bottom:10px;border-bottom:2px s=
+olid #0068FF;border-bottom: 2px solid #0068FF; padding-bottom: 10px; font-s=
+ize: 24px; line-height: 31px; margin-bottom: 20px;">Want to know about upco=
+ming build environment updates?</p>
+                <p id=3D"update-message" style=3D"margin:0px;font-size:16px=
+;font-weight:300;line-height:26px;margin-bottom:32px;font-size: 16px; line-=
+height: 26px; font-weight: 300; margin-bottom: 32px;">Would you like to sta=
+y up-to-date with the upcoming Travis CI build environment updates? We set =
+up a mailing list for you!</p>
+                <a href=3D"http://eepurl.com/9OCsP" id=3D"sign-up-button" s=
+tyle=3D"font-size:14px;font-weight:600;color:#FFFFFF;text-decoration:none;b=
+ackground-color:#0068FF;padding:12px 20px;border-radius:3px;font-size: 14px=
+; font-weight: 600; color: #FFFFFF; background-color: #0068FF; text-decorat=
+ion: none; padding: 12px 20px; border-radius: 3px;">SIGN UP HERE</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Documentation Section -->
+      <tr>
+        <td align=3D"center" valign=3D"top" style=3D"padding-bottom: 20px;"=
+>
+          <table id=3D"documentation-container" border=3D"0" cellpadding=3D=
+"0" cellspacing=3D"0" style=3D"width:500px;padding:25px;background-color:rg=
+ba(222,239,255,0.3);border:1px solid #66A4FF;border-radius:3px;width: 500px=
+; padding: 25px; background-color: rgba(222,239,255,0.3); border: 1px solid=
+ #66A4FF; border-radius: 3px;">
+            <tr>
+              <td id=3D"documentation-section" align=3D"center" valign=3D"t=
+op">
+                <div>
+                  <img alt=3D"book icon" id=3D"documentation-icon" src=3D"h=
+ttps://s3.amazonaws.com/travis-email-assets/documentation.png" style=3D"dis=
+play:inline;vertical-align:bottom;padding-right:5px;display: inline; vertic=
+al-align: bottom; padding-right: 5px;">
+                  <p id=3D"documentation-text" style=3D"margin:0px;display:=
+inline;font-size:26px;font-weight:300;color:#0068FF;font-size: 26px; font-w=
+eight: 300; color: #0068FF; display: inline;">
+                    <a href=3D"https://docs.travis-ci.com/" id=3D"documenta=
+tion-link" style=3D"color:#0068FF">Documentation</a> about Travis CI
+                  </p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Email Footer Section -->
+      <tr>
+        <td align=3D"center" valign=3D"top">
+          <table id=3D"travis-ci-email-footer-container" border=3D"0" cellp=
+adding=3D"20" cellspacing=3D"0" style=3D"width:500px;width: 500px;">
+            <tr>
+              <td id=3D"questions-section" align=3D"center" valign=3D"top" =
+style=3D"font-weight:300;color:#0068FF;color:#0068FF; font-weight: 300;">
+                <span>Have any questions?</span>
+                <span>
+                  <a href=3D"mailto:support@travis-ci.com" style=3D"color: =
+#0068FF">We're here to help.</a>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td id=3D"travis-ci-footer-logo-section" style=3D"text-align:=
+center;text-align: center;">
+                <a href=3D"https://travis-ci.com"><img alt=3D"black and whi=
+te travis ci logo" src=3D"https://s3.amazonaws.com/travis-email-assets/Trav=
+isCI-Logo-BW.png"></a>
+              </td>
+            </tr>
+            <tr>
+              <td id=3D"email-footer-section" style=3D"font-size:10px;line-=
+height:200%;text-align:center;color:#9EA3A8;padding-top:0px;color: #9EA3A8;=
+ font-size: 10px; line-height: 200%; text-align: center; color: #9EA3A8; pa=
+dding-top: 0px;">
+                <p style=3D"margin:0px;margin: 0px;">Travis CI GmbH, Rigaer=
+ Str. 8, 10427 Berlin, Germany | GF: Konstantin Haase, Fritz Thielemann |
+                  <span>Contact: <a href=3D"mailto:contact@travis-ci.com" s=
+tyle=3D"color:#9EA3A8;color: #9EA3A8;">contact@travis-ci.com</a> | Amtsgeri=
+cht Charlottenburg, Berlin, HRB 140133 B | Umsatzsteuer-ID gem=C3=A4=C3=9F =
+=C2=A727 a Umsatzsteuergesetz: DE282002648</span>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    <script type=3D"application/ld+json">
+    {
+      "@context": "http://schema.org",
+      "@type": "EmailMessage",
+      "action": {
+        "@type": "ViewAction",
+        "url": "https://travis-ci.org/talanis85/mailsh/builds/426575484?utm=
+_source=3Demail&amp;utm_medium=3Dnotification",
+        "name": "View Build"
+      },
+      "description": "View Build #1 on Travis CI"
+    }
+    </script>
+  <center>
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" =
+id=3D"canspamBarWrapper" style=3D"background-color:#FFFFFF; border-top:1px =
+solid #E5E5E5;">
+        <tr>
+            <td align=3D"center" valign=3D"top" style=3D"padding-top:20px; =
+padding-bottom:20px;">
+                <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" id=
+=3D"canspamBar">
+                    <tr>
+                        <td align=3D"center" valign=3D"top" style=3D"color:=
+#606060; font-family:Helvetica, Arial, sans-serif; font-size:11px; line-hei=
+ght:150%; padding-right:20px; padding-bottom:5px; padding-left:20px; text-a=
+lign:center;">
+                            This email was sent to <a href=3D"mailto:pk@pml=
+k.net" target=3D"_blank" style=3D"color:#404040 !important;">pk@pmlk.net</a=
+>
+                            &nbsp;&nbsp;
+                            <a href=3D"http://clicks.travis-ci.com/track/un=
+sub.php?u=3D14313403&id=3D10b5103f6e964b44977c01b74667349d.W3s%2FkMzDrBb05O=
+pdayTfYesWbtw%3D&r=3Dhttps%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dpk%=
+2540pmlk.net" style=3D"color:#404040 !important;">unsubscribe from this lis=
+t</a>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+    <style type=3D"text/css">
+        @media only screen and (max-width: 480px){
+            table[id=3D"canspamBar"] td{font-size:14px !important;}
+            table[id=3D"canspamBar"] td a{display:block !important; margin-=
+top:10px !important;}
+        }
+    </style>
+</center></body>
+</html>
+
+
+
+--_av-I4BGRkx2NAh7WgNZ9wvAdA--
+
+
