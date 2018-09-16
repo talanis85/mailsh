@@ -38,6 +38,7 @@ module Mailsh.Store
   , filterString
   ) where
 
+import Control.Applicative
 import Control.Lens hiding ((^.))
 import Control.Monad
 import Control.Monad.Except
@@ -381,6 +382,16 @@ basicMessage mid flags = do
       , messageBodyType     = mainBodyType
       , messageParts        = map typeOfPart (partList msg)
       }
+
+-- | Get the first text/plain (preferred) or text/html part
+firstTextPart :: PartTree -> Maybe (String, T.Text)
+firstTextPart msg =
+  let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
+      textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
+      parts1       = partList <$> collapseAlternatives textPlain msg
+      parts2       = partList <$> collapseAlternatives textHtml msg
+  in join $ (listToMaybe <$> mapMaybe (^? _PartText) <$> parts1)
+        <|> (listToMaybe <$> mapMaybe (^? _PartText) <$> parts2)
 
 {-
 type Query a = Monad m => SqlReadT m a
