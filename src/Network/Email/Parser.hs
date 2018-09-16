@@ -10,14 +10,12 @@ import Prelude hiding (takeWhile)
 
 import qualified Codec.MIME.Base64 as Base64
 import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
+import Control.Monad.Reader
+import Control.Monad.Writer
 import qualified Data.ByteString.Char8 as B
-import Data.ByteString.Builder
 import Data.Attoparsec.ByteString.Char8
-import Data.Attoparsec.ByteString.Utils
-import qualified Data.Attoparsec.ByteString.Lazy as APL
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
@@ -29,52 +27,71 @@ import Network.Email.Types
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
+type MultipartParser = WriterT Any (ReaderT (Maybe B.ByteString) Parser)
+
+(<??>) :: MultipartParser a -> String -> MultipartParser a
+(<??>) p msg = mapWriterT (mapReaderT (<?> msg)) p
+
+liftMultipart :: Parser a -> MultipartParser a
+liftMultipart = lift . lift
+
+runSinglepart :: MultipartParser a -> Parser a
+runSinglepart p = fmap fst (runReaderT (runWriterT p) Nothing)
+
+runMultipart :: MultipartParser a -> Maybe B.ByteString -> Parser (a, Any)
+runMultipart p boundary = runReaderT (runWriterT p) boundary
+
+wrapPart :: B.ByteString -> MultipartParser a -> MultipartParser (a, Bool)
+wrapPart boundary p = fmap getAny <$> lift (local (const (Just boundary)) (runWriterT p))
+
 type Charset = Maybe Enc.DynEncoding
 
-encodedMessageP :: MimeType -> EncodingType -> Parser PartTree
+messageP :: MimeType -> Parser ([Field], PartTree)
+messageP deftype = runSinglepart $ messageP' deftype
+
+messageBodyP :: MimeType -> [Field] -> Parser PartTree
+messageBodyP deftype h = runSinglepart $ messageBodyP' deftype h
+
+encodedMessageP :: MimeType -> EncodingType -> MultipartParser PartTree
 encodedMessageP t e = case mimeType t of
   "multipart" -> do
     case Map.lookup "boundary" (mimeParams t) of
       Nothing ->
         fail "Multipart without boundary"
       Just boundary ->
-        PartMulti <$> pure (multipartType (mimeSubtype t)) <*> (multipartP e boundary <?> "multipartP")
+        PartMulti <$> pure (multipartType (mimeSubtype t)) <*> (multipartP (B.pack boundary) <??> "multipartP")
   "text" -> do
     let charset = Map.lookup "charset" (mimeParams t) >>= Enc.encodingFromStringExplicit
-    PartSingle <$> (PartText <$> pure (mimeSubtype t) <*> (singlepartTextP e charset <?> "singlepartTextP"))
+    PartSingle <$> (PartText <$> pure (mimeSubtype t) <*> (singlepartTextP e charset <??> "singlepartTextP"))
   _ ->
-    PartSingle <$> (PartBinary <$> pure t <*> (singlepartBinaryP e <?> "singlepartBinaryP"))
+    PartSingle <$> (PartBinary <$> pure t <*> (singlepartBinaryP e <??> "singlepartBinaryP"))
 
 multipartType :: String -> MultipartType
 multipartType "alternative" = MultipartAlternative
 multipartType _             = MultipartMixed
 
-singlepartTextP :: EncodingType -> Charset -> Parser T.Text
+singlepartTextP :: EncodingType -> Charset -> MultipartParser T.Text
 singlepartTextP e charset =
-  T.filter (/= '\r') <$> decodeCharset charset <$> decodeEncoding e <$> takeByteString
+  T.filter (/= '\r') <$> decodeCharset charset <$> decodeEncoding e <$> takePart
 
-singlepartBinaryP :: EncodingType -> Parser B.ByteString
-singlepartBinaryP e = decodeEncoding e <$> takeByteString
+singlepartBinaryP :: EncodingType -> MultipartParser B.ByteString
+singlepartBinaryP e = decodeEncoding e <$> takePart
 
-multipartP :: EncodingType -> String -> Parser [PartTree]
-multipartP e boundary = do
-  bs <- decodeEncoding e <$> takeByteString
+multipartP :: B.ByteString -> MultipartParser [PartTree]
+multipartP boundary = do
   let parts n = do
-        (part, last) <- multipartPartP boundary <?> ("part" ++ show n)
+        (part, last) <- wrapPart boundary (snd <$> messageP' (mimeTextPlain "utf8")) <??> ("part" ++ show n)
         if last
-        then return [part]
+        then takePart >> return [part]
         else do
           rest <- parts (n + 1)
           return (part : rest)
-  let parser = do
-        (_, last) <- multipartPartContentP (B.pack boundary) <?> ("part0")
-        if last then return []
-                else parts 1
-  case parseOnlyPretty parser bs of
-    Left err -> fail (subparserError ("Could not parse multipart (boundary='" ++ boundary ++ "')") err)
-    Right xs -> return xs
 
-multipartPartContentP :: B.ByteString -> Parser (Builder, Bool)
+  (_, last) <- wrapPart boundary takePart <??> ("part0")
+  if last then return []
+          else parts 1
+
+multipartPartContentP :: B.ByteString -> Parser (B.ByteString, Bool)
 multipartPartContentP boundary = do
   let dashdash = B.pack "--"
       endofline = B.pack "\r\n"
@@ -85,32 +102,34 @@ multipartPartContentP boundary = do
     if line == (dashdash <> boundary <> dashdash)
     then return (mempty, True)
     else choice
-      [ endOfInput >> return (byteString (line <> endofline), True)
+      [ endOfInput >> return (line <> endofline, True)
       , do
         (rest, last) <- multipartPartContentP boundary
-        return (byteString (line <> endofline) <> rest, last)
+        return (line <> endofline <> rest, last)
       ]
 
-multipartPartP :: String -> Parser (PartTree, Bool)
-multipartPartP boundary = do
-  (partBuilder, last) <- multipartPartContentP (B.pack boundary) <?> "multipartPartContentP"
-  let part = toLazyByteString partBuilder
-  case APL.eitherResult (APL.parse (messageP (mimeTextPlain "utf8")) part) of
-    Left err -> fail (subparserError ("Could not parse part (boundary='" ++ boundary ++ "')") err)
-    Right (h, b)  -> return (b, last)
+takePart :: MultipartParser B.ByteString
+takePart = do
+  boundary <- ask
+  case boundary of
+    Nothing -> liftMultipart takeByteString
+    Just boundary -> do
+      (bs, last) <- liftMultipart $ multipartPartContentP boundary
+      tell (Any last)
+      return bs
 
 messageHeaderP :: Parser [Field]
 messageHeaderP = fields
 
-messageP :: MimeType -> Parser ([Field], PartTree)
-messageP defMime = do
-  h <- messageHeaderP <?> "messageHeaderP"
-  if null h then return () else (crlf <?> "crlf after headers") >> return ()
-  b <- messageBodyP defMime h <?> "messageBodyP"
+messageP' :: MimeType -> MultipartParser ([Field], PartTree)
+messageP' defMime = do
+  h <- liftMultipart messageHeaderP <??> "messageHeaderP"
+  liftMultipart $ if null h then return () else (crlf <?> "crlf after headers") >> return ()
+  b <- messageBodyP' defMime h <??> "messageBodyP"
   return (h, b)
 
-messageBodyP :: MimeType -> [Field] -> Parser PartTree
-messageBodyP defMime headers = do
+messageBodyP' :: MimeType -> [Field] -> MultipartParser PartTree
+messageBodyP' defMime headers = do
   let contentType =
         fromMaybe defMime (listToMaybe (lookupField fContentType headers))
       contentTransferEncoding =
@@ -120,7 +139,7 @@ messageBodyP defMime headers = do
       contentType' = case filename of
         Nothing -> contentType
         Just filename' -> withMimeParam "name" filename' contentType
-  encodedMessageP contentType' contentTransferEncoding <?> "encodedMessageP"
+  encodedMessageP contentType' contentTransferEncoding <??> "encodedMessageP"
 
 decodeEncoding :: EncodingType -> B.ByteString -> B.ByteString
 decodeEncoding e = fromMaybe (B.pack "DECODING ERROR") . decodeEncoding' e
