@@ -1,0 +1,22 @@
+OptionalField "Received" " from xcar [192.168.0.2] by jeeves.wooster.local (SMTPD32-7.07 EVAL) id AFF92F0214; Sun, 12 May 2002 08:55:37 +0100"
+Date (CalendarTime {ctYear = 2002, ctMonth = May, ctDay = 12, ctHour = 8, ctMin = 56, ctSec = 15, ctPicosec = 0, ctWDay = Sunday, ctYDay = 0, ctTZName = "", ctTZ = 3600, ctIsDST = False})
+From [NameAddr {nameAddr_name = Just "Father Time", nameAddr_addr = "father.time@xcar.wooster.local"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "timbo@jeeves.wooster.local"}]
+Subject "IMAP file test"
+MessageID (MsgID {getMsgID = "6df65d354b.father.time@rpc.wooster.local"})
+OptionalField "X-Organization" " Home"
+OptionalField "User-Agent" " Messenger-Pro/2.50a (MsgServe/1.50) (RISC-OS/4.02) POPstar/2.03"
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "mixed", mimeParams = fromList [("boundary","1618492860--2051301190--113853680")]})
+OptionalField "Status" " R"
+OptionalField "X-UIDL" " 319998302"
+
+MultipartMixed:
+  text/plain:
+    Simple email with attachment.
+    
+    
+  
+  
+  application/riscos: (binary)
+  

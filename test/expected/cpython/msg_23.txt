@@ -1,0 +1,8 @@
+From [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "aperson@dom.ain"}]
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "mixed", mimeParams = fromList [("boundary","BOUNDARY")]})
+
+MultipartMixed:
+  text/plain:
+    A message part
+  
+  

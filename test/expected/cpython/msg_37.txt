@@ -1,0 +1,30 @@
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "mixed", mimeParams = fromList [("boundary","ABCDE")]})
+
+MultipartMixed:
+  text/x-one:
+    Blah
+    
+  
+  
+  text/plain:
+  
+  
+  text/x-two:
+    Blah
+    
+  
+  
+  text/plain:
+  
+  
+  text/plain:
+  
+  
+  text/plain:
+  
+  
+  text/x-two:
+    Blah
+    
+  
+  

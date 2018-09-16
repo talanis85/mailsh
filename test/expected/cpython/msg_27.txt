@@ -1,0 +1,14 @@
+ReturnPath "<aperson@dom.ain>"
+Received ([("by","mail.dom.ain"),("id","B9D0AD35DB")],CalendarTime {ctYear = 2002, ctMonth = June, ctDay = 4, ctHour = 21, ctMin = 46, ctSec = 59, ctPicosec = 0, ctWDay = Tuesday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+MessageID (MsgID {getMsgID = "15613.28051.707126.569693@dom.ain"})
+Date (CalendarTime {ctYear = 2002, ctMonth = June, ctDay = 4, ctHour = 21, ctMin = 46, ctSec = 59, ctPicosec = 0, ctWDay = Tuesday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "text", mimeSubtype = "plain", mimeParams = fromList [("charset","us-ascii")]})
+ContentTransferEncoding EightBit
+Subject "bug demonstration 12345678911234567892123456789312345678941234567895123456789612345678971234567898112345678911234567892123456789112345678911234567892123456789 more text"
+From [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "aperson@dom.ain"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "bperson@dom.ain"}]
+
+text/plain:
+  test
+

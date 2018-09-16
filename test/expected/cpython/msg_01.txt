@@ -1,0 +1,20 @@
+ReturnPath "<bbb@zzz.org>"
+OptionalField "Delivered-To" " bbb@zzz.org"
+Received ([("by","mail.zzz.org"),("id","27CEAD38CC")],CalendarTime {ctYear = 2001, ctMonth = May, ctDay = 4, ctHour = 14, ctMin = 5, ctSec = 44, ctPicosec = 0, ctWDay = Friday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "text", mimeSubtype = "plain", mimeParams = fromList [("charset","us-ascii")]})
+ContentTransferEncoding EightBit
+MessageID (MsgID {getMsgID = "15090.61304.110929.45684@aaa.zzz.org"})
+From [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "bbb@ddd.com"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "bbb@zzz.org"}]
+Subject "This is a test message"
+Date (CalendarTime {ctYear = 2001, ctMonth = May, ctDay = 4, ctHour = 14, ctMin = 5, ctSec = 44, ctPicosec = 0, ctWDay = Friday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+
+text/plain:
+  
+  Hi,
+  
+  Do you like this message?
+  
+  -Me
+

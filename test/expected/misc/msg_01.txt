@@ -1,0 +1,243 @@
+From [NameAddr {nameAddr_name = Just "Travis CI", nameAddr_addr = "builds@travis-ci.org"}]
+Subject "Errored: talanis85/mailsh#1 (master - 8718b9b)"
+Received ([("from","[54.198.250.124]"),("by","mandrillapp.com"),("id","10b5103f6e964b44977c01b74667349d")],CalendarTime {ctYear = 2018, ctMonth = September, ctDay = 10, ctHour = 8, ctMin = 34, ctSec = 2, ctPicosec = 0, ctWDay = Monday, ctYDay = 0, ctTZName = "", ctTZ = 0, ctIsDST = False})
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "pk@pmlk.net"}]
+MessageID (MsgID {getMsgID = "5b962c78c2212_43fc1e08ab2181202260@35f4794e-7e8c-44a0-b696-46a994c1aa8e.mail"})
+InReplyTo [MsgID {getMsgID = "talanis85/mailsh+426575484+errored@travis-ci.org"}]
+Date (CalendarTime {ctYear = 2018, ctMonth = September, ctDay = 10, ctHour = 8, ctMin = 34, ctSec = 2, ctPicosec = 0, ctWDay = Monday, ctYDay = 0, ctTZName = "", ctTZ = 0, ctIsDST = False})
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "alternative", mimeParams = fromList [("boundary","_av-I4BGRkx2NAh7WgNZ9wvAdA")]})
+
+MultipartAlternative:
+  text/plain:
+    Build Update for talanis85/mailsh
+    -------------------------------------
+    
+    Build: #1
+    Status: Errored
+    
+    Duration: 58 secs
+    Commit: 8718b9b (master)
+    Author: Philip Kranz
+    Message: Add .travis.yml
+    
+    View the changeset: https://github.com/talanis85/mailsh/compare/b42ccbb892bdaf91f1f357f31bfdce95393023dc...8718b9b10c1cbd614f5b224f90a7e3fa66ddd3b9
+    
+    View the full build log and details: https://travis-ci.org/talanis85/mailsh/builds/426575484?utm_source=email&utm_medium=notification
+    
+    --
+    
+    You can configure recipients for build notifications in your .travis.yml file. See https://docs.travis-ci.com/user/notifications
+    
+    
+    
+    
+    
+    
+    
+    This email was sent to pk@pmlk.net (mailto:pk@pmlk.net)
+    unsubscribe from this list (http://clicks.travis-ci.com/track/unsub.php?u=14313403&id=10b5103f6e964b44977c01b74667349d.W3s%2FkMzDrBb05OpdayTfYesWbtw%3D&r=https%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dpk%2540pmlk.net)
+  
+  
+  text/html:
+    <!DOCTYPE HTML>
+    <html>
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+      <style>#repo-username-link:visited{color:#333333}
+    #repo-username-link:hover{color:#333333}
+    #repo-username-link:active{color:#333333}
+    #branch-name-link:visited{color:#333333}
+    #branch-name-link:hover{color:#333333}
+    #branch-name-link:active{color:#333333}
+    .success:visited{color:#32D282}
+    .success:hover{color:#32D282}
+    .success:active{color:#32D282}
+    .failure:visited{color:#DB4545}
+    .failure:hover{color:#DB4545}
+    .failure:active{color:#DB4545}
+    .error:visited{color:#666766}
+    .error:hover{color:#666766}
+    .error:active{color:#666766}
+    #changeset-link:visited{color:#0068FF}
+    #changeset-link:hover{color:#0068FF}
+    #changeset-link:active{color:#0068FF}
+    #documentation-link:visited{color:#0068FF}
+    #documentation-link:hover{color:#0068FF}
+    #documentation-link:active{color:#0068FF}
+    #configuration-link:visited{color:#9EA3A8}
+    #configuration-link:hover{color:#9EA3A8}
+    #configuration-link:active{color:#9EA3A8}
+    #email-footer-section a:active{color:#9EA3A8}
+    #email-footer-section a:hover{color:#9EA3A8}
+    #email-footer-section a:visited{color:#9EA3A8}</style></head>
+      <body style="min-width: 100%;height: 100%;margin: 0;padding: 0;">
+        <table id="travis-ci-email-container" align="center" border="0" cellpadding="0" cellspacing="0" height="100%" width="100%" style="height:100%;width:100%;padding:10px;font-family:'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:150%;text-align:center;color:#333333;background-color:#F4F5F9;background-image:url('https://s3.amazonaws.com/travis-email-assets/build_background.png');height: 100%;width: 100%;padding: 10px;font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;line-height: 150%;text-align: center;color: #333333;background-color: #F4F5F9;background-image: url(https://s3.amazonaws.com/travis-email-assets/build_background.png);">
+          <tr>
+            <td align="center" valign="top" style="padding-bottom: 20px;">
+              <table id="email-content-container" border="0" cellpadding="0" cellspacing="0" style="width:500px;padding:32px;background-color:#FFFFFF;width: 500px; padding: 32px; background-color: #FFFFFF;">
+                <!-- Repository Username Section -->
+                <tr>
+                  <td id="repo-username-section" align="center" valign="top" style="padding-bottom:20px;padding-bottom: 20px;">
+                    <a href="https://travis-ci.org/talanis85/mailsh?utm_source=email&amp;utm_medium=notification" id="repo-username-link" style="color:#333333;text-decoration:none;border-bottom:1px solid #333333;padding-bottom:4px;color: #333333; border-bottom: 1px solid #333333; text-decoration: none; padding-bottom: 4px;">
+                      <p class="repo-slug" style="margin:0px;font-size:30px;font-weight:600;line-height:36px;padding-left:5px;display: inline; font-size: 30px; font-weight: 600; line-height: 36px; padding-right: 5px; padding-left: 0px;">talanis85</p>
+                      <p id="repo-slug-divider" style="margin:0px;font-size:30px;font-weight:100;color:#9EA3A8;display: inline; font-size: 30px; font-weight: 100; color: #9EA3A8;">/</p>
+                      <p class="repo-slug" style="margin:0px;font-size:30px;font-weight:600;line-height:36px;padding-left:5px;display: inline; font-size: 30px; font-weight: 600; line-height: 36px; padding-left: 5px;">mailsh</p>
+    </a>              </td>
+                </tr>
+                <!-- Branch Name Section -->
+                <tr>
+                  <td id="branch-name-section" align="center" valign="top" style="padding-bottom: 35px;">
+                    <p id="branch-name" style="margin:0px;font-size:28px;font-weight:300;margin: 0px; font-size: 28px; font-weight: 300;">
+                      <img alt="branch icon" src="https://s3.amazonaws.com/travis-email-assets/branch.png" style="width:16px;height:auto;padding-right:8px;vertical-align:bottom;width: 16px; height: auto; padding-right: 8px; vertical-align: bottom;"><a href="https://github.com/talanis85/mailsh/tree/master" id="branch-name-link" style="color:#333333;line-height:36px;text-decoration:none;border-bottom:1px solid #333333;text-decoration: none; border-bottom: 1px solid #333333; padding-bottom: 2px; line-height: 36px;">master</a>
+                    </p>
+                  </td>
+                </tr>
+                <!-- Build Status Section -->
+                <tr>
+                  <td align="center" valign="top" style="padding-bottom: 20px;">
+                    <table cellpadding="0" cellspacing="0" class="build-status-border build-status-border-error" style="border-radius:3px;border:1px solid #666766;width: 100%;">
+                      <tr class="build-status-background-error" style="background:rgba(102, 103, 102, 0.1)">
+                        <td id="status-icon-section" align="center" valign="top" class="build-status-border-bottom-error" style="border-bottom:1px solid #666766;padding: 15px 15px;">
+                        <div style="float: left;">
+                          <div style="display: inline;"><img alt="build has errored" src="https://s3.amazonaws.com/travis-email-assets/status-errored.png" style="display: inline; vertical-align: sub; width: 17px; height: 17px; padding-right: 8px;"></div><div style="display: inline;"><a href="https://travis-ci.org/talanis85/mailsh/builds/426575484?utm_source=email&amp;utm_medium=notification" class="error" id="status-section-message" style="color:#666766;font-size: 16px; font-weight: 600;">Build #1 has errored</a></div>
+                        </div>
+                          <div style="display: inline; float: left;"><img alt="arrow to build time" id="arrow" src="https://s3.amazonaws.com/travis-email-assets/error-arrow.png" style="width: 7px; height: auto; vertical-align: text-bottom; padding: 0px 8px;"></div>
+                        <div style="float: right;">
+                          <span><img alt="clock icon" id="build-time-clock-icon" src="https://s3.amazonaws.com/travis-email-assets/time.png" style="width: 15px; height: 17px; padding-right: 8px; vertical-align: sub"></span><span style="font-size: 14px;">58 secs</span>
+                        </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td id="user-avatar-changeset-section" align="center" valign="top" style="padding-bottom:32px;padding: 20px 15px 35px 15px;">
+                          <div id="user-avatar-changeset-left" style="float:left;float: left;">
+                            <p style="margin:0px;display: inline; font-size: 14px; font-weight: 700; color: #333333;">
+                              <img alt="Philip Kranz avatar" src="https://secure.gravatar.com/avatar/f0e5b900848db6b5f2040bdef9721227" style="width: 22px; height: auto; border-radius: 10px; vertical-align: middle; margin-right: 8px;">Philip Kranz
+                            </p>
+                          </div>
+                          <div id="user-avatar-changeset-right" style="float:right;float: right;">
+                            <a href="https://github.com/talanis85/mailsh/compare/b42ccbb892bdaf91f1f357f31bfdce95393023dc...8718b9b10c1cbd614f5b224f90a7e3fa66ddd3b9" id="changeset-link" style="font-size:14px;font-weight:600;color:#0068FF;font-size: 14px; color: #0068FF; font-weight: 600;">8718b9b CHANGESET →</a>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td id="commit-message-section" align="center" valign="top" style="min-height:104px;padding:0px 20px 20px 20px;min-height: 104px; padding: 0px 15px 20px 15px;">
+                          <p id="commit-message" style="margin:0px;font-family:cousine, monospace;font-size:14px;line-height:22px;font-family: cousine, monospace; font-size: 14px; text-align: left; line-height: 22px;">Add .travis.yml</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Broadcast Section -->
+          <!-- Build Environment Updates Section -->
+          <tr>
+            <td id="update-section" align="center" valign="top" style="padding-bottom:20px;padding-bottom: 20px;">
+              <table id="update-container" border="0" cellpadding="0" cellspacing="0" style="width:500px;padding:32px 32px 42px 32px;background-color:#FFFFFF;width: 500px; padding: 32px 32px 42px 32px; background-color: #FFFFFF">
+                <tr>
+                  <td align="center" valign="top">
+                    <p id="update-header" style="margin:0px;font-size:24px;line-height:31px;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #0068FF;border-bottom: 2px solid #0068FF; padding-bottom: 10px; font-size: 24px; line-height: 31px; margin-bottom: 20px;">Want to know about upcoming build environment updates?</p>
+                    <p id="update-message" style="margin:0px;font-size:16px;font-weight:300;line-height:26px;margin-bottom:32px;font-size: 16px; line-height: 26px; font-weight: 300; margin-bottom: 32px;">Would you like to stay up-to-date with the upcoming Travis CI build environment updates? We set up a mailing list for you!</p>
+                    <a href="http://eepurl.com/9OCsP" id="sign-up-button" style="font-size:14px;font-weight:600;color:#FFFFFF;text-decoration:none;background-color:#0068FF;padding:12px 20px;border-radius:3px;font-size: 14px; font-weight: 600; color: #FFFFFF; background-color: #0068FF; text-decoration: none; padding: 12px 20px; border-radius: 3px;">SIGN UP HERE</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Documentation Section -->
+          <tr>
+            <td align="center" valign="top" style="padding-bottom: 20px;">
+              <table id="documentation-container" border="0" cellpadding="0" cellspacing="0" style="width:500px;padding:25px;background-color:rgba(222,239,255,0.3);border:1px solid #66A4FF;border-radius:3px;width: 500px; padding: 25px; background-color: rgba(222,239,255,0.3); border: 1px solid #66A4FF; border-radius: 3px;">
+                <tr>
+                  <td id="documentation-section" align="center" valign="top">
+                    <div>
+                      <img alt="book icon" id="documentation-icon" src="https://s3.amazonaws.com/travis-email-assets/documentation.png" style="display:inline;vertical-align:bottom;padding-right:5px;display: inline; vertical-align: bottom; padding-right: 5px;">
+                      <p id="documentation-text" style="margin:0px;display:inline;font-size:26px;font-weight:300;color:#0068FF;font-size: 26px; font-weight: 300; color: #0068FF; display: inline;">
+                        <a href="https://docs.travis-ci.com/" id="documentation-link" style="color:#0068FF">Documentation</a> about Travis CI
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Email Footer Section -->
+          <tr>
+            <td align="center" valign="top">
+              <table id="travis-ci-email-footer-container" border="0" cellpadding="20" cellspacing="0" style="width:500px;width: 500px;">
+                <tr>
+                  <td id="questions-section" align="center" valign="top" style="font-weight:300;color:#0068FF;color:#0068FF; font-weight: 300;">
+                    <span>Have any questions?</span>
+                    <span>
+                      <a href="mailto:support@travis-ci.com" style="color: #0068FF">We're here to help.</a>
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td id="travis-ci-footer-logo-section" style="text-align:center;text-align: center;">
+                    <a href="https://travis-ci.com"><img alt="black and white travis ci logo" src="https://s3.amazonaws.com/travis-email-assets/TravisCI-Logo-BW.png"></a>
+                  </td>
+                </tr>
+                <tr>
+                  <td id="email-footer-section" style="font-size:10px;line-height:200%;text-align:center;color:#9EA3A8;padding-top:0px;color: #9EA3A8; font-size: 10px; line-height: 200%; text-align: center; color: #9EA3A8; padding-top: 0px;">
+                    <p style="margin:0px;margin: 0px;">Travis CI GmbH, Rigaer Str. 8, 10427 Berlin, Germany | GF: Konstantin Haase, Fritz Thielemann |
+                      <span>Contact: <a href="mailto:contact@travis-ci.com" style="color:#9EA3A8;color: #9EA3A8;">contact@travis-ci.com</a> | Amtsgericht Charlottenburg, Berlin, HRB 140133 B | Umsatzsteuer-ID gemäß §27 a Umsatzsteuergesetz: DE282002648</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <script type="application/ld+json">
+        {
+          "@context": "http://schema.org",
+          "@type": "EmailMessage",
+          "action": {
+            "@type": "ViewAction",
+            "url": "https://travis-ci.org/talanis85/mailsh/builds/426575484?utm_source=email&amp;utm_medium=notification",
+            "name": "View Build"
+          },
+          "description": "View Build #1 on Travis CI"
+        }
+        </script>
+      <center>
+        <br />
+        <br />
+        <br />
+        <br />
+        <br />
+        <br />
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" id="canspamBarWrapper" style="background-color:#FFFFFF; border-top:1px solid #E5E5E5;">
+            <tr>
+                <td align="center" valign="top" style="padding-top:20px; padding-bottom:20px;">
+                    <table border="0" cellpadding="0" cellspacing="0" id="canspamBar">
+                        <tr>
+                            <td align="center" valign="top" style="color:#606060; font-family:Helvetica, Arial, sans-serif; font-size:11px; line-height:150%; padding-right:20px; padding-bottom:5px; padding-left:20px; text-align:center;">
+                                This email was sent to <a href="mailto:pk@pmlk.net" target="_blank" style="color:#404040 !important;">pk@pmlk.net</a>
+                                &nbsp;&nbsp;
+                                <a href="http://clicks.travis-ci.com/track/unsub.php?u=14313403&id=10b5103f6e964b44977c01b74667349d.W3s%2FkMzDrBb05OpdayTfYesWbtw%3D&r=https%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dpk%2540pmlk.net" style="color:#404040 !important;">unsubscribe from this list</a>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <style type="text/css">
+            @media only screen and (max-width: 480px){
+                table[id="canspamBar"] td{font-size:14px !important;}
+                table[id="canspamBar"] td a{display:block !important; margin-top:10px !important;}
+            }
+        </style>
+    </center></body>
+    </html>
+    
+    
+    
+  
+  

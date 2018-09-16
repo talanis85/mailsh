@@ -1,0 +1,18 @@
+ReturnPath "<barry@python.org>"
+OptionalField "Delivered-To" " barry@python.org"
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "message", mimeSubtype = "rfc822", mimeParams = fromList []})
+OptionalField "Content-Description" " forwarded message"
+ContentTransferEncoding EightBit
+MessageID (MsgID {getMsgID = "15265.9482.641338.555352@python.org"})
+From [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "barry@python.org"}]
+Sender (NameAddr {nameAddr_name = Nothing, nameAddr_addr = "barry@python.org"})
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "barry@python.org"}]
+Subject "forwarded message from Barry A. Warsaw"
+Date (CalendarTime {ctYear = 2001, ctMonth = September, ctDay = 13, ctHour = 17, ctMin = 28, ctSec = 42, ctPicosec = 0, ctWDay = Thursday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+OptionalField "X-Mailer" " VM 6.95 under 21.4 (patch 4) \"Artificial Intelligence\" XEmacs Lucid"
+OptionalField "X-Attribution" " BAW"
+OptionalField "X-Oblique-Strategy" " Be dirty"
+OptionalField "X-Url" " http://barry.wooz.org"
+
+message/rfc822: (binary)

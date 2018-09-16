@@ -33,7 +33,15 @@ testMsg dir filename =
           Left err -> assertFailure err
           Right (h, b) -> do
             createDirectoryIfMissing True ("test/results/" ++ dir)
-            writeFile ("test/results/" ++ dir ++ "/" ++ filename) (prettyHeaders h ++ "\n" ++ prettyBody b)
+            let resultFile = prettyHeaders h ++ "\n" ++ prettyBody b
+            writeFile ("test/results/" ++ dir ++ "/" ++ filename) resultFile
+            let expectedPath = "test/expected/" ++ dir ++ "/" ++ filename
+            haveExpected <- doesFileExist expectedPath
+            if haveExpected
+            then do
+              expectedFile <- readFile expectedPath
+              assertEqual "Result does not match expectation" resultFile expectedFile
+            else return ()
   in TestLabel filename test
 
 prettyBody :: PartTree -> String

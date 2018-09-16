@@ -1,0 +1,8 @@
+OptionalField "MIME-Version" " 1.0"
+From [NameAddr {nameAddr_name = Just "Barry", nameAddr_addr = "barry@digicool.com"}]
+To [NameAddr {nameAddr_name = Just "Dingus Lovers", nameAddr_addr = "cravindogs@cravindogs.com"}]
+Subject "Here is your dingus fish"
+Date (CalendarTime {ctYear = 2001, ctMonth = April, ctDay = 20, ctHour = 19, ctMin = 35, ctSec = 2, ctPicosec = 0, ctWDay = Friday, ctYDay = 0, ctTZName = "", ctTZ = -14400, ctIsDST = False})
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "mixed", mimeParams = fromList [("boundary","BOUNDARY")]})
+
+MultipartMixed:

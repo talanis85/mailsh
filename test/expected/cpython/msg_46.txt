@@ -1,0 +1,11 @@
+ReturnPath "<sender@example.net>"
+OptionalField "Delivery-Date" " Mon, 08 Feb 2010 14:05:16 +0100"
+Received ([("from","example.org"),("by","example.net"),("with","ESMTP"),("id","UNIQUE"),("for","someone@example.com")],CalendarTime {ctYear = 2010, ctMonth = February, ctDay = 8, ctHour = 14, ctMin = 5, ctSec = 16, ctPicosec = 0, ctWDay = Monday, ctYDay = 0, ctTZName = "", ctTZ = 3600, ctIsDST = False})
+Date (CalendarTime {ctYear = 2010, ctMonth = February, ctDay = 1, ctHour = 12, ctMin = 21, ctSec = 16, ctPicosec = 0, ctWDay = Monday, ctYDay = 0, ctTZName = "", ctTZ = 3600, ctIsDST = False})
+From [NameAddr {nameAddr_name = Just "\"Sender\"", nameAddr_addr = "sender@example.net"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "someone@example.com"}]
+Subject "GroupwiseForwardingTest"
+OptionalField "Mime-Version" " 1.0"
+ContentType (MimeType {mimeType = "message", mimeSubtype = "rfc822", mimeParams = fromList []})
+
+message/rfc822: (binary)

@@ -1,0 +1,21 @@
+OptionalField "From" " foo"
+Subject "bar"
+OptionalField "To" " baz"
+OptionalField "MIME-Version" " 1.0"
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "report", mimeParams = fromList [("boundary","D1690A7AC1.996856090/mail.example.com"),("report-type","delivery-status")]})
+MessageID (MsgID {getMsgID = "20010803162810.0CA8AA7ACC@mail.example.com"})
+
+MultipartMixed:
+  text/plain:
+    Yadda yadda yadda
+    
+  
+  
+  text/plain:
+    
+    Yadda yadda yadda
+    
+  
+  
+  message/rfc822: (binary)
+  

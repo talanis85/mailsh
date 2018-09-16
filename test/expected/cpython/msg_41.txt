@@ -1,0 +1,10 @@
+From [NameAddr {nameAddr_name = Just "\"Allison Dunlap\"", nameAddr_addr = "xxx@example.com"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "yyy@example.com"}]
+Subject "64423"
+Date (CalendarTime {ctYear = 2004, ctMonth = July, ctDay = 11, ctHour = 16, ctMin = 9, ctSec = 27, ctPicosec = 0, ctWDay = Sunday, ctYDay = 0, ctTZName = "", ctTZ = -10800, ctIsDST = False})
+OptionalField "MIME-Version" " 1.0"
+OptionalField "Content-Type" " multipart/alternative;"
+
+text/plain:
+  Blah blah blah
+

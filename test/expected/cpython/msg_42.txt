@@ -1,0 +1,13 @@
+ContentType (MimeType {mimeType = "multipart", mimeSubtype = "mixed", mimeParams = fromList [("boundary","AAA")]})
+From [NameAddr {nameAddr_name = Just "Mail Delivery Subsystem", nameAddr_addr = "xxx@example.com"}]
+To [NameAddr {nameAddr_name = Nothing, nameAddr_addr = "yyy@example.com"}]
+
+MultipartMixed:
+  text/plain:
+    
+    Stuff
+    
+  
+  
+  message/rfc822: (binary)
+  
