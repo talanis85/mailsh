@@ -1,6 +1,8 @@
 mailsh - A command line mail user agent
 =======================================
 
+[![Build Status](https://travis-ci.org/talanis85/mailsh.svg?branch=master)](https://travis-ci.org/talanis85/mailsh)
+
 Mailsh is a purely command-based MUA for the terminal, designed
 to be used on local maildirs (probably in combination with something
 like [isync](http://isync.sourceforge.net)).
