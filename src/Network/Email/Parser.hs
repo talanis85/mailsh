@@ -10,6 +10,7 @@ import Prelude hiding (takeWhile)
 
 import qualified Codec.MIME.Base64 as Base64
 import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
+import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Writer
 import qualified Data.ByteString.Char8 as B
@@ -55,7 +56,10 @@ messageBodyP deftype h = runSinglepart $ messageBodyP' deftype h
 encodedMessageP :: MimeType -> EncodingType -> MultipartParser PartTree
 encodedMessageP t e = case mimeType t of
   "multipart" -> do
-    case Map.lookup "boundary" (mimeParams t) of
+    let boundary' = Map.lookup "boundary" (mimeParams t)
+                <|> Map.lookup "Boundary" (mimeParams t)
+                <|> Map.lookup "BOUNDARY" (mimeParams t)
+    case boundary' of
       Nothing ->
         fail "Multipart without boundary"
       Just boundary ->

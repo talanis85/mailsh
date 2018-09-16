@@ -873,8 +873,8 @@ mime_type       = do t <- item_name
                      st <- item_name
                      params <- mime_params
                      return MimeType
-                       { mimeType = t
-                       , mimeSubtype = st
+                       { mimeType = map toLower t
+                       , mimeSubtype = map toLower st
                        , mimeParams = params
                        }
 
