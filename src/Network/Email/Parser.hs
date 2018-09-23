@@ -13,6 +13,8 @@ import qualified Codec.MIME.QuotedPrintable as QuotedPrintable
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Writer
+import qualified Data.ByteString.Builder as BL
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as B
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.Map as Map
@@ -95,7 +97,7 @@ multipartP boundary = do
   if last then return []
           else parts 1
 
-multipartPartContentP :: B.ByteString -> Parser (B.ByteString, Bool)
+multipartPartContentP :: B.ByteString -> Parser ([BL.Builder], Bool)
 multipartPartContentP boundary = do
   let dashdash = B.pack "--"
       endofline = B.pack "\r\n"
@@ -106,10 +108,10 @@ multipartPartContentP boundary = do
     if line == (dashdash <> boundary <> dashdash)
     then return (mempty, True)
     else choice
-      [ endOfInput >> return (line <> endofline, True)
+      [ endOfInput >> return ([BL.byteString (line <> endofline)], True)
       , do
         (rest, last) <- multipartPartContentP boundary
-        return (line <> endofline <> rest, last)
+        return (BL.byteString (line <> endofline) : rest, last)
       ]
 
 takePart :: MultipartParser B.ByteString
@@ -120,7 +122,7 @@ takePart = do
     Just boundary -> do
       (bs, last) <- liftMultipart $ multipartPartContentP boundary
       tell (Any last)
-      return bs
+      return $ BL.toStrict $ BL.toLazyByteString $ mconcat bs
 
 messageHeaderP :: Parser [Field]
 messageHeaderP = fields
