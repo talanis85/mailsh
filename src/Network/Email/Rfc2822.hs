@@ -870,7 +870,7 @@ content_type    = header "Content-Type" mime_type
 mime_type       :: Parser MimeType
 mime_type       = do t <- item_name
                      char '/'
-                     st <- item_name
+                     st <- many $ choice [ char '-', char '.', alpha, digit ]
                      params <- mime_params
                      return MimeType
                        { mimeType = map toLower t
