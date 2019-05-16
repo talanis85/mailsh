@@ -347,10 +347,7 @@ updateStore = do
 
 parseMessageString :: MID -> String -> BL.ByteString -> IO (Either String Message)
 parseMessageString mid flags bs = do
-  let hasCrlf = detectCrlf bs
-      result = if hasCrlf
-                  then parseByteString bs (basicMessage mid flags)
-                  else parseCrlfByteString bs (basicMessage mid flags)
+  let result = parseByteStringAuto bs (basicMessage mid flags)
   case result of
     Left err -> return (Left err)
     Right x  -> Right <$> x

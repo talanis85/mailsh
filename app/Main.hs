@@ -449,24 +449,9 @@ modifyMessage f notice mn' = do
   liftIO $ putStrLn notice
   liftIO $ printMessageSingle mn msg
 
-parseMaildirFile :: MID -> Attoparsec a -> MaildirM a
-parseMaildirFile mid p = do
-  fp <- absoluteMaildirFile mid
-  r <- liftIO $ parseCrlfFile fp p
-  case r of
-    Left err -> throwError ("Cannot parse message " ++ err)
-    Right v  -> return v
-
-parseMailfile :: (MonadError String m, MonadIO m) => FilePath -> Attoparsec a -> m a
-parseMailfile fp p = do
-  r <- liftIO $ parseCrlfFile fp p
-  case r of
-    Left err -> throwError ("Cannot parse message " ++ err)
-    Right v  -> return v
-
 parseMailstring :: (MonadError String m) => BL.ByteString -> Attoparsec a -> m a
 parseMailstring s p = do
-  let r = parseCrlfByteString s p
+  let r = parseByteStringAuto s p
   case r of
     Left err -> throwError ("Cannot parse message " ++ err)
     Right v  -> return v

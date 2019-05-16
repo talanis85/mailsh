@@ -1,11 +1,8 @@
 module Mailsh.Parse
-  ( parseCrlfFile
-  , parseCrlfByteString
-  , parseFile
+  ( parseFileAuto
+  , parseByteStringAuto
   , parseByteString
-  , parseString
   , parseStringMaybe
-  , detectCrlf
   , Attoparsec
   ) where
 
@@ -33,17 +30,22 @@ detectCrlf bs =
            else detect s'
   in fromMaybe False (detect bs)
 
-parseCrlfFile :: FilePath -> Parser a -> IO (Either String a)
-parseCrlfFile fp p = flip parseCrlfByteString p <$> B.readFile fp
+parseFileAuto :: FilePath -> Parser a -> IO (Either String a)
+parseFileAuto fp p = do
+  bs <- B.readFile fp
+  return $ if detectCrlf bs then parseByteStringCrlf bs p else parseByteStringLf bs p
 
-parseCrlfByteString :: B.ByteString -> Parser a -> Either String a
-parseCrlfByteString bs p = parseOnlyPretty p $ B.toStrict $ fixCrlfL bs
+parseByteStringAuto :: B.ByteString -> Parser a -> Either String a
+parseByteStringAuto bs p = if detectCrlf bs then parseByteStringCrlf bs p else parseByteStringLf bs p
 
-parseFile :: FilePath -> Parser a -> IO (Either String a)
-parseFile fp p = parseOnlyPretty p <$> BS.readFile fp
+parseByteStringLf :: B.ByteString -> Parser a -> Either String a
+parseByteStringLf bs p = parseOnlyPretty p $ B.toStrict $ fixCrlfL bs
+
+parseByteStringCrlf :: B.ByteString -> Parser a -> Either String a
+parseByteStringCrlf bs p = parseOnlyPretty p (B.toStrict bs)
 
 parseByteString :: B.ByteString -> Parser a -> Either String a
-parseByteString bs p = parseOnlyPretty p (B.toStrict bs)
+parseByteString = parseByteStringCrlf
 
 parseString :: Parser a -> String -> Either String a
 parseString p s = parseOnlyPretty p (BChar8.pack s)

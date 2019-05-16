@@ -28,8 +28,7 @@ testMsg dir filename =
   let test = TestCase $ do
         file <- BL.readFile ("test/data/" ++ dir ++ "/" ++ filename)
         let parser = messageP (mimeTextPlain "utf8")
-            result = if detectCrlf file then parseByteString file parser else parseCrlfByteString file parser
-        case result of
+        case parseByteStringAuto file parser of
           Left err -> assertFailure err
           Right (h, b) -> do
             createDirectoryIfMissing True ("test/results/" ++ dir)
