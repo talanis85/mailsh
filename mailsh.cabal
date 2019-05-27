@@ -22,19 +22,13 @@ library
                      , Mailsh.Maildir
                      , Mailsh.MimeRender
                      , Mailsh.Parse
+                     , Mailsh.Render
                      , Mailsh.Store
                      , Mailsh.Types
                      , Network.Email
   other-modules:       Data.Attoparsec.ByteString.Char8.Utils
                      , Data.Attoparsec.ByteString.Utils
                      , Mailsh.PersistentInstances
-                     , Network.Email.Charset
-                     , Network.Email.Parser
-                     , Network.Email.Render
-                     , Network.Email.Rfc2047
-                     , Network.Email.Rfc2234
-                     , Network.Email.Rfc2822
-                     , Network.Email.Types
   build-depends:       base >=4.8 && <5
                      , acid-state
                      , attoparsec
@@ -103,7 +97,7 @@ test-suite mailsh-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       Email
+  other-modules:
   build-depends:       base >=4.8 && <5
                      , bytestring
                      , directory

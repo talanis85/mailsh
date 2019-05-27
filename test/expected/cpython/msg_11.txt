@@ -1,5 +1,0 @@
-ContentType (MimeType {mimeType = "message", mimeSubtype = "rfc822", mimeParams = fromList []})
-OptionalField "MIME-Version" " 1.0"
-Subject "The enclosing message"
-
-message/rfc822: (binary)
