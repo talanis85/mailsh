@@ -6,11 +6,9 @@ module Mailsh.Types
   , flagToChar
   , Flags
   , flagD, flagR, flagS, flagT, flagF
-  , module Data.Fix
   ) where
 
 import Control.Lens
-import Data.Fix
 
 type Recipient = String
 

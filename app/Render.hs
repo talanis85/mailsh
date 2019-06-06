@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Render
   ( Renderer
   , fullRenderer
@@ -15,8 +16,10 @@ module Render
 import Control.Monad.Trans
 import Data.List
 import Data.Maybe
+import Data.Monoid ((<>))
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Time.Format
-import Network.Email
 import System.Console.Terminal.Size
 import Text.Parsec
 import Text.Printf
@@ -25,10 +28,12 @@ import System.Console.ANSI
 import System.IO
 import System.Process
 
+import Mailsh.Fields
 import Mailsh.MimeRender
+import Mailsh.MimeType
 import Mailsh.Store
 
-type Renderer = Message -> StoreM ()
+type Renderer = StoreMessage -> StoreM ()
 
 flagSummary :: String -> Char
 flagSummary flags
@@ -79,7 +84,7 @@ messageRenderer flt msg = do
   liftIO $ displayReferencedBy refby
   liftIO $ displayParts (messageParts msg)
   where
-    displayMessage :: Message -> Int -> IO ()
+    displayMessage :: StoreMessage -> Int -> IO ()
     displayMessage msg width = do
       setSGR [SetConsoleIntensity BoldIntensity]
       headerName "From" >> addressHeader (messageFrom msg)
@@ -88,21 +93,21 @@ messageRenderer flt msg = do
       headerName "Date" >> dateHeader (messageDate msg)
       setSGR [Reset]
       putStrLn ""
-      let rendered = renderType (messageBodyType msg) (messageBody msg)
+      let rendered = T.unpack $ renderType (messageBodyType msg) (messageBody msg)
       putStrLn $ flt rendered
         where
           headerName s = printf "%-15s" (s ++ ": ")
-          addressHeader as = putStrLn (intercalate ", " (map formatNameAddr as))
-          textHeader s = putStrLn s
+          addressHeader as = T.putStrLn (T.intercalate ", " (map formatMailbox as))
+          textHeader s = T.putStrLn s
           dateHeader d = putStrLn (formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" d)
-    displayReferences :: [(MessageNumber, Message)] -> IO ()
+    displayReferences :: [(MessageNumber, StoreMessage)] -> IO ()
     displayReferences [] = return ()
     displayReferences refs = do
       setSGR [SetConsoleIntensity BoldIntensity]
       putStrLn "Referenced messages:"
       setSGR [Reset]
       mapM_ (uncurry printMessageSingle) refs
-    displayReferencedBy :: [(MessageNumber, Message)] -> IO ()
+    displayReferencedBy :: [(MessageNumber, StoreMessage)] -> IO ()
     displayReferencedBy [] = return ()
     displayReferencedBy refbys = do
       setSGR [SetConsoleIntensity BoldIntensity]
@@ -120,7 +125,7 @@ messageRenderer flt msg = do
 outlineRenderer :: Renderer
 outlineRenderer msg = return ()
 
-printMessageSingle :: MessageNumber -> Message -> IO ()
+printMessageSingle :: MessageNumber -> StoreMessage -> IO ()
 printMessageSingle mn msg = withWidth $ putStrLn . formatMessageSingle mn msg
 
 printResultCount :: FilterResult a -> IO ()
@@ -139,7 +144,7 @@ terminalHeight = do
   (Window h _) <- fromMaybe (Window 80 80) <$> size
   return h
 
-formatMessageSingle :: MessageNumber -> Message -> Int -> String
+formatMessageSingle :: MessageNumber -> StoreMessage -> Int -> String
 formatMessageSingle mn msg width = printf "%c %5s %18s %16s %s"
                                         (flagSummary (messageFlags msg))
                                         (show mn)
@@ -147,13 +152,13 @@ formatMessageSingle mn msg width = printf "%c %5s %18s %16s %s"
                                         (take 16 date)
                                         (take (width - (1 + 5 + 18 + 16 + 5)) subject)
   where
-    from = fromMaybe "" $ formatNameAddrShort <$> listToMaybe (messageFrom msg)
-    subject = messageSubject msg
+    from = T.unpack $ fromMaybe "" $ formatMailboxShort <$> listToMaybe (messageFrom msg)
+    subject = T.unpack $ messageSubject msg
     date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" (messageDate msg)
 
 runMailcap :: MimeType -> BSC.ByteString -> IO ()
 runMailcap t s = do
-  let cmd = printf "run-mailcap %s:-" (simpleMimeType t)
+  let cmd = printf "run-mailcap %s:-" (formatMimeTypeShort t)
   hFlush stdout
   (Just inH, _, _, procH) <-
     createProcess_ "see" (shell cmd) { std_in = CreatePipe }

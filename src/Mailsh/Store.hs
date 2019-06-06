@@ -6,6 +6,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,7 +16,7 @@ module Mailsh.Store
   ( StoreM
   , MessageNumber
   , messageNumber
-  , Message (..)
+  , StoreMessage (..)
   , parseMessageFile
   , parseMessageString
   , FilterExp
@@ -45,9 +46,14 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Morph
 import Control.Monad.Reader
+import Data.Attoparsec.ByteString
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.CaseInsensitive (CI)
+import qualified Data.CaseInsensitive as CI
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.List (union)
 import qualified Data.Text as T
 import Data.Time.Calendar
@@ -61,10 +67,11 @@ import System.Directory
 import System.FilePath
 
 import Mailsh.Maildir
+import Mailsh.Message
+import Mailsh.MimeType
 import Mailsh.Parse
 import Mailsh.PersistentInstances ()
-
-import Network.Email
+import Mailsh.Fields
 
 ------------------------------------------------------------------------------
 
@@ -91,20 +98,20 @@ makeLenses ''Store
 
 --------------------------------------------------------------------------------
 
-data Message = Message
+data StoreMessage = StoreMessage
   { messageMid         :: MID
   , messageDate        :: UTCTime
-  , messageFlags       :: String
+  , messageFlags       :: [Char]
   , messageMessageId   :: MsgID
-  , messageFrom        :: [NameAddr]
-  , messageTo          :: [NameAddr]
-  , messageCc          :: [NameAddr]
-  , messageBcc         :: [NameAddr]
+  , messageFrom        :: [Mailbox]
+  , messageTo          :: [Mailbox]
+  , messageCc          :: [Mailbox]
+  , messageBcc         :: [Mailbox]
   , messageReferences  :: [MsgID]
-  , messageReplyTo     :: [NameAddr]
-  , messageSubject     :: String
+  , messageReplyTo     :: [Mailbox]
+  , messageSubject     :: T.Text
   , messageBody        :: T.Text
-  , messageBodyType    :: String
+  , messageBodyType    :: CI T.Text
   , messageParts       :: [MimeType]
   }
 
@@ -113,9 +120,9 @@ MessageE
   mid         MID
   date        UTCTime
   messageId   MsgID
-  subject     String
+  subject     T.Text
   body        T.Text
-  bodyType    String
+  bodyType    T.Text
   flags       String
   MessageEUniqueMid mid
 ModifiedE
@@ -125,8 +132,8 @@ ModifiedE
 AddressE
   messageRef  MessageEId
   type        String
-  name        String Maybe
-  address     String
+  name        T.Text Maybe
+  address     T.Text
 ReferenceE
   messageRef  MessageEId
   msgId       MsgID
@@ -213,11 +220,11 @@ filterReferencedBy msgid (_, _, ref, _) = ref E.^. ReferenceEMsgId E.==. E.val m
 filterMessageId :: MsgID -> FilterExp
 filterMessageId msgid (msg, _, _, _) = msg E.^. MessageEMessageId E.==. E.val msgid
 
-filterString :: String -> FilterExp
+filterString :: T.Text -> FilterExp
 filterString s (msg, addr, _, _) =
-        (msg E.^. MessageESubject `E.like` E.val ("%" ++ s ++ "%"))
-  E.||. (addr E.^. AddressEName `E.like` E.val (Just ("%" ++ s ++ "%")))
-  E.||. (addr E.^. AddressEAddress `E.like` E.val ("%" ++ s ++ "%"))
+        (msg E.^. MessageESubject `E.like` E.val ("%" <> s <> "%"))
+  E.||. (addr E.^. AddressEName `E.like` E.val (Just ("%" <> s <> "%")))
+  E.||. (addr E.^. AddressEAddress `E.like` E.val ("%" <> s <> "%"))
 
 --------------------------------------------------------------------------------
 
@@ -256,17 +263,17 @@ applyFilter flt lim = do
     , resultTotal = length withoutLimit
     }
 
-filterBy :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (MessageNumber, Message))
+filterBy :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (MessageNumber, StoreMessage))
 filterBy flt limit = fmap combineMessage <$> applyFilter flt limit
 
-lookupMessageNumber :: (MonadIO m) => MessageNumber -> ReaderT SqlBackend m (Maybe Message)
+lookupMessageNumber :: (MonadIO m) => MessageNumber -> ReaderT SqlBackend m (Maybe StoreMessage)
 lookupMessageNumber mn = fmap snd . listToMaybe . resultRows <$> filterBy (filterMessageNumber mn) Nothing
 
 queryStore :: ReaderT SqlBackend StoreM a -> StoreM a
 queryStore = liftCache
 
-combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]) -> (MessageNumber, Message)
-combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, Message
+combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]) -> (MessageNumber, StoreMessage)
+combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, StoreMessage
   { messageMid         = messageEMid msg
   , messageDate        = messageEDate msg
   , messageFlags       = messageEFlags msg
@@ -279,15 +286,15 @@ combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, Me
   , messageReplyTo     = addrsOfType "replyto" addresses
   , messageSubject     = messageESubject msg
   , messageBody        = messageEBody msg
-  , messageBodyType    = messageEBodyType msg
+  , messageBodyType    = CI.mk (messageEBodyType msg)
   , messageParts       = map partEType parts
   })
     where
       addrsOfType t = mapMaybe (addrOfType t)
       addrOfType t x = if t == addressEType x
-                          then Just NameAddr { nameAddr_name = addressEName x
-                                             , nameAddr_addr = addressEAddress x
-                                             }
+                          then Just Mailbox { mailboxName = addressEName x
+                                            , mailboxAddr = addressEAddress x
+                                            }
                           else Nothing
 
 --------------------------------------------------------------------------------
@@ -319,7 +326,7 @@ updateStore = do
     now        <- liftIO getCurrentTime
     newMessage <- liftMaildir $ cacheFun mid
     case newMessage of
-      Left err         -> logInfoN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
+      Left err         -> logWarnN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
       Right newMessage -> liftCache $ updateMessage now newMessage
 
   forM_ (Map.toList toRemove) $ \(mid, _) -> liftCache $ deleteMessage mid
@@ -328,7 +335,7 @@ updateStore = do
     now        <- liftIO getCurrentTime
     newMessage <- liftMaildir $ cacheFun mid
     case newMessage of
-      Left err         -> logInfoN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
+      Left err         -> logWarnN (T.pack ("Could not parse message " ++ mid ++ "\nReason:\n" ++ err))
       Right newMessage -> liftCache $ updateMessage now newMessage
 
   forM_ (Map.toList toReflag) $ \(mid, flags) -> do
@@ -345,50 +352,44 @@ updateStore = do
         fp <- absoluteMaildirFile mid
         liftIO $ parseMessageFile mid flags fp
 
-parseMessageString :: MID -> String -> BL.ByteString -> IO (Either String Message)
-parseMessageString mid flags bs = do
-  let result = parseByteStringAuto bs (basicMessage mid flags)
-  case result of
-    Left err -> return (Left err)
-    Right x  -> Right <$> x
+parseMessageString :: MID -> String -> B.ByteString -> Either String StoreMessage
+parseMessageString mid flags bs = parseStoreMessage mid flags bs
 
-parseMessageFile :: MID -> String -> String -> IO (Either String Message)
-parseMessageFile mid flags fp = BL.readFile fp >>= parseMessageString mid flags
+parseMessageFile :: MID -> String -> String -> IO (Either String StoreMessage)
+parseMessageFile mid flags fp = parseMessageString mid flags <$> B.readFile fp
 
-basicMessage :: MID -> String -> Attoparsec (IO Message)
-basicMessage mid flags = do
-  (headers, msg) <- messageP (mimeTextPlain "utf8")
+parseStoreMessage :: MID -> String -> B.ByteString -> Either String StoreMessage
+parseStoreMessage mid flags bs = do
+  Message headers msg <- parseOnly messageP bs
 
   let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
+  let (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
 
-  return $ do
-    let (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
-    return Message
-      { messageMid          = mid
-      , messageDate         = fromMaybe defaultUTCTime (toUTCTime <$> listToMaybe (lookupField fDate headers))
-      , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
-      , messageFlags        = flags
-      , messageFrom         = mconcat (lookupField fFrom headers)
-      , messageTo           = mconcat (lookupField fTo headers)
-      , messageCc           = mconcat (lookupField fCc headers)
-      , messageBcc          = mconcat (lookupField fBcc headers)
-      , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
-      , messageReplyTo      = mconcat (lookupField fReplyTo headers)
-      , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
-      , messageBody         = mainBody
-      , messageBodyType     = mainBodyType
-      , messageParts        = map typeOfPart (partList msg)
-      }
+  return StoreMessage
+    { messageMid          = mid
+    , messageDate         = fromMaybe defaultUTCTime (toUTCTime <$> listToMaybe (lookupField fDate headers))
+    , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
+    , messageFlags        = flags
+    , messageFrom         = mconcat (lookupField fFrom headers)
+    , messageTo           = mconcat (lookupField fTo headers)
+    , messageCc           = mconcat (lookupField fCc headers)
+    , messageBcc          = mconcat (lookupField fBcc headers)
+    , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
+    , messageReplyTo      = mconcat (lookupField fReplyTo headers)
+    , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
+    , messageBody         = mainBody
+    , messageBodyType     = mainBodyType
+    , messageParts        = msg ^.. allParts . partBody . partType
+    }
 
 -- | Get the first text/plain (preferred) or text/html part
-firstTextPart :: PartTree -> Maybe (String, T.Text)
+firstTextPart :: PartTree -> Maybe (CI T.Text, T.Text)
 firstTextPart msg =
   let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
       textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
-      parts1       = partList <$> collapseAlternatives textPlain msg
-      parts2       = partList <$> collapseAlternatives textHtml msg
-  in join $ (listToMaybe <$> mapMaybe (^? _PartText) <$> parts1)
-        <|> (listToMaybe <$> mapMaybe (^? _PartText) <$> parts2)
+      firstPlain   = msg ^? collapsedAlternatives textPlain . inlineParts . textPart
+      firstHtml    = msg ^? collapsedAlternatives textHtml . inlineParts . textPart
+  in firstPlain <|> firstHtml
 
 {-
 type Query a = Monad m => SqlReadT m a
@@ -429,17 +430,17 @@ updateMessage t msg = do
       updateWhere [ModifiedEMessageRef ==. key] [ModifiedEDate =. t]
       return ()
   where
-    extractMessageE :: Message -> MessageE
+    extractMessageE :: StoreMessage -> MessageE
     extractMessageE msg = MessageE
       { messageEMid       = messageMid msg
       , messageEMessageId = messageMessageId msg
       , messageEDate      = messageDate msg
       , messageESubject   = messageSubject msg
       , messageEBody      = messageBody msg
-      , messageEBodyType  = messageBodyType msg
+      , messageEBodyType  = CI.foldedCase (messageBodyType msg)
       , messageEFlags     = messageFlags msg
       }
-    extractAddressEs :: Key MessageE -> Message -> [AddressE]
+    extractAddressEs :: Key MessageE -> StoreMessage -> [AddressE]
     extractAddressEs key msg = map (toaddr "from"    ) (messageFrom msg    )
                             ++ map (toaddr "to"      ) (messageTo msg      )
                             ++ map (toaddr "cc"      ) (messageCc msg      )
@@ -448,18 +449,18 @@ updateMessage t msg = do
       where
         toaddr t a = AddressE
           { addressEMessageRef = key
-          , addressEName = nameAddr_name a
-          , addressEAddress = nameAddr_addr a
+          , addressEName = mailboxName a
+          , addressEAddress = mailboxAddr a
           , addressEType = t
           }
-    extractReferenceEs :: Key MessageE -> Message -> [ReferenceE]
+    extractReferenceEs :: Key MessageE -> StoreMessage -> [ReferenceE]
     extractReferenceEs key msg = map toref (messageReferences msg)
       where
         toref r = ReferenceE
           { referenceEMessageRef = key
           , referenceEMsgId = r
           }
-    extractPartEs :: Key MessageE -> Message -> [PartE]
+    extractPartEs :: Key MessageE -> StoreMessage -> [PartE]
     extractPartEs key msg = map topart (messageParts msg)
       where
         topart p = PartE

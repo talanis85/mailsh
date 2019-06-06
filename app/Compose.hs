@@ -1,25 +1,26 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Compose
   ( ReplyStrategy (..)
   , composeWith
   , replyHeaders
   ) where
 
-import Control.Monad.Except
+import Data.Attoparsec.ByteString
 import Data.Maybe
+import Data.Monoid ((<>))
 import System.Directory
 import System.Environment
 import System.Process
 import System.IO
 
-import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as B
 
 import Mailsh.Compose
-import Mailsh.Parse
+import Mailsh.Fields
 import Mailsh.Store
-import Network.Email
 
 data ReplyStrategy = SingleReply | GroupReply
   deriving (Show)
@@ -29,26 +30,18 @@ editFile fp = do
   editor <- fromMaybe "vim" <$> lookupEnv "EDITOR"
   callCommand (editor ++ " " ++ fp)
 
-composeWith :: [Field] -> String -> IO (Either String ([Field], Text))
-composeWith headers text = do
+composeWith :: ComposedMessage -> IO (Either String ComposedMessage)
+composeWith cmsg = do
   tempdir <- getTemporaryDirectory
   (tempf, temph) <- openTempFile tempdir "message"
-  msg <- runExceptT $ renderCompose headers text
-  case msg of
-    Left err -> return (Left err)
-    Right msg -> do
-      hPutStr temph msg
-      hClose temph
-      editFile tempf
-      msg' <- BL.readFile tempf
-      return $ parseByteString msg' $ do
-        headers <- parseComposedHeaders
-        body <- parseComposedMessage
-        if T.null body
-           then fail "Empty message"
-           else return (headers, body)
+  let msg = renderComposedMessage cmsg
+  T.hPutStr temph msg
+  hClose temph
+  editFile tempf
+  msg' <- B.readFile tempf
+  return $ parseOnly composedMessageP msg'
 
-replyHeaders :: Maybe NameAddr -> ReplyStrategy -> Message -> [Field]
+replyHeaders :: Maybe Mailbox -> ReplyStrategy -> StoreMessage -> [Field]
 replyHeaders myaddr strat msg =
   let from'   = case messageReplyTo msg of
                   [] -> messageFrom msg
@@ -59,7 +52,7 @@ replyHeaders myaddr strat msg =
       cc      = case strat of
                   GroupReply -> Just (messageCc msg)
                   SingleReply -> Nothing
-      subject  = "Re: " ++ messageSubject msg
+      subject  = "Re: " <> messageSubject msg
   in catMaybes [ Just (mkField fTo to)
                , mkField fCc <$> cc
                , Just (mkField fInReplyTo [messageMessageId msg])

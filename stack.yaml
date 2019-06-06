@@ -1,10 +1,11 @@
-resolver: lts-6.0
+resolver: lts-8.24
 packages:
 - '.'
+- ../purebred-email
 extra-deps:
-- data-fix-0.0.3
-- encoding-0.8.1
 - mime-0.4.0.2
+# - purebred-email-0.1.0.1
+- concise-0.1.0.1
 flags: {}
 extra-package-dbs: []
 nix:

@@ -1,32 +1,21 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Mailsh.MimeRender
   ( renderType
   ) where
 
+import           Data.CaseInsensitive (CI)
 import qualified Data.Text as T
-import Text.Pandoc
+import           Text.Pandoc
 
-{-
-renderPartList :: Renderer
-renderPartList b =
-  let parts = partList b
-  in concat <$> mapM renderPart (zip ([1..] :: [Int]) parts)
-    where
-      renderPart (n, PartText t s)  = return $ printf "%d: text/%s\n" n t
-      renderPart (n, PartBinary t s) = return $ printf "%d: %s\n" n (renderMimeType t)
-      renderMimeType t = case lookupMimeParam "name" t of
-                           Nothing -> simpleMimeType t
-                           Just n  -> printf "%s (%s)" (simpleMimeType t) n
--}
-
-renderType :: String -> T.Text -> String
+renderType :: CI T.Text -> T.Text -> T.Text
 renderType t = case t of
   "html" -> renderHtml
   _      -> renderText
 
-renderText :: T.Text -> String
-renderText = T.unpack
+renderText :: T.Text -> T.Text
+renderText = id
 
-renderHtml :: T.Text -> String
+renderHtml :: T.Text -> T.Text
 renderHtml s =
   let readOpts = def
         { readerStandalone = True
@@ -36,5 +25,5 @@ renderHtml s =
         }
       result = writePlain writeOpts <$> readHtml readOpts (T.unpack s)
   in case result of
-       Left err -> "PandocError: " ++ show err
-       Right s' -> s'
+       Left err -> T.pack ("PandocError: " ++ show err)
+       Right s' -> T.pack s'

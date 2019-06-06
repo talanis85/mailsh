@@ -11,21 +11,21 @@ copyright:           2016 Philip Kranz
 category:            Network
 build-type:          Simple
 cabal-version:       >=1.10
-extra-source-files:  test/data/misc/*.txt
-                   , test/data/cpython/*.txt
 
 library
   hs-source-dirs:      src
   exposed-modules:     Data.String.WordWrap
                      , Mailsh.Compose
+                     , Mailsh.Fields
                      , Mailsh.Filter
                      , Mailsh.Maildir
+                     , Mailsh.Message
                      , Mailsh.MimeRender
+                     , Mailsh.MimeType
                      , Mailsh.Parse
-                     , Mailsh.Render
+                     , Mailsh.Rfc5322Date
                      , Mailsh.Store
                      , Mailsh.Types
-                     , Network.Email
   other-modules:       Data.Attoparsec.ByteString.Char8.Utils
                      , Data.Attoparsec.ByteString.Utils
                      , Mailsh.PersistentInstances
@@ -35,12 +35,12 @@ library
                      , attoparsec-expr
                      , base64-string
                      , bytestring
+                     , case-insensitive
                      , containers
-                     , data-fix
                      , directory
-                     , encoding
                      , esqueleto
                      , filepath
+                     , iconv
                      , lens
                      , mime
                      , mime-mail
@@ -55,6 +55,7 @@ library
                      , persistent-sqlite
                      , persistent-template
                      , process
+                     , purebred-email
                      , safecopy
                      , text
                      , time
@@ -73,11 +74,14 @@ executable mailsh
   build-depends:       base >=4.8 && <5
                      , ansi-terminal
                      , ansi-wl-pprint
+                     , attoparsec
                      , bytestring
                      , directory
                      , filepath
                      , gitrev
+                     , lens
                      , mailsh
+                     , mime-mail
                      , monad-logger
                      , mtl
                      , old-locale

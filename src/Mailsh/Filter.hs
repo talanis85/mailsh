@@ -7,6 +7,7 @@ import Control.Monad
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.Expr
 import qualified Data.ByteString.Char8 as B
+import qualified Data.Text.Encoding as T
 
 import Mailsh.Store
 
@@ -33,7 +34,7 @@ filterTermP = choice
   , char 's' >> return (return (filterFlag 'S'))
   , char 't' >> return (return (filterFlag 'T'))
   , char 'f' >> return (return (filterFlag 'F'))
-  , char '/' >> (return . filterString <$> B.unpack <$> takeWhile1 (notInClass "/") <* char '/')
+  , char '/' >> (return . filterString <$> T.decodeUtf8 <$> takeWhile1 (notInClass "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"
 

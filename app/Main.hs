@@ -1,11 +1,14 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
+import Control.Lens hiding (argument)
 import Control.Monad.Except
 import Control.Monad.Logger
+import Data.Attoparsec.ByteString (maybeResult, parse, parseOnly)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -24,14 +27,15 @@ import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Text.Printf
 
 import Mailsh.Compose
+import Mailsh.Fields
 import Mailsh.Filter
 import Mailsh.Types
 import Mailsh.Maildir
+import Mailsh.Message
 import Mailsh.MimeRender
+import Mailsh.MimeType
 import Mailsh.Parse
 import Mailsh.Store
-
-import Network.Email
 
 import Compose
 import MessageRef
@@ -195,10 +199,10 @@ throwEither s m = do
 
 getPartNumber n body
   | n < 1 = throwError "No such part"
-  | n > length (partList body) = throwError "No such part"
-  | otherwise = return (partList body !! (n-1))
+  | n > length (body ^.. allParts) = throwError "No such part"
+  | otherwise = return ((body ^.. allParts) !! (n-1))
 
-getMessage :: MessageRef -> StoreM (Message, BL.ByteString)
+getMessage :: MessageRef -> StoreM (StoreMessage, BL.ByteString)
 getMessage mref = case mref of
   MessageRefNumber mn' -> do
     mn <- mn'
@@ -207,30 +211,26 @@ getMessage mref = case mref of
     bs <- liftIO $ BL.readFile fp
     return (msg, bs)
   MessageRefPath path -> do
-    bs <- liftIO $ BL.readFile path
-    msg' <- liftIO $ parseMessageString "" "" bs
-    case msg' of
+    bs <- liftIO $ BS.readFile path
+    case parseMessageString "" "" bs of
       Left err -> throwError ("Could not parse message:\n" ++ err)
-      Right msg -> return (msg, bs)
+      Right msg -> return (msg, BL.fromStrict bs)
   MessageRefStdin -> do
-    bs <- liftIO $ BL.getContents
-    msg' <- liftIO $ parseMessageString "" "" bs
-    case msg' of
+    bs <- liftIO $ BS.getContents
+    case parseMessageString "" "" bs of
       Left err -> throwError ("Could not parse message:\n" ++ err)
-      Right msg -> return (msg, bs)
+      Right msg -> return (msg, BL.fromStrict bs)
   MessageRefPart n mref' -> do
     (msg', bs) <- getMessage mref'
-    (headers, body) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
+    Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
     part <- getPartNumber n body
     case part of
-      PartBinary t s ->
+      Part _ (PartBinary t s) ->
         if isSimpleMimeType "message/rfc822" t
         then do
-          let bs = BL.fromStrict s
-          msg'' <- liftIO $ parseMessageString "" "" bs
-          case msg'' of
+          case parseMessageString "" "" s of
             Left err -> throwError ("Could not parse message:\n" ++ err)
-            Right msg -> return (msg, bs)
+            Right msg -> return (msg, BL.fromStrict s)
         else throwError "Part must be of type message/rfc822"
       _ -> throwError "Part must be of type message/rfc822"
 
@@ -244,20 +244,20 @@ getPart mref = case mref of
     msg <- queryStore' (lookupMessageNumber mn)
     fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
     bs <- liftIO $ BS.readFile fp
-    return (PartBinary (mkMimeType "message" "rfc822") bs)
+    return (Part DispositionInline (PartBinary (mkMimeType "message" "rfc822") bs))
   MessageRefPath path -> do
     bs <- liftIO $ BS.readFile path
-    return (PartBinary (mkMimeType "message" "rfc822") bs)
+    return (Part DispositionInline (PartBinary (mkMimeType "message" "rfc822") bs))
   MessageRefStdin -> do
     bs <- liftIO $ BS.getContents
-    return (PartBinary (mkMimeType "message" "rfc822") bs)
+    return (Part DispositionInline (PartBinary (mkMimeType "message" "rfc822") bs))
   MessageRefPart n mref' -> do
     part' <- getPart mref'
     case part' of
-      PartBinary t bs -> do
+      Part _ (PartBinary t bs) -> do
         if isSimpleMimeType "message/rfc822" t
         then do
-          (headers, body) <- liftMaildir $ parseMailstring (BL.fromStrict bs) $ messageP (mimeTextPlain "utf8")
+          Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP bs
           getPartNumber n body
         else throwError "Expected type message/rfc822"
       _ -> throwError "Expected type message/rfc822"
@@ -271,55 +271,57 @@ cmdRead mref renderer = do
 cmdCat :: MessageRef -> StoreM ()
 cmdCat mref = do
   part <- getPart mref
-  case part of
+  case part ^. partBody of
     PartText t s -> liftIO $ T.putStrLn s
     PartBinary t s -> liftIO $ BSC.putStrLn s
 
 cmdView :: MessageRef -> StoreM ()
 cmdView mref = do
   part <- getPart mref
-  case part of
-    PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (BSC.pack (T.unpack s))
+  case part ^. partBody of
+    PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (T.encodeUtf8 s)
     PartBinary t s -> liftIO $ runMailcap t s
 
 cmdSave :: MessageRef -> FilePath -> StoreM ()
 cmdSave mref path = do
   part <- getPart mref
-  case part of
-    PartBinary t s -> case lookupMimeParam "name" t of
+  case part ^. partBody of
+    PartBinary t s -> case part ^? partFilename of
       Nothing -> throwError "Part has no filename"
-      Just fn -> liftIO $ BS.writeFile (path </> fn) s
+      Just fn -> liftIO $ BS.writeFile (path </> T.unpack fn) s
     PartText t s -> throwError "Cannot save text parts"
 
 cmdCompose :: Bool -> [FilePath] -> Recipient -> StoreM ()
 cmdCompose dry attachments rcpt = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= parseStringMaybe nameAddrP)
+    return (x >>= maybeResult . parse mailboxP . BSC.pack)
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
+        , mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
         ]
-        ++ map (mkField (fOptionalField "Attachment")) attachments
+        ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
 
-  initialMessage <- liftIO $ do
+  initialText <- liftIO $ do
     signaturePath <- (</> ".config/mailsh/signature") <$> getHomeDirectory
     signatureExists <- doesFileExist signaturePath
-    if signatureExists then readFile signaturePath else return ""
+    if signatureExists then T.readFile signaturePath else return ""
 
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders initialMessage
+  let initialMessage = emptyComposedMessage
+        { cmessageFields = initialHeaders
+        , cmessageText = initialText
+        }
+
+  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
   if dry
   then do
-    msg <- renderMessageS headers body
-    liftIO $ putStrLn msg
+    liftIO $ T.putStr $ renderComposedMessage cmsg
   else do
-    preview <- renderCompose headers (T.unpack body)
-    liftIO $ putStrLn preview
+    liftIO $ T.putStr $ renderComposedMessage cmsg
     sendIt <- liftIO $ askYesNo "Send this message?"
     if sendIt
     then do
-      mail <- generateMessage headers body
-      liftIO $ sendMessage mail
+      sendMessage cmsg
       liftIO $ putStrLn "Ok, mail sent."
     else liftIO $ putStrLn "Ok, mail discarded."
 
@@ -329,26 +331,26 @@ cmdReply dry strat attachments mref = do
   let mid = messageMid msg
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    liftIO $ putStrLn $ show x
-    return (x >>= parseStringMaybe nameAddrP)
+    return (x >>= maybeResult . parse mailboxP . BSC.pack)
   liftIO $ putStrLn $ show from
   let headers = replyHeaders from strat msg
-                ++ map (mkField (fOptionalField "Attachment")) attachments
+                ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
   let rendered = renderType (messageBodyType msg) (messageBody msg)
-  let quoted = unlines $ map ("> " ++) $ lines rendered
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith headers quoted
+  let quoted = T.unlines $ map ("> " <>) $ T.lines rendered
+  let initialMessage = emptyComposedMessage
+        { cmessageFields = headers
+        , cmessageText = quoted
+        }
+  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
   if dry
-  then do
-    msg <- renderMessageS headers body
-    liftIO $ putStrLn msg
+  then
+    liftIO $ T.putStr $ renderComposedMessage cmsg
   else do
-    preview <- renderCompose headers (T.unpack body)
-    liftIO $ putStrLn preview
+    liftIO $ T.putStr $ renderComposedMessage cmsg
     sendIt <- liftIO $ askYesNo "Send this message?"
     if sendIt
     then do
-      mail <- generateMessage headers body
-      liftIO $ sendMessage mail
+      sendMessage cmsg
       liftMaildir $ setFlag 'R' mid
       liftIO $ putStrLn "Ok, mail sent."
     else liftIO $ putStrLn "Ok, mail discarded."
@@ -357,31 +359,31 @@ cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
   from <- do
     x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= parseStringMaybe nameAddrP)
+    return (x >>= maybeResult . parse mailboxP . BSC.pack)
   let initialHeaders = catMaybes
         [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> parseStringMaybe nameAddrsP rcpt
+        , mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
         ]
-  (headers, body) <- throwEither "Invalid message" $ liftIO $ composeWith initialHeaders ""
-  mail <- generateMessage headers body
+      initialMessage = emptyComposedMessage
+        { cmessageFields = initialHeaders
+        }
+  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
   part <- getPart mref
-  let mail' = case part of
-        PartBinary t s ->
-          addAttachmentBS (T.pack (simpleMimeType t))
-                          (T.pack "original")
-                          (BL.fromStrict s)
-                          mail
-        PartText t s ->
-          addAttachmentBS (T.pack ("text/" ++ t ++ "; charset=utf-8"))
-                          (T.pack "original")
-                          (BL.fromStrict (T.encodeUtf8 s))
-                          mail
+  let original = case part ^. partBody of
+        PartBinary t s -> Attachment
+          { attachmentContentType = t
+          , attachmentFilename = "original"
+          , attachmentData = BL.fromStrict s
+          }
+        PartText t s -> Attachment
+          { attachmentContentType = withMimeParam "charset" "utf-8" (mkMimeType "text" t)
+          , attachmentFilename = "original"
+          , attachmentData = BL.fromStrict (T.encodeUtf8 s)
+          }
+  let cmsg' = cmsg { cmessageAttachments = original : cmessageAttachments cmsg }
   if dry
-  then do
-    msg <- liftIO $ renderMail' mail'
-    liftIO $ BL.putStr msg
-  else do
-    liftIO $ sendMessage mail'
+  then liftIO $ T.putStr $ renderComposedMessage cmsg'
+  else sendMessage cmsg'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do
@@ -425,20 +427,21 @@ cmdFilename mn' = do
 cmdOutline :: MessageRef -> StoreM ()
 cmdOutline mref = do
   (msg, bs) <- getMessage mref
-  (headers, body) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
+  Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
   liftIO $ putStrLn $ outline body
 
 cmdTar :: MessageRef -> StoreM ()
 cmdTar mref = do
   bs <- getRawMessage mref
-  (headers, parts) <- liftMaildir $ parseMailstring bs $ messageP (mimeTextPlain "utf8")
-  let mkAttachmentEntry (PartText _ _) = return Nothing
-      mkAttachmentEntry (PartBinary mt bs) = case lookupMimeParam "name" mt of
+  Message headers parts <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
+  let mkAttachmentEntry (filename, body) = case filename of
         Nothing -> return Nothing
-        Just fn -> case Tar.toTarPath False fn of
+        Just fn -> case Tar.toTarPath False (T.unpack fn) of
           Left err -> throwError $ printf "Invalid path '%s': %s" fn err
-          Right tp -> return $ Just $ Tar.fileEntry tp (BL.fromStrict bs)
-  attachments <- catMaybes <$> mapM mkAttachmentEntry (partList parts)
+          Right tp -> case body of
+            PartText _ text -> return $ Just $ Tar.fileEntry tp (BL.fromStrict (T.encodeUtf8 text))
+            PartBinary _ bs -> return $ Just $ Tar.fileEntry tp (BL.fromStrict bs)
+  attachments <- catMaybes <$> mapM mkAttachmentEntry (parts ^.. attachmentParts)
   liftIO $ BL.putStr (Tar.write attachments)
 
 modifyMessage :: (MID -> StoreM ()) -> String -> MessageNumber' -> StoreM ()
@@ -448,13 +451,6 @@ modifyMessage f notice mn' = do
   f (messageMid msg)
   liftIO $ putStrLn notice
   liftIO $ printMessageSingle mn msg
-
-parseMailstring :: (MonadError String m) => BL.ByteString -> Attoparsec a -> m a
-parseMailstring s p = do
-  let r = parseByteStringAuto s p
-  case r of
-    Left err -> throwError ("Cannot parse message " ++ err)
-    Right v  -> return v
 
 askYesNo :: String -> IO Bool
 askYesNo prompt = do

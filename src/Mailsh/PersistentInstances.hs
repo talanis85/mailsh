@@ -3,8 +3,9 @@ module Mailsh.PersistentInstances where
 
 import Database.Persist.TH
 
-import Network.Email
+import Mailsh.Fields
+import Mailsh.MimeType
 
 derivePersistField "MsgID"
-derivePersistField "NameAddr"
+derivePersistField "Mailbox"
 derivePersistField "MimeType"
