@@ -13,6 +13,7 @@ module Render
   , runMailcap
   ) where
 
+import Control.Monad
 import Control.Monad.Trans
 import Data.List
 import Data.Maybe
@@ -82,7 +83,7 @@ messageRenderer flt msg = do
   refby <- resultRows <$> queryStore (filterBy (filterReferencedBy (messageMessageId msg)) Nothing)
   liftIO $ displayReferences refs
   liftIO $ displayReferencedBy refby
-  liftIO $ displayParts (messageParts msg)
+  liftIO $ displayParts
   where
     displayMessage :: StoreMessage -> Int -> IO ()
     displayMessage msg width = do
@@ -114,13 +115,14 @@ messageRenderer flt msg = do
       putStrLn "Referenced by:"
       setSGR [Reset]
       mapM_ (uncurry printMessageSingle) refbys
-    displayParts [] = return ()
-    displayParts [x] = return ()
-    displayParts ps = do
-      setSGR [SetConsoleIntensity BoldIntensity]
-      putStrLn "Parts:"
-      setSGR [Reset]
-      mapM_ (uncurry (printf "%d: %s\n")) $ zip ([1..] :: [Int]) $ map formatMimeType $ messageParts msg
+    displayParts = do
+      when (not (null (messageAttachments msg))) $ do
+        setSGR [SetConsoleIntensity BoldIntensity]
+        putStrLn "Attachments:"
+        setSGR [Reset]
+        forM_ (zip ([1..] :: [Int]) (messageParts msg)) $ \(i, part) -> case isAttachment part of
+          Nothing -> return ()
+          Just (fn, t) -> printf "%d: %s (%s)\n" i fn (formatMimeTypeShort t)
 
 outlineRenderer :: Renderer
 outlineRenderer msg = return ()
@@ -145,12 +147,13 @@ terminalHeight = do
   return h
 
 formatMessageSingle :: MessageNumber -> StoreMessage -> Int -> String
-formatMessageSingle mn msg width = printf "%c %5s %18s %16s %s"
+formatMessageSingle mn msg width = printf "%c %c %5s %18s %16s %s"
                                         (flagSummary (messageFlags msg))
+                                        (if null (messageAttachments msg) then ' ' else '§')
                                         (show mn)
                                         (take 18 from)
                                         (take 16 date)
-                                        (take (width - (1 + 5 + 18 + 16 + 5)) subject)
+                                        (take (width - (2 + 2 + 6 + 19 + 17)) subject)
   where
     from = T.unpack $ fromMaybe "" $ formatMailboxShort <$> listToMaybe (messageFrom msg)
     subject = T.unpack $ messageSubject msg

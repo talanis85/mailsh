@@ -17,6 +17,7 @@ module Mailsh.Store
   , MessageNumber
   , messageNumber
   , StoreMessage (..)
+  , messageAttachments, isAttachment
   , parseMessageFile
   , parseMessageString
   , FilterExp
@@ -112,8 +113,15 @@ data StoreMessage = StoreMessage
   , messageSubject     :: T.Text
   , messageBody        :: T.Text
   , messageBodyType    :: CI T.Text
-  , messageParts       :: [MimeType]
+  , messageParts       :: [(Maybe T.Text, MimeType)]
   }
+
+messageAttachments :: StoreMessage -> [(T.Text, MimeType)]
+messageAttachments msg = mapMaybe isAttachment (messageParts msg)
+
+isAttachment :: (Maybe T.Text, MimeType) -> Maybe (T.Text, MimeType)
+isAttachment (Nothing, _) = Nothing
+isAttachment (Just fn, t) = Just (fn, t)
 
 share [mkPersist sqlSettings, mkDeleteCascade sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
 MessageE
@@ -139,6 +147,7 @@ ReferenceE
   msgId       MsgID
 PartE
   messageRef  MessageEId
+  filename    T.Text Maybe
   type        MimeType
   |]
 
@@ -287,7 +296,7 @@ combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, St
   , messageSubject     = messageESubject msg
   , messageBody        = messageEBody msg
   , messageBodyType    = CI.mk (messageEBodyType msg)
-  , messageParts       = map partEType parts
+  , messageParts       = map (\x -> (partEFilename x, partEType x)) parts
   })
     where
       addrsOfType t = mapMaybe (addrOfType t)
@@ -379,7 +388,7 @@ parseStoreMessage mid flags bs = do
     , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
     , messageBody         = mainBody
     , messageBodyType     = mainBodyType
-    , messageParts        = msg ^.. allParts . partBody . partType
+    , messageParts        = msg ^.. allParts . to (\x -> (x ^? partFilename, view (partBody . partType) x))
     }
 
 -- | Get the first text/plain (preferred) or text/html part
@@ -465,7 +474,8 @@ updateMessage t msg = do
       where
         topart p = PartE
           { partEMessageRef = key
-          , partEType = p
+          , partEFilename = fst p
+          , partEType = snd p
           }
     mkModifiedE :: Key MessageE -> UTCTime -> ModifiedE
     mkModifiedE key t = ModifiedE
