@@ -111,7 +111,7 @@ unstructuredP :: Parser T.Text
 unstructuredP = T.decodeUtf8 <$> takeWhile (notInClass "\n")
 
 msgidP :: Parser MsgID
-msgidP = MsgID <$> T.decodeUtf8 <$> tok (takeWhile1 (notInClass (" \n")))
+msgidP = MsgID <$> T.decodeUtf8 <$> tok (char '<' *> takeWhile1 (notInClass (">")) <* char '>')
 
 msgidsP :: Parser [MsgID]
 msgidsP = tok msgidP `sepBy` tok (char ',')

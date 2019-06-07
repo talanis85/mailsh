@@ -106,11 +106,11 @@ instance ShowField [Mailbox] where
 instance ShowField UTCTime where
   showFieldValue = T.pack . formatTime defaultTimeLocale "%a %b %d %H:%M"
 instance ShowField [String] where
-  showFieldValue = mconcat . intersperse ", " . map showFieldValue
+  showFieldValue = mconcat . intersperse ", " . map T.pack
 instance ShowField MsgID where
-  showFieldValue = getMsgID
+  showFieldValue = formatMsgID
 instance ShowField [MsgID] where
-  showFieldValue = mconcat . intersperse ", " . map showFieldValue
+  showFieldValue = mconcat . intersperse ", " . map formatMsgID
 instance ShowField T.Text where
   showFieldValue = id
 

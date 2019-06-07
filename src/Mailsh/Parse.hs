@@ -66,9 +66,9 @@ readPBField (key, value) = case key of
   "to"            -> To <$> map readPBMailbox <$> parseOnly PB.mailboxList value
   "cc"            -> Cc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
   "bcc"           -> Bcc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "message-id"    -> MessageID <$> return (MsgID (T.decodeUtf8 value))
-  -- "in-reply-to"   -> TODO
-  -- "references"    -> TODO
+  "message-id"    -> MessageID <$> readPBMessageId <$> parseOnly PB.mailbox value
+  "in-reply-to"   -> InReplyTo <$> map readPBMessageId <$> parseOnly PB.mailboxList value
+  "references"    -> References <$> map readPBMessageId <$> parseOnly PB.mailboxList value
   "subject"       -> Subject <$> return (PB.decodeEncodedWords value)
   "comments"      -> Comments <$> return (PB.decodeEncodedWords value)
   -- "keywords"      -> TODO
@@ -96,6 +96,9 @@ readPBContentType (PB.ContentType t st (PB.Parameters ps)) = MimeType
   }
   where
     convertParam (key, value) = (CI.map T.decodeUtf8 key, T.decodeUtf8 value)
+
+readPBMessageId :: PB.Mailbox -> MsgID
+readPBMessageId (PB.Mailbox _ addrSpec) = MsgID (readPBAddrSpec addrSpec)
 
 transferDecode :: PB.Headers -> B.ByteString -> Either String B.ByteString
 transferDecode headers body =
