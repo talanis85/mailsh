@@ -23,7 +23,7 @@ renderHtml s =
       writeOpts = def
         { writerReferenceLinks = True
         }
-      result = writePlain writeOpts <$> readHtml readOpts (T.unpack s)
+      result = writeAsciiDoc writeOpts <$> readHtml readOpts (T.unpack s)
   in case result of
        Left err -> T.pack ("PandocError: " ++ show err)
        Right s' -> T.pack s'
