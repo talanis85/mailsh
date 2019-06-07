@@ -34,6 +34,7 @@ filterTermP = choice
   , char 's' >> return (return (filterFlag 'S'))
   , char 't' >> return (return (filterFlag 'T'))
   , char 'f' >> return (return (filterFlag 'F'))
+  , char '#' >> (return . filterKeyword <$> T.decodeUtf8 <$> takeWhile1 (notInClass "#") <* char '#')
   , char '/' >> (return . filterString <$> T.decodeUtf8 <$> takeWhile1 (notInClass "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
   ] <?> "filter term"

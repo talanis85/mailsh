@@ -4,8 +4,9 @@ module Mailsh.Parse
   ) where
 
 import qualified Codec.Text.IConv as IConv
+import           Control.Applicative
 import           Control.Lens
-import           Data.Attoparsec.ByteString
+import           Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
@@ -16,6 +17,7 @@ import qualified Data.MIME as PB
 import qualified Data.MIME.Charset as PB
 import qualified Data.MIME.EncodedWord as PB
 import           Data.Monoid
+import           Data.List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -71,7 +73,7 @@ readPBField (key, value) = case key of
   "references"    -> References <$> map readPBMessageId <$> parseOnly PB.mailboxList value
   "subject"       -> Subject <$> return (PB.decodeEncodedWords value)
   "comments"      -> Comments <$> return (PB.decodeEncodedWords value)
-  -- "keywords"      -> TODO
+  "keywords"      -> Keywords <$> parseOnly keywordsP value
   "date"          -> Date <$> maybe (Left ("Invalid date format: '" ++ B.unpack value ++ "'")) Right (parseRfc5322Date (B.unpack value))
   "content-type"  -> ContentType <$> readPBContentType <$> parseOnly PB.parseContentType value
   _               -> pure $ OptionalField (CI.map T.decodeUtf8 key) (T.decodeUtf8 value)
@@ -113,3 +115,16 @@ charsetDecode headers body =
   let byteMessage = PB.Message headers body :: PB.ByteEntity
       charset = B.unpack <$> CI.foldedCase <$> byteMessage ^. PB.charsetName
   in return $ T.decodeUtf8 $ BL.toStrict $ IConv.convertFuzzy IConv.Transliterate (fromMaybe "utf8" charset) "utf8" $ BL.fromStrict body
+
+keywordsP :: Parser [T.Text]
+keywordsP = keywordP `sepBy` char ','
+
+keywordP :: Parser T.Text
+keywordP = mconcat . intersperse " " <$> many1 wordP
+
+wordP :: Parser T.Text
+wordP = do
+  _ <- option "" (many space)
+  t <- takeWhile1 (\x -> not (x `elem` ("\n\r\t ," :: [Char])))
+  _ <- option "" (many space)
+  return (PB.decodeEncodedWords t)

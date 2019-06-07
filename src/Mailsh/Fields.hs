@@ -50,7 +50,7 @@ data Field      = OptionalField       (CI T.Text) T.Text
                 | References          [MsgID]
                 | Subject             T.Text
                 | Comments            T.Text
-                | Keywords            [[T.Text]]
+                | Keywords            [T.Text]
                 | Date                UTCTime
                 | ContentType         MimeType
                 deriving (Show)
@@ -69,6 +69,7 @@ fMessageID          = AField "Message-ID"  _MessageID
 fInReplyTo          = AField "In-Reply-To" _InReplyTo
 fReferences         = AField "References"  _References
 fSubject            = AField "Subject"     _Subject
+fKeywords           = AField "Keywords"    _Keywords
 fDate               = AField "Date"        _Date
 fContentType        = AField "Content-Type" _ContentType
 

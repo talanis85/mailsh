@@ -38,6 +38,7 @@ module Mailsh.Store
   , filterReferencedBy
   , filterMessageId
   , filterString
+  , filterKeyword
   ) where
 
 import Control.Applicative
@@ -111,6 +112,7 @@ data StoreMessage = StoreMessage
   , messageReferences  :: [MsgID]
   , messageReplyTo     :: [Mailbox]
   , messageSubject     :: T.Text
+  , messageKeywords    :: [T.Text]
   , messageBody        :: T.Text
   , messageBodyType    :: CI T.Text
   , messageParts       :: [(Maybe T.Text, MimeType)]
@@ -149,6 +151,9 @@ PartE
   messageRef  MessageEId
   filename    T.Text Maybe
   type        MimeType
+KeywordE
+  messageRef  MessageEId
+  keyword     T.Text
   |]
 
 newtype MessageNumber = MessageNumber { getMessageNumber :: MessageEId }
@@ -192,6 +197,7 @@ type FilterExp
     , E.SqlExpr (Entity AddressE)
     , E.SqlExpr (Entity ReferenceE)
     , E.SqlExpr (Entity PartE)
+    , E.SqlExpr (Entity KeywordE)
     ) -> E.SqlExpr (E.Value Bool)
 
 data FilterResult a = FilterResult
@@ -212,7 +218,7 @@ filterNot :: FilterExp -> FilterExp
 filterNot f x = E.not_ (f x)
 
 filterFlag :: Char -> FilterExp
-filterFlag c (msg, _, _, _) = msg E.^. MessageEFlags `E.like` E.val ("%" ++ [c] ++ "%")
+filterFlag c (msg, _, _, _, _) = msg E.^. MessageEFlags `E.like` E.val ("%" ++ [c] ++ "%")
 
 filterUnseen :: FilterExp
 filterUnseen = filterNot (filterFlag 'S' `filterOr` filterFlag 'T')
@@ -221,40 +227,45 @@ filterUntrashed :: FilterExp
 filterUntrashed = filterNot (filterFlag 'T')
 
 filterMessageNumber :: MessageNumber -> FilterExp
-filterMessageNumber (MessageNumber key) (msg, _, _, _) = msg E.^. MessageEId E.==. E.val key
+filterMessageNumber (MessageNumber key) (msg, _, _, _, _) = msg E.^. MessageEId E.==. E.val key
 
 filterReferencedBy :: MsgID -> FilterExp
-filterReferencedBy msgid (_, _, ref, _) = ref E.^. ReferenceEMsgId E.==. E.val msgid
+filterReferencedBy msgid (_, _, ref, _, _) = ref E.^. ReferenceEMsgId E.==. E.val msgid
 
 filterMessageId :: MsgID -> FilterExp
-filterMessageId msgid (msg, _, _, _) = msg E.^. MessageEMessageId E.==. E.val msgid
+filterMessageId msgid (msg, _, _, _, _) = msg E.^. MessageEMessageId E.==. E.val msgid
 
 filterString :: T.Text -> FilterExp
-filterString s (msg, addr, _, _) =
+filterString s (msg, addr, _, _, _) =
         (msg E.^. MessageESubject `E.like` E.val ("%" <> s <> "%"))
   E.||. (addr E.^. AddressEName `E.like` E.val (Just ("%" <> s <> "%")))
   E.||. (addr E.^. AddressEAddress `E.like` E.val ("%" <> s <> "%"))
 
+filterKeyword :: T.Text -> FilterExp
+filterKeyword s (msg, _, _, _, keyw) = keyw E.^. KeywordEKeyword `E.like` E.val ("%" <> s <> "%")
+
 --------------------------------------------------------------------------------
 
-applyFilter :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]))
+applyFilter :: (MonadIO m) => FilterExp -> Limit -> ReaderT SqlBackend m (FilterResult (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE], [KeywordE]))
 applyFilter flt lim = do
-  messages <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part) -> do
+  messages <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part `E.LeftOuterJoin` keyw) -> do
+    E.on (msg E.^. MessageEId E.==. keyw  E.^. KeywordEMessageRef)
     E.on (msg E.^. MessageEId E.==. part  E.^. PartEMessageRef)
     E.on (msg E.^. MessageEId E.==. ref   E.^. ReferenceEMessageRef)
     E.on (msg E.^. MessageEId E.==. addr  E.^. AddressEMessageRef)
-    E.where_ (flt (msg, addr, ref, part))
+    E.where_ (flt (msg, addr, ref, part, keyw))
     E.groupBy (msg E.^. MessageEId)
     E.orderBy [E.desc (msg E.^. MessageEDate)]
     case lim of
       Nothing -> return ()
       Just lim -> E.limit (fromIntegral lim)
     return msg
-  withoutLimit <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part) -> do
+  withoutLimit <- E.select $ E.from $ \(msg `E.LeftOuterJoin` addr `E.LeftOuterJoin` ref `E.LeftOuterJoin` part `E.LeftOuterJoin` keyw) -> do
+    E.on (msg E.^. MessageEId E.==. keyw  E.^. KeywordEMessageRef)
     E.on (msg E.^. MessageEId E.==. part  E.^. PartEMessageRef)
     E.on (msg E.^. MessageEId E.==. ref   E.^. ReferenceEMessageRef)
     E.on (msg E.^. MessageEId E.==. addr  E.^. AddressEMessageRef)
-    E.where_ (flt (msg, addr, ref, part))
+    E.where_ (flt (msg, addr, ref, part, keyw))
     E.groupBy (msg E.^. MessageEId)
   combined <- forM messages $ \msg -> do
     addresses <- E.select $ E.from $ \x -> do
@@ -266,7 +277,10 @@ applyFilter flt lim = do
     parts <- E.select $ E.from $ \x -> do
       E.where_ (x E.^. PartEMessageRef E.==. E.val (entityKey msg))
       return x
-    return (entityKey msg, entityVal msg, map entityVal addresses, map entityVal references, map entityVal parts)
+    keywords <- E.select $ E.from $ \x -> do
+      E.where_ (x E.^. KeywordEMessageRef E.==. E.val (entityKey msg))
+      return x
+    return (entityKey msg, entityVal msg, map entityVal addresses, map entityVal references, map entityVal parts, map entityVal keywords)
   return FilterResult
     { resultRows = reverse combined
     , resultTotal = length withoutLimit
@@ -281,8 +295,8 @@ lookupMessageNumber mn = fmap snd . listToMaybe . resultRows <$> filterBy (filte
 queryStore :: ReaderT SqlBackend StoreM a -> StoreM a
 queryStore = liftCache
 
-combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE]) -> (MessageNumber, StoreMessage)
-combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, StoreMessage
+combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE], [KeywordE]) -> (MessageNumber, StoreMessage)
+combineMessage (key, msg, addresses, references, parts, keywords) = (MessageNumber key, StoreMessage
   { messageMid         = messageEMid msg
   , messageDate        = messageEDate msg
   , messageFlags       = messageEFlags msg
@@ -294,6 +308,7 @@ combineMessage (key, msg, addresses, references, parts) = (MessageNumber key, St
   , messageReferences  = map referenceEMsgId references
   , messageReplyTo     = addrsOfType "replyto" addresses
   , messageSubject     = messageESubject msg
+  , messageKeywords    = map keywordEKeyword keywords
   , messageBody        = messageEBody msg
   , messageBodyType    = CI.mk (messageEBodyType msg)
   , messageParts       = map (\x -> (partEFilename x, partEType x)) parts
@@ -386,6 +401,7 @@ parseStoreMessage mid flags bs = do
     , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
     , messageReplyTo      = mconcat (lookupField fReplyTo headers)
     , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
+    , messageKeywords     = mconcat (lookupField fKeywords headers)
     , messageBody         = mainBody
     , messageBodyType     = mainBodyType
     , messageParts        = msg ^.. allParts . to (\x -> (x ^? partFilename, view (partBody . partType) x))
@@ -426,6 +442,7 @@ updateMessage t msg = do
       insertMany (extractAddressEs key msg)
       insertMany (extractReferenceEs key msg)
       insertMany (extractPartEs key msg)
+      insertMany (extractKeywordEs key msg)
       insert (mkModifiedE key t)
       return ()
     Just key -> do
@@ -436,6 +453,8 @@ updateMessage t msg = do
       insertMany (extractReferenceEs key msg)
       deleteWhere [PartEMessageRef ==. key]
       insertMany (extractPartEs key msg)
+      deleteWhere [KeywordEMessageRef ==. key]
+      insertMany (extractKeywordEs key msg)
       updateWhere [ModifiedEMessageRef ==. key] [ModifiedEDate =. t]
       return ()
   where
@@ -476,6 +495,13 @@ updateMessage t msg = do
           { partEMessageRef = key
           , partEFilename = fst p
           , partEType = snd p
+          }
+    extractKeywordEs :: Key MessageE -> StoreMessage -> [KeywordE]
+    extractKeywordEs key msg = map tokeyword (messageKeywords msg)
+      where
+        tokeyword k = KeywordE
+          { keywordEMessageRef = key
+          , keywordEKeyword = k
           }
     mkModifiedE :: Key MessageE -> UTCTime -> ModifiedE
     mkModifiedE key t = ModifiedE
