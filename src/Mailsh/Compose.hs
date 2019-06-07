@@ -54,7 +54,7 @@ data Attachment = Attachment
 renderComposedMessage :: ComposedMessage -> T.Text
 renderComposedMessage msg =
   let renderedHeaders =
-        formatFields
+        formatFields False
           [ IsField fFrom
           , IsField fTo
           , IsField fCc
@@ -111,42 +111,45 @@ unstructuredP :: Parser T.Text
 unstructuredP = T.decodeUtf8 <$> takeWhile (notInClass "\n")
 
 msgidP :: Parser MsgID
-msgidP = MsgID <$> T.pack <$> angleAddrP
+msgidP = MsgID <$> T.decodeUtf8 <$> tok (takeWhile1 (notInClass (" \n")))
 
 msgidsP :: Parser [MsgID]
 msgidsP = tok msgidP `sepBy` tok (char ',')
 
 mailboxP :: Parser Mailbox
-mailboxP = try mailboxP <|> fmap (Mailbox Nothing) (T.pack <$> addrSpecP)
+mailboxP = try nameAddrP <|> fmap (Mailbox Nothing) addrSpecP
            <?> "mailbox"
+
+nameAddrP :: Parser Mailbox
+nameAddrP = Mailbox <$> (Just <$> displayNameP) <*> angleAddrP
 
 maybeOption p = (Just <$> p) <|> pure Nothing
 
 mailboxListP :: Parser [Mailbox]
 mailboxListP = mailboxP `sepBy` tok (char ',')
 
-wordP :: String -> Parser String
-wordP except = B.unpack <$> tok (takeWhile1 (notInClass (" \n'" ++ except)))
+wordP :: String -> Parser T.Text
+wordP except = T.decodeUtf8 <$> tok (takeWhile1 (notInClass (" \n'" ++ except)))
 
-displayNameP :: Parser String
-displayNameP = tok quotedWordP <|> (unwords <$> many1 (wordP "<,"))
+displayNameP :: Parser T.Text
+displayNameP = tok quotedWordP <|> (T.unwords <$> many1 (wordP "<,"))
 
-quotedWordP :: Parser String
+quotedWordP :: Parser T.Text
 quotedWordP = do
   char '"'
   r <- takeWhile1 (notInClass "\"")
   char '"'
-  return (B.unpack r)
+  return (T.decodeUtf8 r)
 
-angleAddrP :: Parser String
+angleAddrP :: Parser T.Text
 angleAddrP = try (do _ <- tok (char '<')
                      r <- tok addrSpecP
                      _ <- tok (char '>')
                      return r)
                   <?> "angle address"
 
-addrSpecP :: Parser String
-addrSpecP = B.unpack <$> takeWhile1 (notInClass ">\n ,")
+addrSpecP :: Parser T.Text
+addrSpecP = T.decodeUtf8 <$> takeWhile1 (notInClass ">\n ,")
 
 sendMessage :: (MonadIO m, MonadError String m) => ComposedMessage -> m ()
 sendMessage cmsg = do

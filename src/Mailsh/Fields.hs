@@ -108,15 +108,20 @@ instance ShowField UTCTime where
 instance ShowField [String] where
   showFieldValue = mconcat . intersperse ", " . map showFieldValue
 instance ShowField MsgID where
-  showFieldValue = formatMsgID
+  showFieldValue = getMsgID
 instance ShowField [MsgID] where
   showFieldValue = mconcat . intersperse ", " . map showFieldValue
 instance ShowField T.Text where
   showFieldValue = id
-instance ShowField a => ShowField [a] where
-  showFieldValue = mconcat . intersperse ", " . map showFieldValue
 
-formatFields :: [IsField] -> [Field] -> T.Text
-formatFields wanted all = T.unlines (map formatField wanted)
+showFieldValues :: (ShowField a) => [a] -> T.Text
+showFieldValues = mconcat . intersperse ", " . map showFieldValue
+
+formatFields :: Bool -> [IsField] -> [Field] -> T.Text
+formatFields showEmpty wanted all = T.unlines (mapMaybe formatField wanted)
   where
-    formatField (IsField f) = fieldName f <> ": " <> showFieldValue (lookupField f all)
+    formatField (IsField f) =
+      let values = lookupField f all
+      in if not showEmpty && null values
+            then Nothing
+            else Just $ fieldName f <> ": " <> showFieldValues (lookupField f all)

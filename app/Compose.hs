@@ -41,8 +41,12 @@ composeWith cmsg = do
   msg' <- B.readFile tempf
   return $ parseOnly composedMessageP msg'
 
-replyHeaders :: Maybe Mailbox -> ReplyStrategy -> StoreMessage -> [Field]
-replyHeaders myaddr strat msg =
+listToMaybeList :: [a] -> Maybe [a]
+listToMaybeList [] = Nothing
+listToMaybeList xs = Just xs
+
+replyHeaders :: ReplyStrategy -> StoreMessage -> [Field]
+replyHeaders strat msg =
   let from'   = case messageReplyTo msg of
                   [] -> messageFrom msg
                   xs -> xs
@@ -50,7 +54,7 @@ replyHeaders myaddr strat msg =
                   GroupReply -> from' ++ messageTo msg
                   SingleReply -> from'
       cc      = case strat of
-                  GroupReply -> Just (messageCc msg)
+                  GroupReply -> listToMaybeList (messageCc msg)
                   SingleReply -> Nothing
       subject  = "Re: " <> messageSubject msg
   in catMaybes [ Just (mkField fTo to)
@@ -58,5 +62,4 @@ replyHeaders myaddr strat msg =
                , Just (mkField fInReplyTo [messageMessageId msg])
                , Just (mkField fSubject subject)
                , Just (mkField fReferences (messageMessageId msg : messageReferences msg))
-               , mkField fFrom <$> pure <$> myaddr
                ]

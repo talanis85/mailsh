@@ -291,83 +291,92 @@ cmdSave mref path = do
       Just fn -> liftIO $ BS.writeFile (path </> T.unpack fn) s
     PartText t s -> throwError "Cannot save text parts"
 
+getMailfromEnv :: IO (Maybe Mailbox)
+getMailfromEnv = do
+  maybeValue <- lookupEnv "MAILFROM"
+  return $ do
+    value <- maybeValue
+    either (const Nothing) Just (parseOnly mailboxP (BSC.pack value))
+
+getSignature :: IO T.Text
+getSignature = do
+  signaturePath <- (</> ".config/mailsh/signature") <$> getHomeDirectory
+  signatureExists <- doesFileExist signaturePath
+  if signatureExists then T.readFile signaturePath else return ""
+
+composeMessage :: [Field] -> T.Text -> StoreM ComposedMessage
+composeMessage headers text = do
+  from <- liftIO getMailfromEnv
+
+  let headersBefore = catMaybes
+        [ mkField fFrom <$> return <$> from
+        ] ++ headers
+
+      messageBefore = emptyComposedMessage
+        { cmessageFields = headersBefore
+        , cmessageText = text
+        }
+
+  messageAfter <- throwEither "Invalid message" $ liftIO $ composeWith messageBefore
+
+  if T.null (T.strip (cmessageText messageAfter))
+     then throwError "Empty message"
+     else return messageAfter
+
+ifSend :: (MonadIO m) => Bool -> m () -> m ()
+ifSend dry sendAction = do
+  when (not dry) $ do
+    sendIt <- liftIO $ askYesNo "Send this message?"
+    if sendIt
+       then do
+         sendAction
+         liftIO $ putStrLn "Ok, mail sent."
+        else do
+         liftIO $ putStrLn "Ok, mail discarded."
+
 cmdCompose :: Bool -> [FilePath] -> Recipient -> StoreM ()
 cmdCompose dry attachments rcpt = do
-  from <- do
-    x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= maybeResult . parse mailboxP . BSC.pack)
-  let initialHeaders = catMaybes
-        [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
+  let headers = catMaybes
+        [ mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
         ]
         ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
 
-  initialText <- liftIO $ do
-    signaturePath <- (</> ".config/mailsh/signature") <$> getHomeDirectory
-    signatureExists <- doesFileExist signaturePath
-    if signatureExists then T.readFile signaturePath else return ""
+  text <- liftIO getSignature
 
-  let initialMessage = emptyComposedMessage
-        { cmessageFields = initialHeaders
-        , cmessageText = initialText
-        }
+  msg <- composeMessage headers text
+  liftIO $ T.putStr $ renderComposedMessage msg
 
-  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
-  if dry
-  then do
-    liftIO $ T.putStr $ renderComposedMessage cmsg
-  else do
-    liftIO $ T.putStr $ renderComposedMessage cmsg
-    sendIt <- liftIO $ askYesNo "Send this message?"
-    if sendIt
-    then do
-      sendMessage cmsg
-      liftIO $ putStrLn "Ok, mail sent."
-    else liftIO $ putStrLn "Ok, mail discarded."
+  ifSend dry $ sendMessage msg
+
+quotedMessage :: StoreMessage -> T.Text
+quotedMessage msg =
+  let rendered = renderType (messageBodyType msg) (messageBody msg)
+      quoted = T.unlines $ map ("> " <>) $ T.lines rendered
+  in quoted
 
 cmdReply :: Bool -> ReplyStrategy -> [FilePath] -> MessageRef -> StoreM ()
 cmdReply dry strat attachments mref = do
   (msg, _) <- getMessage mref
   let mid = messageMid msg
-  from <- do
-    x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= maybeResult . parse mailboxP . BSC.pack)
-  liftIO $ putStrLn $ show from
-  let headers = replyHeaders from strat msg
-                ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
-  let rendered = renderType (messageBodyType msg) (messageBody msg)
-  let quoted = T.unlines $ map ("> " <>) $ T.lines rendered
-  let initialMessage = emptyComposedMessage
-        { cmessageFields = headers
-        , cmessageText = quoted
-        }
-  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
-  if dry
-  then
-    liftIO $ T.putStr $ renderComposedMessage cmsg
-  else do
-    liftIO $ T.putStr $ renderComposedMessage cmsg
-    sendIt <- liftIO $ askYesNo "Send this message?"
-    if sendIt
-    then do
-      sendMessage cmsg
-      liftMaildir $ setFlag 'R' mid
-      liftIO $ putStrLn "Ok, mail sent."
-    else liftIO $ putStrLn "Ok, mail discarded."
+      headers = replyHeaders strat msg
+        ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
+      text = quotedMessage msg
+
+  msg <- composeMessage headers text
+  liftIO $ T.putStr $ renderComposedMessage msg
+
+  ifSend dry $ do
+    sendMessage msg
+    liftMaildir $ setFlag 'R' mid
 
 cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
-  from <- do
-    x <- liftIO (lookupEnv "MAILFROM")
-    return (x >>= maybeResult . parse mailboxP . BSC.pack)
-  let initialHeaders = catMaybes
-        [ mkField fFrom <$> return <$> from
-        , mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
+  let headers = catMaybes
+        [ mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
         ]
-      initialMessage = emptyComposedMessage
-        { cmessageFields = initialHeaders
-        }
-  cmsg <- throwEither "Invalid message" $ liftIO $ composeWith initialMessage
+      text = ""
+
+  msg <- composeMessage headers text
   part <- getPart mref
   let original = case part ^. partBody of
         PartBinary t s -> Attachment
@@ -380,10 +389,11 @@ cmdForward dry rcpt mref = do
           , attachmentFilename = "original"
           , attachmentData = BL.fromStrict (T.encodeUtf8 s)
           }
-  let cmsg' = cmsg { cmessageAttachments = original : cmessageAttachments cmsg }
-  if dry
-  then liftIO $ T.putStr $ renderComposedMessage cmsg'
-  else sendMessage cmsg'
+  let msg' = msg { cmessageAttachments = original : cmessageAttachments msg }
+
+  liftIO $ T.putStr $ renderComposedMessage msg'
+
+  ifSend dry $ sendMessage msg'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do
