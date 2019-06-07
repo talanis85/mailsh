@@ -104,22 +104,6 @@ collapsedAlternatives types = folding f
     filterPart types (MultiPart mt parts) =
       f (MultiPart mt parts)
 
-{-
-collapseAlternatives :: (MimeType -> Bool) -> PartTree -> Maybe PartTree
-collapseAlternatives types (MultiPart MultipartAlternative bs) =
-  getLast $ mconcat $ map (Last . filterPart types) bs
-  where
-    filterPart types (SinglePart (PartText t s))
-      | types (MimeType "text" t mempty) = Just (SinglePart (PartText t s))
-      | otherwise = Nothing
-    filterPart types (SinglePart (PartBinary t s))
-      | types t   = Just (SinglePart (PartBinary t s))
-      | otherwise = Nothing
-    filterPart types (MultiPart mt bs) =
-      collapseAlternatives types (MultiPart mt bs)
-collapseAlternatives types part = Just part
--}
-
 outline :: PartTree -> String
 outline = outline' 0
   where

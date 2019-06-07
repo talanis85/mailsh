@@ -151,28 +151,6 @@ updateNew maildir = do
   newFiles <- filter (\x -> (x /= ".") && (x /= "..")) <$> getDirectoryContents (newOf maildir)
   mapM_ moveNewFile newFiles
 
-{-
-readCachedMessage :: FilePath -> MID -> IO (Maybe CachedMessage)
-readCachedMessage fp mid = do
-  fileList <- liftIO $ filter (\x -> (x /= ".") && (x /= ".."))
-    <$> getDirectoryContents fp
-  case listToMaybe (filter (isPrefixOf (mid ++ ",")) fileList) of
-    Nothing -> return Nothing
-    Just file -> do
-      msg <- parseCrlfFile (fp </> file) parseCachedMessage
-      case msg of
-        Left err -> return Nothing
-        Right msg -> return (Just msg)
-
-parseCachedMessage :: Attoparsec CachedMessage
-parseCachedMessage = do
-  headers <- parseHeaders
-  message <- parseMessage (mimeTextPlain "utf8") headers
-  return CachedMessage
-    { messageHeaders = headers
-    }
--}
-
 -- | Get a 'MaildirFile' from a 'MID'
 getMaildirFile :: MID -> MaildirM MaildirFile
 getMaildirFile mid = do

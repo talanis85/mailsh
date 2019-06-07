@@ -159,16 +159,6 @@ sendMessage cmsg = do
 sendmailPath :: FilePath
 sendmailPath = "sendmail"
 
-{-
-renderMessage :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m BL.ByteString
-renderMessage fields body = do
-  m <- generateMessage fields body
-  liftIO $ renderMail' m
-
-renderMessageS :: (MonadIO m, MonadError String m) => [Field] -> T.Text -> m String
-renderMessageS fields body = BL.unpack <$> renderMessage fields body
--}
-
 maybeError :: (MonadError String m) => String -> Maybe a -> m a
 maybeError s m = case m of
                    Nothing -> throwError s
