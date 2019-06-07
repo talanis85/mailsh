@@ -54,9 +54,11 @@ date_time       :: Parser UTCTime
 date_time       = do -- wd <- option () (try (do wd <- day_of_week
                      --                          _ <- char ','
                      --                          return wd))
-                     _ <- day_of_week
-                     _ <- char ','
-                     _ <- spaces
+                     optional $ do
+                       _ <- day_of_week
+                       _ <- char ','
+                       _ <- spaces
+                       return ()
                      (y,m,d) <- date
                      _ <- spaces
                      (td,z) <- time
