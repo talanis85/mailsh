@@ -59,23 +59,28 @@ readPBContentDisposition cd = case cd ^. PB.dispositionType of
 readPBFields :: PB.Headers -> Either String [Field]
 readPBFields (PB.Headers headers) = mapM readPBField headers
 
+subError :: String -> Either String a -> Either String a
+subError s m = case m of
+                 Right v -> Right v
+                 Left err -> Left (s ++ ": " ++ err)
+
 readPBField :: PB.Header -> Either String Field
 readPBField (key, value) = case key of
-  "from"          -> From <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "sender"        -> Sender <$> readPBMailbox <$> parseOnly PB.mailbox value
-  "return-path"   -> ReturnPath <$> return (B.unpack value)
-  "reply-to"      -> ReplyTo <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "to"            -> To <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "cc"            -> Cc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "bcc"           -> Bcc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "message-id"    -> MessageID <$> readPBMessageId <$> parseOnly PB.mailbox value
-  "in-reply-to"   -> InReplyTo <$> map readPBMessageId <$> parseOnly PB.mailboxList value
-  "references"    -> References <$> map readPBMessageId <$> parseOnly PB.mailboxList value
-  "subject"       -> Subject <$> return (PB.decodeEncodedWords value)
-  "comments"      -> Comments <$> return (PB.decodeEncodedWords value)
-  "keywords"      -> Keywords <$> parseOnly keywordsP value
-  "date"          -> Date <$> maybe (Left ("Invalid date format: '" ++ B.unpack value ++ "'")) Right (parseRfc5322Date (B.unpack value))
-  "content-type"  -> ContentType <$> readPBContentType <$> parseOnly PB.parseContentType value
+  "from"          -> subError "From" $ From <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "sender"        -> subError "Sender" $ Sender <$> readPBMailbox <$> parseOnly PB.mailbox value
+  "return-path"   -> subError "ReturnPath" $ ReturnPath <$> return (B.unpack value)
+  "reply-to"      -> subError "ReplyTo" $ ReplyTo <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "to"            -> subError "To" $ To <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "cc"            -> subError "Cc" $ Cc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "bcc"           -> subError "Bcc" $ Bcc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "message-id"    -> subError "MessageID" $ MessageID <$> parseOnly messageIdP value
+  "in-reply-to"   -> subError "InReplyTo" $ InReplyTo <$> parseOnly messageIdsP value
+  "references"    -> subError "References" $ References <$> parseOnly messageIdsP value
+  "subject"       -> subError "Subject" $ Subject <$> return (PB.decodeEncodedWords value)
+  "comments"      -> subError "Comments" $ Comments <$> return (PB.decodeEncodedWords value)
+  "keywords"      -> subError "Keywords" $ Keywords <$> parseOnly keywordsP value
+  "date"          -> subError "Date" $ Date <$> maybe (Left ("Invalid date format: '" ++ B.unpack value ++ "'")) Right (parseRfc5322Date (B.unpack value))
+  "content-type"  -> subError "ContentType" $ ContentType <$> readPBContentType <$> parseOnly PB.parseContentType value
   _               -> pure $ OptionalField (CI.map T.decodeUtf8 key) (T.decodeUtf8 value)
 
 readPBMailbox :: PB.Mailbox -> Mailbox
@@ -99,9 +104,6 @@ readPBContentType (PB.ContentType t st (PB.Parameters ps)) = MimeType
   where
     convertParam (key, value) = (CI.map T.decodeUtf8 key, T.decodeUtf8 value)
 
-readPBMessageId :: PB.Mailbox -> MsgID
-readPBMessageId (PB.Mailbox _ addrSpec) = MsgID (readPBAddrSpec addrSpec)
-
 transferDecode :: PB.Headers -> B.ByteString -> Either String B.ByteString
 transferDecode headers body =
   let wireMessage = PB.Message headers body :: PB.WireEntity
@@ -115,6 +117,18 @@ charsetDecode headers body =
   let byteMessage = PB.Message headers body :: PB.ByteEntity
       charset = B.unpack <$> CI.foldedCase <$> byteMessage ^. PB.charsetName
   in return $ T.decodeUtf8 $ BL.toStrict $ IConv.convertFuzzy IConv.Transliterate (fromMaybe "utf8" charset) "utf8" $ BL.fromStrict body
+
+messageIdsP :: Parser [MsgID]
+messageIdsP = many messageIdP
+
+messageIdP :: Parser MsgID
+messageIdP = do
+  _ <- option "" (many space)
+  _ <- char '<'
+  t <- takeWhile1 (\x -> not (x `elem` ("\n\r\t >" :: [Char])))
+  _ <- char '>'
+  _ <- option "" (many space)
+  return $ MsgID $ T.decodeUtf8 t
 
 keywordsP :: Parser [T.Text]
 keywordsP = keywordP `sepBy` char ','
