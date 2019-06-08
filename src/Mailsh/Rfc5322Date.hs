@@ -9,6 +9,7 @@ import qualified Data.ByteString.Char8 as B8
 import           Data.Char (toUpper)
 import           Data.Time.Calendar
 import           Data.Time.Clock
+import           Data.Time.Format
 import           Data.Time.LocalTime
 
 parseRfc5322Date :: String -> Maybe UTCTime
@@ -212,5 +213,9 @@ zone            = (    do _ <- char '+'
                           h <- hour
                           m <- minute
                           return (minutesToTimeZone (-((h*60)+m)))
+                   <|> do c1 <- letter_ascii
+                          c2 <- letter_ascii
+                          c3 <- letter_ascii
+                          parseTimeM False defaultTimeLocale "%Z" [c1,c2,c3]
                    <?> "time zone"
                   )
