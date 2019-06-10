@@ -20,6 +20,7 @@ import qualified Data.ByteString as B
 
 import Mailsh.Compose
 import Mailsh.Fields
+import Mailsh.Message
 import Mailsh.Store
 
 data ReplyStrategy = SingleReply | GroupReply
@@ -45,7 +46,7 @@ listToMaybeList :: [a] -> Maybe [a]
 listToMaybeList [] = Nothing
 listToMaybeList xs = Just xs
 
-replyHeaders :: ReplyStrategy -> StoreMessage -> [Field]
+replyHeaders :: ReplyStrategy -> DigestMessage -> [Field]
 replyHeaders strat msg =
   let from'   = case messageReplyTo msg of
                   [] -> messageFrom msg

@@ -202,40 +202,42 @@ getPartNumber n body
   | n > length (body ^.. allParts) = throwError "No such part"
   | otherwise = return ((body ^.. allParts) !! (n-1))
 
-getMessage :: MessageRef -> StoreM (StoreMessage, BL.ByteString)
+getMessage :: MessageRef -> StoreM (Maybe MID, DigestMessage, BL.ByteString)
 getMessage mref = case mref of
   MessageRefNumber mn' -> do
     mn <- mn'
     msg <- queryStore' (lookupMessageNumber mn)
     fp <- liftMaildir $ absoluteMaildirFile (messageMid msg)
     bs <- liftIO $ BL.readFile fp
-    return (msg, bs)
+    return (Just (messageMid msg), messageDigest msg, bs)
   MessageRefPath path -> do
     bs <- liftIO $ BS.readFile path
-    case parseMessageString "" "" bs of
+    case parseOnly messageP bs of
       Left err -> throwError ("Could not parse message:\n" ++ err)
-      Right msg -> return (msg, BL.fromStrict bs)
+      Right msg -> return (Nothing, digestMessage msg, BL.fromStrict bs)
   MessageRefStdin -> do
     bs <- liftIO $ BS.getContents
-    case parseMessageString "" "" bs of
+    case parseOnly messageP bs of
       Left err -> throwError ("Could not parse message:\n" ++ err)
-      Right msg -> return (msg, BL.fromStrict bs)
+      Right msg -> return (Nothing, digestMessage msg, BL.fromStrict bs)
   MessageRefPart n mref' -> do
-    (msg', bs) <- getMessage mref'
+    (_, msg', bs) <- getMessage mref'
     Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
     part <- getPartNumber n body
     case part of
       Part _ (PartBinary t s) ->
         if isSimpleMimeType "message/rfc822" t
         then do
-          case parseMessageString "" "" s of
+          case parseOnly messageP s of
             Left err -> throwError ("Could not parse message:\n" ++ err)
-            Right msg -> return (msg, BL.fromStrict s)
+            Right msg -> return (Nothing, digestMessage msg, BL.fromStrict s)
         else throwError "Part must be of type message/rfc822"
       _ -> throwError "Part must be of type message/rfc822"
 
 getRawMessage :: MessageRef -> StoreM BL.ByteString
-getRawMessage mref = snd <$> getMessage mref
+getRawMessage mref = do
+  (_, _, bs) <- getMessage mref
+  return bs
 
 getPart :: MessageRef -> StoreM Part
 getPart mref = case mref of
@@ -264,9 +266,9 @@ getPart mref = case mref of
 
 cmdRead :: MessageRef -> Renderer -> StoreM ()
 cmdRead mref renderer = do
-  (msg, _) <- getMessage mref
+  (mid, msg, _) <- getMessage mref
   renderer msg
-  liftMaildir $ setFlag 'S' (messageMid msg)
+  maybe (return ()) (liftMaildir . setFlag 'S') mid
 
 cmdCat :: MessageRef -> StoreM ()
 cmdCat mref = do
@@ -348,7 +350,7 @@ cmdCompose dry attachments rcpt = do
 
   ifSend dry $ sendMessage msg
 
-quotedMessage :: StoreMessage -> T.Text
+quotedMessage :: DigestMessage -> T.Text
 quotedMessage msg =
   let rendered = renderType (messageBodyType msg) (messageBody msg)
       quoted = T.unlines $ map ("> " <>) $ T.lines rendered
@@ -356,9 +358,8 @@ quotedMessage msg =
 
 cmdReply :: Bool -> ReplyStrategy -> [FilePath] -> MessageRef -> StoreM ()
 cmdReply dry strat attachments mref = do
-  (msg, _) <- getMessage mref
-  let mid = messageMid msg
-      headers = replyHeaders strat msg
+  (mid, msg, _) <- getMessage mref
+  let headers = replyHeaders strat msg
         ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
       text = quotedMessage msg
 
@@ -367,7 +368,7 @@ cmdReply dry strat attachments mref = do
 
   ifSend dry $ do
     sendMessage msg
-    liftMaildir $ setFlag 'R' mid
+    maybe (return ()) (liftMaildir . setFlag 'R') mid
 
 cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
@@ -436,7 +437,7 @@ cmdFilename mn' = do
 
 cmdOutline :: MessageRef -> StoreM ()
 cmdOutline mref = do
-  (msg, bs) <- getMessage mref
+  (_, msg, bs) <- getMessage mref
   Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
   liftIO $ putStrLn $ outline body
 

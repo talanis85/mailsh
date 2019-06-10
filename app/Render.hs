@@ -30,11 +30,12 @@ import System.IO
 import System.Process
 
 import Mailsh.Fields
+import Mailsh.Message
 import Mailsh.MimeRender
 import Mailsh.MimeType
 import Mailsh.Store
 
-type Renderer = StoreMessage -> StoreM ()
+type Renderer = DigestMessage -> StoreM ()
 
 flagSummary :: String -> Char
 flagSummary flags
@@ -85,7 +86,7 @@ messageRenderer flt msg = do
   liftIO $ displayReferencedBy refby
   liftIO $ displayParts
   where
-    displayMessage :: StoreMessage -> Int -> IO ()
+    displayMessage :: DigestMessage -> Int -> IO ()
     displayMessage msg width = do
       setSGR [SetConsoleIntensity BoldIntensity]
       headerName "From" >> addressHeader (messageFrom msg)
@@ -149,15 +150,15 @@ terminalHeight = do
 formatMessageSingle :: MessageNumber -> StoreMessage -> Int -> String
 formatMessageSingle mn msg width = printf "%c %c %5s %18s %16s %s"
                                         (flagSummary (messageFlags msg))
-                                        (if null (messageAttachments msg) then ' ' else '§')
+                                        (if null (messageAttachments (messageDigest msg)) then ' ' else '§')
                                         (show mn)
                                         (take 18 from)
                                         (take 16 date)
                                         (take (width - (2 + 2 + 6 + 19 + 17)) subject)
   where
-    from = T.unpack $ fromMaybe "" $ formatMailboxShort <$> listToMaybe (messageFrom msg)
-    subject = T.unpack $ messageSubject msg
-    date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" (messageDate msg)
+    from = T.unpack $ fromMaybe "" $ formatMailboxShort <$> listToMaybe (messageFrom $ messageDigest msg)
+    subject = T.unpack $ messageSubject $ messageDigest msg
+    date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" (messageDate $ messageDigest msg)
 
 runMailcap :: MimeType -> BSC.ByteString -> IO ()
 runMailcap t s = do

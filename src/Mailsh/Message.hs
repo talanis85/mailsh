@@ -14,14 +14,24 @@ module Mailsh.Message
   , outline
   , isSimpleMimeType
   , anyF
+
+  , DigestMessage (..)
+  , digestMessage
+  , messageAttachments, isAttachment
   ) where
 
+import           Control.Applicative
 import           Control.Lens
 import qualified Data.ByteString as B
 import           Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
+import           Data.List
+import           Data.Maybe
 import           Data.Monoid (Any (..), Last (..), (<>))
 import qualified Data.Text as T
+import           Data.Time.Calendar
+import           Data.Time.Clock
+import           Data.Time.Compat
 import           Text.Printf
 
 import           Mailsh.Fields
@@ -120,3 +130,55 @@ isSimpleMimeType s t = s == formatMimeTypeShort t
 
 anyF :: [a -> Bool] -> a -> Bool
 anyF fs = getAny . foldMap (Any .) fs
+
+data DigestMessage = DigestMessage
+  { messageDate        :: UTCTime
+  , messageMessageId   :: MsgID
+  , messageFrom        :: [Mailbox]
+  , messageTo          :: [Mailbox]
+  , messageCc          :: [Mailbox]
+  , messageBcc         :: [Mailbox]
+  , messageReferences  :: [MsgID]
+  , messageReplyTo     :: [Mailbox]
+  , messageSubject     :: T.Text
+  , messageKeywords    :: [T.Text]
+  , messageBody        :: T.Text
+  , messageBodyType    :: CI T.Text
+  , messageParts       :: [(Maybe T.Text, MimeType)]
+  }
+
+digestMessage :: Message -> DigestMessage
+digestMessage (Message headers msg) =
+  let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
+      (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
+  in DigestMessage
+    { messageDate         = fromMaybe defaultUTCTime (toUTCTime <$> listToMaybe (lookupField fDate headers))
+    , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
+    , messageFrom         = mconcat (lookupField fFrom headers)
+    , messageTo           = mconcat (lookupField fTo headers)
+    , messageCc           = mconcat (lookupField fCc headers)
+    , messageBcc          = mconcat (lookupField fBcc headers)
+    , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
+    , messageReplyTo      = mconcat (lookupField fReplyTo headers)
+    , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
+    , messageKeywords     = mconcat (lookupField fKeywords headers)
+    , messageBody         = mainBody
+    , messageBodyType     = mainBodyType
+    , messageParts        = msg ^.. allParts . to (\x -> (x ^? partFilename, view (partBody . partType) x))
+    }
+
+-- | Get the first text/plain (preferred) or text/html part
+firstTextPart :: PartTree -> Maybe (CI T.Text, T.Text)
+firstTextPart msg =
+  let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
+      textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
+      firstPlain   = msg ^? collapsedAlternatives textPlain . inlineParts . textPart
+      firstHtml    = msg ^? collapsedAlternatives textHtml . inlineParts . textPart
+  in firstPlain <|> firstHtml
+
+messageAttachments :: DigestMessage -> [(T.Text, MimeType)]
+messageAttachments msg = mapMaybe isAttachment (messageParts msg)
+
+isAttachment :: (Maybe T.Text, MimeType) -> Maybe (T.Text, MimeType)
+isAttachment (Nothing, _) = Nothing
+isAttachment (Just fn, t) = Just (fn, t)

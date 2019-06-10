@@ -17,7 +17,6 @@ module Mailsh.Store
   , MessageNumber
   , messageNumber
   , StoreMessage (..)
-  , messageAttachments, isAttachment
   , parseMessageFile
   , parseMessageString
   , FilterExp
@@ -101,29 +100,10 @@ makeLenses ''Store
 --------------------------------------------------------------------------------
 
 data StoreMessage = StoreMessage
-  { messageMid         :: MID
-  , messageDate        :: UTCTime
-  , messageFlags       :: [Char]
-  , messageMessageId   :: MsgID
-  , messageFrom        :: [Mailbox]
-  , messageTo          :: [Mailbox]
-  , messageCc          :: [Mailbox]
-  , messageBcc         :: [Mailbox]
-  , messageReferences  :: [MsgID]
-  , messageReplyTo     :: [Mailbox]
-  , messageSubject     :: T.Text
-  , messageKeywords    :: [T.Text]
-  , messageBody        :: T.Text
-  , messageBodyType    :: CI T.Text
-  , messageParts       :: [(Maybe T.Text, MimeType)]
+  { messageMid :: MID
+  , messageFlags :: [Char]
+  , messageDigest :: DigestMessage
   }
-
-messageAttachments :: StoreMessage -> [(T.Text, MimeType)]
-messageAttachments msg = mapMaybe isAttachment (messageParts msg)
-
-isAttachment :: (Maybe T.Text, MimeType) -> Maybe (T.Text, MimeType)
-isAttachment (Nothing, _) = Nothing
-isAttachment (Just fn, t) = Just (fn, t)
 
 share [mkPersist sqlSettings, mkDeleteCascade sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
 MessageE
@@ -298,20 +278,22 @@ queryStore = liftCache
 combineMessage :: (Key MessageE, MessageE, [AddressE], [ReferenceE], [PartE], [KeywordE]) -> (MessageNumber, StoreMessage)
 combineMessage (key, msg, addresses, references, parts, keywords) = (MessageNumber key, StoreMessage
   { messageMid         = messageEMid msg
-  , messageDate        = messageEDate msg
   , messageFlags       = messageEFlags msg
-  , messageMessageId   = messageEMessageId msg
-  , messageFrom        = addrsOfType "from" addresses
-  , messageTo          = addrsOfType "to" addresses
-  , messageCc          = addrsOfType "cc" addresses
-  , messageBcc         = addrsOfType "bcc" addresses
-  , messageReferences  = map referenceEMsgId references
-  , messageReplyTo     = addrsOfType "replyto" addresses
-  , messageSubject     = messageESubject msg
-  , messageKeywords    = map keywordEKeyword keywords
-  , messageBody        = messageEBody msg
-  , messageBodyType    = CI.mk (messageEBodyType msg)
-  , messageParts       = map (\x -> (partEFilename x, partEType x)) parts
+  , messageDigest      = DigestMessage
+    { messageDate        = messageEDate msg
+    , messageMessageId   = messageEMessageId msg
+    , messageFrom        = addrsOfType "from" addresses
+    , messageTo          = addrsOfType "to" addresses
+    , messageCc          = addrsOfType "cc" addresses
+    , messageBcc         = addrsOfType "bcc" addresses
+    , messageReferences  = map referenceEMsgId references
+    , messageReplyTo     = addrsOfType "replyto" addresses
+    , messageSubject     = messageESubject msg
+    , messageKeywords    = map keywordEKeyword keywords
+    , messageBody        = messageEBody msg
+    , messageBodyType    = CI.mk (messageEBodyType msg)
+    , messageParts       = map (\x -> (partEFilename x, partEType x)) parts
+    }
   })
     where
       addrsOfType t = mapMaybe (addrOfType t)
@@ -384,37 +366,12 @@ parseMessageFile mid flags fp = parseMessageString mid flags <$> B.readFile fp
 
 parseStoreMessage :: MID -> String -> B.ByteString -> Either String StoreMessage
 parseStoreMessage mid flags bs = do
-  Message headers msg <- parseOnly messageP bs
-
-  let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
-  let (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
-
+  msg <- parseOnly messageP bs
   return StoreMessage
-    { messageMid          = mid
-    , messageDate         = fromMaybe defaultUTCTime (toUTCTime <$> listToMaybe (lookupField fDate headers))
-    , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
-    , messageFlags        = flags
-    , messageFrom         = mconcat (lookupField fFrom headers)
-    , messageTo           = mconcat (lookupField fTo headers)
-    , messageCc           = mconcat (lookupField fCc headers)
-    , messageBcc          = mconcat (lookupField fBcc headers)
-    , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
-    , messageReplyTo      = mconcat (lookupField fReplyTo headers)
-    , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
-    , messageKeywords     = mconcat (lookupField fKeywords headers)
-    , messageBody         = mainBody
-    , messageBodyType     = mainBodyType
-    , messageParts        = msg ^.. allParts . to (\x -> (x ^? partFilename, view (partBody . partType) x))
+    { messageMid = mid
+    , messageFlags = flags
+    , messageDigest = digestMessage msg
     }
-
--- | Get the first text/plain (preferred) or text/html part
-firstTextPart :: PartTree -> Maybe (CI T.Text, T.Text)
-firstTextPart msg =
-  let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
-      textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
-      firstPlain   = msg ^? collapsedAlternatives textPlain . inlineParts . textPart
-      firstHtml    = msg ^? collapsedAlternatives textHtml . inlineParts . textPart
-  in firstPlain <|> firstHtml
 
 {-
 type Query a = Monad m => SqlReadT m a
@@ -461,19 +418,19 @@ updateMessage t msg = do
     extractMessageE :: StoreMessage -> MessageE
     extractMessageE msg = MessageE
       { messageEMid       = messageMid msg
-      , messageEMessageId = messageMessageId msg
-      , messageEDate      = messageDate msg
-      , messageESubject   = messageSubject msg
-      , messageEBody      = messageBody msg
-      , messageEBodyType  = CI.foldedCase (messageBodyType msg)
+      , messageEMessageId = messageMessageId $ messageDigest msg
+      , messageEDate      = messageDate $ messageDigest msg
+      , messageESubject   = messageSubject $ messageDigest msg
+      , messageEBody      = messageBody $ messageDigest msg
+      , messageEBodyType  = CI.foldedCase $ messageBodyType $ messageDigest msg
       , messageEFlags     = messageFlags msg
       }
     extractAddressEs :: Key MessageE -> StoreMessage -> [AddressE]
-    extractAddressEs key msg = map (toaddr "from"    ) (messageFrom msg    )
-                            ++ map (toaddr "to"      ) (messageTo msg      )
-                            ++ map (toaddr "cc"      ) (messageCc msg      )
-                            ++ map (toaddr "bcc"     ) (messageBcc msg     )
-                            ++ map (toaddr "replyto" ) (messageReplyTo msg )
+    extractAddressEs key msg = map (toaddr "from"    ) (messageFrom    $ messageDigest msg)
+                            ++ map (toaddr "to"      ) (messageTo      $ messageDigest msg)
+                            ++ map (toaddr "cc"      ) (messageCc      $ messageDigest msg)
+                            ++ map (toaddr "bcc"     ) (messageBcc     $ messageDigest msg)
+                            ++ map (toaddr "replyto" ) (messageReplyTo $ messageDigest msg)
       where
         toaddr t a = AddressE
           { addressEMessageRef = key
@@ -482,14 +439,14 @@ updateMessage t msg = do
           , addressEType = t
           }
     extractReferenceEs :: Key MessageE -> StoreMessage -> [ReferenceE]
-    extractReferenceEs key msg = map toref (messageReferences msg)
+    extractReferenceEs key msg = map toref (messageReferences $ messageDigest msg)
       where
         toref r = ReferenceE
           { referenceEMessageRef = key
           , referenceEMsgId = r
           }
     extractPartEs :: Key MessageE -> StoreMessage -> [PartE]
-    extractPartEs key msg = map topart (messageParts msg)
+    extractPartEs key msg = map topart (messageParts $ messageDigest msg)
       where
         topart p = PartE
           { partEMessageRef = key
@@ -497,7 +454,7 @@ updateMessage t msg = do
           , partEType = snd p
           }
     extractKeywordEs :: Key MessageE -> StoreMessage -> [KeywordE]
-    extractKeywordEs key msg = map tokeyword (messageKeywords msg)
+    extractKeywordEs key msg = map tokeyword (messageKeywords $ messageDigest msg)
       where
         tokeyword k = KeywordE
           { keywordEMessageRef = key
