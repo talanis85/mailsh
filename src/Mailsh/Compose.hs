@@ -77,6 +77,7 @@ composedBodyP = do
 composedMessageP :: Parser ComposedMessage
 composedMessageP = do
   fields <- composedHeadersP
+  _ <- many space
   body <- composedBodyP
   return ComposedMessage
     { cmessageFields = fields
