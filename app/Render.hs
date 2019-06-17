@@ -11,6 +11,7 @@ module Render
   , printResultCount
   , terminalHeight
   , runMailcap
+  , runXdgOpen
   ) where
 
 import Control.Monad
@@ -26,6 +27,7 @@ import Text.Parsec
 import Text.Printf
 import qualified Data.ByteString.Char8 as BSC
 import System.Console.ANSI
+import System.Directory
 import System.IO
 import System.Process
 
@@ -168,4 +170,16 @@ runMailcap t s = do
     createProcess_ "see" (shell cmd) { std_in = CreatePipe }
   BSC.hPutStrLn inH s
   waitForProcess procH
+  return ()
+
+runXdgOpen :: T.Text -> BSC.ByteString -> IO ()
+runXdgOpen filename bs = do
+  tempdir <- getTemporaryDirectory
+  (tempf, temph) <- openTempFile tempdir (T.unpack filename)
+  BSC.hPutStr temph bs
+  hClose temph
+  let cmd = printf "xdg-open \"%s\"" tempf
+  (_, _, _, procH) <- createProcess_ "xdg-open" (shell cmd)
+  waitForProcess procH
+  removeFile tempf
   return ()

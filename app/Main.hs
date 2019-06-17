@@ -280,9 +280,11 @@ cmdCat mref = do
 cmdView :: MessageRef -> StoreM ()
 cmdView mref = do
   part <- getPart mref
-  case part ^. partBody of
-    PartText t s   -> liftIO $ runMailcap (mkMimeType "text" t) (T.encodeUtf8 s)
-    PartBinary t s -> liftIO $ runMailcap t s
+  case part ^? partFilename of
+    Nothing -> throwError "Part has no file name"
+    Just filename -> case part ^. partBody of
+      PartText _ s   -> liftIO $ runXdgOpen filename (T.encodeUtf8 s)
+      PartBinary _ s -> liftIO $ runXdgOpen filename s
 
 cmdSave :: MessageRef -> FilePath -> StoreM ()
 cmdSave mref path = do
