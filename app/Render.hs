@@ -16,9 +16,7 @@ module Render
 
 import Control.Monad
 import Control.Monad.Trans
-import Data.List
 import Data.Maybe
-import Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Format

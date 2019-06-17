@@ -40,7 +40,6 @@ module Mailsh.Store
   , filterKeyword
   ) where
 
-import Control.Applicative
 import Control.Lens hiding ((^.))
 import Control.Monad
 import Control.Monad.Except
@@ -49,16 +48,11 @@ import Control.Monad.Morph
 import Control.Monad.Reader
 import Data.Attoparsec.ByteString
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Monoid ((<>))
-import Data.List (union)
 import qualified Data.Text as T
-import Data.Time.Calendar
-import Data.Time.Compat
 import Data.Time.Clock
 import qualified Database.Esqueleto as E
 import Database.Persist

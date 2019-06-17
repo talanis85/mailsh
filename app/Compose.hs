@@ -13,7 +13,6 @@ import System.Environment
 import System.Process
 import System.IO
 
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import qualified Data.ByteString as B
@@ -21,7 +20,6 @@ import qualified Data.ByteString as B
 import Mailsh.Compose
 import Mailsh.Fields
 import Mailsh.Message
-import Mailsh.Store
 
 data ReplyStrategy = SingleReply | GroupReply
   deriving (Show)

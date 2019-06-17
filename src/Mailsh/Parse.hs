@@ -15,7 +15,6 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.MIME as PB
 import qualified Data.MIME.Charset as PB
-import qualified Data.MIME.EncodedWord as PB
 import           Data.Monoid
 import           Data.List
 import qualified Data.List.NonEmpty as NonEmpty
