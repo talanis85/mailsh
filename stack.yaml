@@ -1,10 +1,10 @@
 resolver: lts-8.24
 packages:
 - '.'
-- ../purebred-email
 extra-deps:
 - mime-0.4.0.2
-# - purebred-email-0.1.0.1
+- git: https://github.com/purebred-mua/purebred-email
+  commit: 7655864d1997eb9660d518fcca3bfe213180abcc
 - concise-0.1.0.1
 flags: {}
 extra-package-dbs: []
