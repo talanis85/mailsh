@@ -16,6 +16,7 @@ module Render
 
 import Control.Monad
 import Control.Monad.Trans
+import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -61,7 +62,7 @@ previewRenderer :: Renderer
 previewRenderer = messageRenderer (unlines . take 10 . lines)
 
 noquoteRenderer :: Renderer
-noquoteRenderer = messageRenderer (removeBlankLines . parseFilter noquoteParser)
+noquoteRenderer = messageRenderer (removeEmojis . removeBlankLines . parseFilter noquoteParser)
 
 parseFilter p s = case parse p "<message>" s of
                     Left _   -> s
@@ -181,3 +182,10 @@ runXdgOpen filename bs = do
   waitForProcess procH
   removeFile tempf
   return ()
+
+removeEmojis :: String -> String
+removeEmojis = foldr f mempty
+  where f char text
+          | ord char >= 0x1f600 && ord char <= 0x1f64f = "*emoji*" ++ text
+          | ord char >= 0x1f300 && ord char <= 0x1f5ff = "*emoji*" ++ text
+          | otherwise = [char] ++ text
