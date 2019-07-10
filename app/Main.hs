@@ -341,7 +341,7 @@ ifSend dry sendAction = do
 cmdCompose :: Bool -> [FilePath] -> Recipient -> StoreM ()
 cmdCompose dry attachments rcpt = do
   let headers = catMaybes
-        [ mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
+        [ mkField fTo   <$> either (const Nothing) Just (parseOnly mailboxListP (BSC.pack rcpt))
         ]
         ++ map (mkField (fOptionalField "Attachment")) (map T.pack attachments)
 
@@ -375,7 +375,7 @@ cmdReply dry strat attachments mref = do
 cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
 cmdForward dry rcpt mref = do
   let headers = catMaybes
-        [ mkField fTo   <$> maybeResult (parse mailboxListP (BSC.pack rcpt))
+        [ mkField fTo   <$> either (const Nothing) Just (parseOnly mailboxListP (BSC.pack rcpt))
         ]
       text = ""
 
