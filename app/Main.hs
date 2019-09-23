@@ -118,6 +118,7 @@ headersHelp = footerDoc $ Just $ PP.vcat $ map PP.string
   [ "Valid filter expressions are:"
   , ""
   , "  /string/       'Subject' or 'From' contains 'string'"
+  , "  #keyword#      'Keywords' contain the given keyword"
   , "  a              Matches all messages"
   , "  d              Matches draft messages"
   , "  r              Matches replied messages"
