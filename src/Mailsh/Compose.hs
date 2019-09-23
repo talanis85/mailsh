@@ -215,9 +215,9 @@ mainPart :: T.Text -> Alternatives
 mainPart bodyContent = return Part
   { partType = formatMimeType (mimeTextPlain "utf8")
   , partEncoding = if isPGPMessage bodyContent then None else QuotedPrintableText
-  , partFilename = Nothing
+  , partDisposition = DefaultDisposition
   , partHeaders = []
-  , partContent = BL.fromStrict $ T.encodeUtf8 bodyContent
+  , partContent = PartContent (BL.fromStrict $ T.encodeUtf8 bodyContent)
   }
 
 isPGPMessage :: T.Text -> Bool

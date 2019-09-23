@@ -152,7 +152,7 @@ digestMessage (Message headers msg) =
   let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
       (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
   in DigestMessage
-    { messageDate         = fromMaybe defaultUTCTime (toUTCTime <$> listToMaybe (lookupField fDate headers))
+    { messageDate         = fromMaybe defaultUTCTime (listToMaybe (lookupField fDate headers))
     , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
     , messageFrom         = mconcat (lookupField fFrom headers)
     , messageTo           = mconcat (lookupField fTo headers)

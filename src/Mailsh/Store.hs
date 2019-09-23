@@ -157,12 +157,16 @@ withStorePath m fp = do
   md <- liftIO $ openMaildir fp
   case md of
     Left err -> throwError err
-    Right md -> withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
-      runReaderT initStore db
-      let store = Store
-            { _storeCache = db
-            }
-      hoist (runMaildirM md) $ runStoreM (updateStore >> m) store
+    Right md -> do
+      ret <- hoist lift $ withSqliteConn (T.pack (fp </> ".mailsh.cache")) $ \db -> do
+        runReaderT initStore db
+        let store = Store
+              { _storeCache = db
+              }
+        LoggingT $ \x -> runExceptT $ runLoggingT (hoist (runMaildirM md) $ runStoreM (updateStore >> m) store) x
+      case ret of
+        Left err -> throwError err
+        Right ret -> return ret
 
 --------------------------------------------------------------------------------
 

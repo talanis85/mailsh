@@ -1,8 +1,7 @@
-resolver: lts-8.24
+resolver: lts-14.6
 packages:
 - '.'
 extra-deps:
-- mime-0.4.0.2
 - git: https://github.com/purebred-mua/purebred-email
   commit: 7655864d1997eb9660d518fcca3bfe213180abcc
 - concise-0.1.0.1
@@ -10,4 +9,7 @@ flags: {}
 extra-package-dbs: []
 nix:
   enable: true
-  shell-file: stack.nix
+  packages:
+    - git
+    - zlib
+    - ssmtp
