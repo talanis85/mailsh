@@ -52,13 +52,13 @@ library
                      , persistent
                      , persistent-sqlite
                      , persistent-template
-                     , pretty
                      , process
                      , purebred-email
                      , safecopy
                      , text
                      , time
                      , time-compat
+                     , wl-pprint
                      , xml-conduit
   default-language:    Haskell2010
   ghc-options:         -fwarn-unused-imports
