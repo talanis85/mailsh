@@ -3,6 +3,7 @@
 module Mailsh.Compose
   ( composedMessageP
   , renderComposedMessage
+  , renderComposedMessageRaw
   , ComposedMessage (..)
   , emptyComposedMessage
   , Attachment (..)
@@ -156,6 +157,11 @@ sendMessage :: (MonadIO m, MonadError String m) => ComposedMessage -> m ()
 sendMessage cmsg = do
   msg <- generateMessage (cmessageFields cmsg) (cmessageAttachments cmsg) (cmessageText cmsg)
   liftIO $ renderSendMailCustom sendmailPath ["-t"] msg
+
+renderComposedMessageRaw :: (MonadIO m, MonadError String m) => ComposedMessage -> m BL.ByteString
+renderComposedMessageRaw cmsg = do
+  msg <- generateMessage (cmessageFields cmsg) (cmessageAttachments cmsg) (cmessageText cmsg)
+  liftIO $ renderMail' msg
 
 sendmailPath :: FilePath
 sendmailPath = "sendmail"

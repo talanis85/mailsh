@@ -15,6 +15,7 @@ module Mailsh.Maildir
   , unsetFlag
   , hasFlag
   , getFlags
+  , writeMaildirFile
   ) where
 
 import Control.Lens
@@ -23,11 +24,23 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 
+import qualified Data.ByteString.Lazy as BL
+
 import Data.List
 import qualified Data.Map as Map
 
+import Data.Time.Clock
+import Data.Time.Format
+
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
+
+import Network.HostName
+
 import System.Directory
 import System.FilePath
+
+import Text.Printf
 
 ------------------------------------------------------------------------------
 
@@ -229,3 +242,19 @@ getFlags :: MID -> MaildirM String
 getFlags mid = do
   file <- getMaildirFile mid
   return (snd (breakFlags file))
+
+generateMaildirFile :: IO String
+generateMaildirFile = do
+  currentTime <- getCurrentTime
+  let currentTimeNumber = formatTime defaultTimeLocale "%s" currentTime
+  hostName <- getHostName
+  uuid <- UUID.nextRandom
+  return $ printf "%s.%s.%s" currentTimeNumber (UUID.toString uuid) hostName
+
+writeMaildirFile :: BL.ByteString -> MaildirM MaildirFile
+writeMaildirFile bs = do
+  name <- liftIO generateMaildirFile
+  newPath <- newOf <$> view maildirPath
+  liftIO $ BL.writeFile (newPath </> name) bs
+  invalidateMIDCache
+  return name

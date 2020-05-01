@@ -351,7 +351,9 @@ cmdCompose dry attachments rcpt = do
   msg <- composeMessage headers text
   liftIO $ T.putStr $ renderComposedMessage msg
 
-  ifSend dry $ sendMessage msg
+  ifSend dry $ do
+    sendMessage msg
+    addSentMessage msg
 
 quotedMessage :: DigestMessage -> T.Text
 quotedMessage msg =
@@ -371,6 +373,7 @@ cmdReply dry strat attachments mref = do
 
   ifSend dry $ do
     sendMessage msg
+    addSentMessage msg
     maybe (return ()) (liftMaildir . setFlag 'R') mid
 
 cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
@@ -397,7 +400,9 @@ cmdForward dry rcpt mref = do
 
   liftIO $ T.putStr $ renderComposedMessage msg'
 
-  ifSend dry $ sendMessage msg'
+  ifSend dry $ do
+    sendMessage msg'
+    addSentMessage msg'
 
 cmdHeaders :: Maybe Limit -> StoreM FilterExp -> StoreM ()
 cmdHeaders limit' filter' = do
@@ -465,6 +470,15 @@ modifyMessage f notice mn' = do
   f (messageMid msg)
   liftIO $ putStrLn notice
   liftIO $ printMessageSingle mn msg
+
+addSentMessage :: ComposedMessage -> StoreM ()
+addSentMessage cmsg = do
+  bs <- renderComposedMessageRaw cmsg
+  maildirpath <- liftIO getCurrentDirectory
+  result <- liftIO $ runExceptT $ withMaildirPath (writeMaildirFile bs) (maildirpath </> ".sent")
+  case result of
+    Left err -> liftIO $ printf "Error: %s\n" err
+    Right path -> liftIO $ printf "Written sent message to .sent/new/%s\n" path
 
 askYesNo :: String -> IO Bool
 askYesNo prompt = do
