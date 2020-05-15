@@ -185,6 +185,7 @@ generateMessage fields attachments body = do
             , IsField fReplyTo
             , IsField fInReplyTo
             , IsField fReferences
+            , IsField fDate
             ]
         , mailParts   = [mainPart body]
         }
@@ -196,7 +197,7 @@ generateMessage fields attachments body = do
 
 additionalHeader :: [Field] -> IsField -> [(B.ByteString, T.Text)]
 additionalHeader headers (IsField f) =
-  map (mkStringHeader (fieldName f) . showFieldValue) (lookupField f headers)
+  map (mkStringHeader (fieldName f) . (fieldRender f)) (lookupField f headers)
     where
       mkStringHeader name s = (T.encodeUtf8 name, s)
 

@@ -2,7 +2,20 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Mailsh.Fields where
+module Mailsh.Fields
+  ( MsgID (..), formatMsgID
+  , Mailbox (..), formatMailbox, formatMailboxShort
+  , Field (..)
+  , IsField (..)
+  , AField (..)
+  , fOptionalField, fFrom, fSender, fReturnPath, fReplyTo
+  , fTo, fCc, fBcc, fMessageID, fInReplyTo, fReferences
+  , fSubject, fComments, fKeywords, fDate, fContentType
+  , isOptionalField
+  , lookupField, isn't', mkField, filterFields, formatFields
+  ) where
+
+import           Prelude hiding (showString)
 
 import           Control.Lens
 import           Data.CaseInsensitive (CI)
@@ -15,6 +28,7 @@ import           Data.Time.Clock
 import           Data.Time.Format
 
 import           Mailsh.MimeType
+import           Mailsh.Rfc5322Date
 
 newtype MsgID = MsgID { getMsgID :: T.Text }
   deriving (Show, Read, Eq)
@@ -56,31 +70,56 @@ data Field      = OptionalField       (CI T.Text) T.Text
 
 makePrisms ''Field
 
-fOptionalField name = AField name          (_OptionalField . isOptionalField (CI.mk name))
-fFrom               = AField "From"        _From
-fSender             = AField "Sender"      _Sender
-fReturnPath         = AField "ReturnPath"  _ReturnPath
-fReplyTo            = AField "ReplyTo"     _ReplyTo
-fTo                 = AField "To"          _To
-fCc                 = AField "Cc"          _Cc 
-fBcc                = AField "Bcc"         _Bcc
-fMessageID          = AField "Message-ID"  _MessageID
-fInReplyTo          = AField "In-Reply-To" _InReplyTo
-fReferences         = AField "References"  _References
-fSubject            = AField "Subject"     _Subject
-fKeywords           = AField "Keywords"    _Keywords
-fDate               = AField "Date"        _Date
-fContentType        = AField "Content-Type" _ContentType
+fOptionalField name = AField name           showOptionalField  renderOptionalField (_OptionalField . isOptionalField (CI.mk name))
+fFrom               = AField "From"         showMailboxes      renderMailboxes     _From
+fSender             = AField "Sender"       showMailbox        renderMailbox       _Sender
+fReturnPath         = AField "ReturnPath"   showString         renderString        _ReturnPath
+fReplyTo            = AField "ReplyTo"      showMailboxes      renderMailboxes     _ReplyTo
+fTo                 = AField "To"           showMailboxes      renderMailboxes     _To
+fCc                 = AField "Cc"           showMailboxes      renderMailboxes     _Cc 
+fBcc                = AField "Bcc"          showMailboxes      renderMailboxes     _Bcc
+fMessageID          = AField "Message-ID"   showMsgID          renderMsgID         _MessageID
+fInReplyTo          = AField "In-Reply-To"  showMsgIDs         renderMsgIDs        _InReplyTo
+fReferences         = AField "References"   showMsgIDs         renderMsgIDs        _References
+fSubject            = AField "Subject"      showText           renderText          _Subject
+fComments           = AField "Comments"     showText           renderText          _Comments
+fKeywords           = AField "Keywords"     showTexts          renderTexts         _Keywords
+fDate               = AField "Date"         showDate           renderDate          _Date
+fContentType        = AField "Content-Type" showMimeType       renderMimeType      _ContentType
+
+showOptionalField = id
+showMailbox = formatMailbox
+showMailboxes = mconcat . intersperse ", " . map showMailbox
+showString = T.pack
+showMsgID = formatMsgID
+showMsgIDs = mconcat . intersperse ", " . map showMsgID
+showText = id
+showTexts = mconcat . intersperse ", " . map showText
+showDate = T.pack . formatTime defaultTimeLocale "%a %b %d %H:%M (%z)"
+showMimeType = formatMimeTypeShort
+
+renderOptionalField = showOptionalField
+renderMailbox = showMailbox
+renderMailboxes = showMailboxes
+renderString = showString
+renderMsgID = showMsgID
+renderMsgIDs = showMsgIDs
+renderText = showText
+renderTexts = showTexts
+renderDate = T.pack . renderRfc5322Date
+renderMimeType = showMimeType
 
 isOptionalField :: CI T.Text -> Prism' (CI T.Text, T.Text) T.Text
 isOptionalField key = prism' (\x -> (key, x)) (\(key', x) -> if key' == key then Just x else Nothing)
 
 data AField a = AField
   { fieldName :: T.Text
+  , fieldShow :: a -> T.Text
+  , fieldRender :: a -> T.Text
   , fieldPrism :: Prism' Field a
   }
 
-data IsField = forall a. (ShowField a) => IsField (AField a)
+data IsField = forall a. IsField (AField a)
 
 lookupField :: AField a -> [Field] -> [a]
 lookupField f = mapMaybe (^? fieldPrism f)
@@ -94,29 +133,6 @@ mkField f v = v ^. re (fieldPrism f)
 filterFields :: [IsField] -> [Field] -> [Field]
 filterFields f = filter (\x -> any (not . flip isn't' x) f)
 
-class ShowField a where
-  showFieldValue :: a -> T.Text
-
-instance ShowField [Char] where
-  showFieldValue = T.pack
-instance ShowField Mailbox where
-  showFieldValue = formatMailbox
-instance ShowField [Mailbox] where
-  showFieldValue = mconcat . intersperse ", " . map formatMailbox
-instance ShowField UTCTime where
-  showFieldValue = T.pack . formatTime defaultTimeLocale "%a %b %d %H:%M"
-instance ShowField [String] where
-  showFieldValue = mconcat . intersperse ", " . map T.pack
-instance ShowField MsgID where
-  showFieldValue = formatMsgID
-instance ShowField [MsgID] where
-  showFieldValue = mconcat . intersperse ", " . map formatMsgID
-instance ShowField T.Text where
-  showFieldValue = id
-
-showFieldValues :: (ShowField a) => [a] -> T.Text
-showFieldValues = mconcat . intersperse ", " . map showFieldValue
-
 formatFields :: Bool -> [IsField] -> [Field] -> T.Text
 formatFields showEmpty wanted all = T.unlines (mapMaybe formatField wanted)
   where
@@ -124,4 +140,4 @@ formatFields showEmpty wanted all = T.unlines (mapMaybe formatField wanted)
       let values = lookupField f all
       in if not showEmpty && null values
             then Nothing
-            else Just $ fieldName f <> ": " <> showFieldValues (lookupField f all)
+            else Just $ fieldName f <> ": " <> mconcat (intersperse "," (map (fieldShow f) (lookupField f all)))

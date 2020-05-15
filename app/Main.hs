@@ -17,6 +17,7 @@ import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
+import Data.Time.Clock
 import Development.GitRev
 import Options.Applicative
 import System.Directory
@@ -324,9 +325,14 @@ composeMessage headers text = do
 
   messageAfter <- throwEither "Invalid message" $ liftIO $ composeWith messageBefore
 
-  if T.null (T.strip (cmessageText messageAfter))
+  currentTime <- liftIO $ getCurrentTime
+  let messageWithDate = messageAfter {
+        cmessageFields = mkField fDate currentTime : cmessageFields messageAfter
+        }
+
+  if T.null (T.strip (cmessageText messageWithDate))
      then throwError "Empty message"
-     else return messageAfter
+     else return messageWithDate
 
 ifSend :: (MonadIO m) => Bool -> m () -> m ()
 ifSend dry sendAction = do

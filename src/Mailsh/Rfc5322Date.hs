@@ -1,5 +1,6 @@
 module Mailsh.Rfc5322Date
   ( parseRfc5322Date
+  , renderRfc5322Date
   ) where
 
 import           Control.Applicative ((<|>), many)
@@ -11,11 +12,18 @@ import           Data.Time.Calendar
 import           Data.Time.Clock
 import           Data.Time.Format
 import           Data.Time.LocalTime
+import qualified Data.RFC5322 as PB
 
 parseRfc5322Date :: String -> Maybe UTCTime
 parseRfc5322Date s = case parseOnly date_time (B8.pack s) of
                        Left err -> Nothing
                        Right v -> Just v
+
+rfc5322DateTimeFormat :: String
+rfc5322DateTimeFormat = "%a, %d %b %Y %T %z"
+
+renderRfc5322Date :: UTCTime -> String
+renderRfc5322Date t = formatTime defaultTimeLocale rfc5322DateTimeFormat t
 
 optional :: Parser a -> Parser ()
 optional p = option () (p >> return ())

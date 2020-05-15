@@ -102,7 +102,7 @@ messageRenderer flt msg = do
           headerName s = printf "%-15s" (s ++ ": ")
           addressHeader as = T.putStrLn (T.intercalate ", " (map formatMailbox as))
           textHeader s = T.putStrLn s
-          dateHeader d = putStrLn (formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" d)
+          dateHeader d = putStrLn (formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M (%z)" d)
     displayReferences :: [(MessageNumber, StoreMessage)] -> IO ()
     displayReferences [] = return ()
     displayReferences refs = do
@@ -149,17 +149,17 @@ terminalHeight = do
   return h
 
 formatMessageSingle :: MessageNumber -> StoreMessage -> Int -> String
-formatMessageSingle mn msg width = printf "%c %c %5s %18s %16s %s"
+formatMessageSingle mn msg width = printf "%c %c %5s %18s %24s %s"
                                         (flagSummary (messageFlags msg))
                                         (if null (messageAttachments (messageDigest msg)) then ' ' else '§')
                                         (show mn)
                                         (take 18 from)
-                                        (take 16 date)
+                                        (take 24 date)
                                         (take (width - (2 + 2 + 6 + 19 + 17)) subject)
   where
     from = T.unpack $ fromMaybe "" $ formatMailboxShort <$> listToMaybe (messageFrom $ messageDigest msg)
     subject = T.unpack $ messageSubject $ messageDigest msg
-    date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M" (messageDate $ messageDigest msg)
+    date = formatTime Data.Time.Format.defaultTimeLocale "%a %b %d %H:%M (%z)" (messageDate $ messageDigest msg)
 
 runMailcap :: MimeType -> BSC.ByteString -> IO ()
 runMailcap t s = do
