@@ -50,6 +50,7 @@ library
                      , mtl
                      , old-locale
                      , old-time
+                     , parsec
                      , persistent
                      , persistent-sqlite
                      , persistent-template

@@ -4,15 +4,16 @@ module Mailsh.Filter
   ) where
 
 import Control.Monad
-import Data.Attoparsec.ByteString.Char8
-import Data.Attoparsec.Expr
-import qualified Data.ByteString.Char8 as B
-import qualified Data.Text.Encoding as T
+import qualified Data.Text as T
+import Text.Parsec
+import Text.Parsec.Expr
 
 import Mailsh.Store
 
+type Parser = Parsec String ()
+
 parseFilterExp :: String -> Either String (StoreM FilterExp)
-parseFilterExp str = case parseOnly (filterExpP <* endOfInput) (B.pack str) of
+parseFilterExp str = case parse (filterExpP <* eof) "<filter>" str of
                       Left err -> Left ("Filter parse error: " ++ show err)
                       Right v -> Right v
 
@@ -24,28 +25,28 @@ filterExpP = buildExpressionParser
   ] filterTermP <?> "filter expression"
 
 filterTermP :: Parser (StoreM FilterExp)
-filterTermP = choice
+filterTermP = (choice $ map try
   [ char '(' *> filterExpP <* char ')'
-  , string (B.pack "new") >> return (return filterUnseen)
-  , string (B.pack "all") >> return (return filterUntrashed)
+  , string "new" >> return (return filterUnseen)
+  , string "all" >> return (return filterUntrashed)
   , char 'a' >> return (return filterAll)
   , char 'd' >> return (return (filterFlag 'D'))
   , char 'r' >> return (return (filterFlag 'R'))
   , char 's' >> return (return (filterFlag 'S'))
   , char 't' >> return (return (filterFlag 'T'))
   , char 'f' >> return (return (filterFlag 'F'))
-  , char '#' >> (return . filterKeyword <$> T.decodeUtf8 <$> takeWhile1 (notInClass "#") <* char '#')
-  , char '/' >> (return . filterString <$> T.decodeUtf8 <$> takeWhile1 (notInClass "/") <* char '/')
+  , char '#' >> (return . filterKeyword <$> T.pack <$> many1 (noneOf "#") <* char '#')
+  , char '/' >> (return . filterString <$> T.pack <$> many1 (noneOf "/") <* char '/')
   -- , char '[' >> (filterReferencedByNumber . read . B.unpack <$> takeWhile1 (notInClass "]") <* char ']')
-  ] <?> "filter term"
+  ]) <?> "filter term"
 
 parseLimit :: String -> Either String (Maybe Limit)
-parseLimit str = case parseOnly (limitP <* endOfInput) (B.pack str) of
+parseLimit str = case parse (limitP <* eof) "<limit>" str of
                    Left err -> Left ("Limit parse error: " ++ show err)
                    Right v -> Right v
 
 limitP :: Parser (Maybe Limit)
-limitP = choice
-  [ string (B.pack "auto") >> return Nothing
-  , Just . read . B.unpack <$> takeWhile1 isDigit
-  ]
+limitP = (choice $ map try
+  [ string "auto" >> return Nothing
+  , Just . read <$> many1 digit
+  ]) <?> "limit expression"
