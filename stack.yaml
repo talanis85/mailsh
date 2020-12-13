@@ -3,7 +3,7 @@ packages:
 - '.'
 extra-deps:
 - git: https://github.com/purebred-mua/purebred-email
-  commit: 7655864d1997eb9660d518fcca3bfe213180abcc
+  commit: aeb30b4219cdef75107755e11803cd44f00d0087
 - concise-0.1.0.1
 - wl-pprint-1.2.1
 flags: {}

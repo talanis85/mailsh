@@ -5,6 +5,7 @@ module Mailsh.Parse
 
 import qualified Codec.Text.IConv as IConv
 import           Control.Applicative
+import           Control.Monad
 import           Control.Lens
 import           Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8 as B
@@ -42,10 +43,12 @@ readPBParts msg@(PB.Message headers body) = case body of
     let multipartType = if headers ^. PB.contentType ^. PB.ctSubtype == "alternative"
                            then MultipartAlternative
                            else MultipartMixed
-    in MultiPart <$> pure multipartType <*> mapM readPBParts parts
+    in MultiPart <$> pure multipartType <*> mapM readPBParts (NonEmpty.toList parts)
   PB.Part bs ->
     let mt = readPBContentType (headers ^. PB.contentType)
-        disposition = fromMaybe DispositionInline $ readPBContentDisposition <$> headers ^? PB.contentDisposition
+        disposition =
+          fromMaybe DispositionInline $
+            readPBContentDisposition <$> join (headers ^? PB.contentDisposition)
     in if mimeType mt == "text"
           then SinglePart <$> (Part <$> pure disposition <*> (PartText <$> pure (mimeSubtype mt) <*> (transferDecode headers bs >>= charsetDecode headers)))
           else SinglePart <$> (Part <$> pure disposition <*> (PartBinary <$> pure mt <*> transferDecode headers bs))
@@ -53,7 +56,7 @@ readPBParts msg@(PB.Message headers body) = case body of
 readPBContentDisposition :: PB.ContentDisposition -> Disposition
 readPBContentDisposition cd = case cd ^. PB.dispositionType of
   PB.Inline -> DispositionInline
-  PB.Attachment -> DispositionAttachment (cd ^? PB.filename)
+  PB.Attachment -> DispositionAttachment (cd ^? PB.filename PB.defaultCharsets)
 
 readPBFields :: PB.Headers -> Either String [Field]
 readPBFields (PB.Headers headers) = mapM readPBField headers
@@ -65,26 +68,35 @@ subError s m = case m of
 
 readPBField :: PB.Header -> Either String Field
 readPBField (key, value) = case key of
-  "from"          -> subError "From" $ From <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "sender"        -> subError "Sender" $ Sender <$> readPBMailbox <$> parseOnly PB.mailbox value
+  "from"          -> subError "From" $ From <$> map readPBMailbox <$> parseOnly defaultMailboxList value
+  "sender"        -> subError "Sender" $ Sender <$> readPBMailbox <$> parseOnly defaultMailbox value
   "return-path"   -> subError "ReturnPath" $ ReturnPath <$> return (B.unpack value)
-  "reply-to"      -> subError "ReplyTo" $ ReplyTo <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "to"            -> subError "To" $ To <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "cc"            -> subError "Cc" $ Cc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
-  "bcc"           -> subError "Bcc" $ Bcc <$> map readPBMailbox <$> parseOnly PB.mailboxList value
+  "reply-to"      -> subError "ReplyTo" $ ReplyTo <$> map readPBMailbox <$> parseOnly defaultMailboxList value
+  "to"            -> subError "To" $ To <$> map readPBMailbox <$> parseOnly defaultMailboxList value
+  "cc"            -> subError "Cc" $ Cc <$> map readPBMailbox <$> parseOnly defaultMailboxList value
+  "bcc"           -> subError "Bcc" $ Bcc <$> map readPBMailbox <$> parseOnly defaultMailboxList value
   "message-id"    -> subError "MessageID" $ MessageID <$> parseOnly messageIdP value
   "in-reply-to"   -> subError "InReplyTo" $ InReplyTo <$> parseOnly messageIdsP value
   "references"    -> subError "References" $ References <$> parseOnly messageIdsP value
-  "subject"       -> subError "Subject" $ Subject <$> return (PB.decodeEncodedWords value)
-  "comments"      -> subError "Comments" $ Comments <$> return (PB.decodeEncodedWords value)
+  "subject"       -> subError "Subject" $ Subject <$> return (defaultDecodeEncodedWords value)
+  "comments"      -> subError "Comments" $ Comments <$> return (defaultDecodeEncodedWords value)
   "keywords"      -> subError "Keywords" $ Keywords <$> parseOnly keywordsP value
   "date"          -> subError "Date" $ Date <$> maybe (Left ("Invalid date format: '" ++ B.unpack value ++ "'")) Right (parseRfc5322Date (B.unpack value))
   "content-type"  -> subError "ContentType" $ ContentType <$> readPBContentType <$> parseOnly PB.parseContentType value
   _               -> pure $ OptionalField (CI.map T.decodeUtf8 key) (T.decodeUtf8 value)
 
+defaultMailboxList :: Parser [PB.Mailbox]
+defaultMailboxList = PB.mailboxList PB.defaultCharsets
+
+defaultMailbox :: Parser PB.Mailbox
+defaultMailbox = PB.mailbox PB.defaultCharsets
+
+defaultDecodeEncodedWords :: B.ByteString -> T.Text
+defaultDecodeEncodedWords = PB.decodeEncodedWords PB.defaultCharsets
+
 readPBMailbox :: PB.Mailbox -> Mailbox
 readPBMailbox (PB.Mailbox name addr) = Mailbox
-  { mailboxName = PB.decodeEncodedWords <$> T.encodeUtf8 <$> name
+  { mailboxName = defaultDecodeEncodedWords <$> T.encodeUtf8 <$> name
   , mailboxAddr = readPBAddrSpec addr
   }
 
@@ -140,4 +152,4 @@ wordP = do
   _ <- option "" (many space)
   t <- takeWhile1 (\x -> not (x `elem` ("\n\r\t ," :: [Char])))
   _ <- option "" (many space)
-  return (PB.decodeEncodedWords t)
+  return (defaultDecodeEncodedWords t)
