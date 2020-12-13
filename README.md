@@ -167,6 +167,34 @@ Command reference
         r&/hello/           All replied messages that contain the string 'hello'
         (t&/foo/)|(d&/bar/) All trashed messages containing 'foo' and all drafts containing 'bar'
 
+* `mailsh ls [FILTER]`
+
+        List all message numbers given a filter expression.
+
+      Available options:
+        -l,--limit LIMIT         How many headers to display
+        FILTER                   A filter expression
+        -h,--help                Show this help text
+
+      Valid filter expressions are:
+
+        /string/       'Subject' or 'From' contains 'string'
+        a              Matches all messages
+        d              Matches draft messages
+        r              Matches replied messages
+        s              Matches seen messages
+        t              Matches trashed messages
+        f              Matches flagged messages
+        all            Equivalent to '~t' (all non-trashed messages)
+        new            Equivalent to '~s' (all unseen messages)
+
+      All of these expressions can be combined with the logical operators '&' (and), '|' (or) and '~' (not).
+
+      Examples:
+        f&~d                All flagged messages that are not a draft
+        r&/hello/           All replied messages that contain the string 'hello'
+        (t&/foo/)|(d&/bar/) All trashed messages containing 'foo' and all drafts containing 'bar'
+
 * `mailsh trash [MESSAGE]`
 
         Trash a message.

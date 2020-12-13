@@ -12,6 +12,7 @@ import Data.Attoparsec.ByteString (parseOnly)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
+import Data.List
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -92,6 +93,8 @@ commandP = hsubparser
   <> command "headers"  (info (cmdHeaders <$> limitOption Nothing
                                           <*> filterArgument (return filterUnseen))
                               (headersHelp <> progDesc "List all headers given a filter expression."))
+  <> command "ls"       (info (cmdLs      <$> filterArgument (return filterAll))
+                              (headersHelp <> progDesc "List all message numbers given a filter expression."))
   <> command "trash"    (info (cmdTrash   <$> mnArgument)
                               (progDesc "Trash a message."))
   <> command "recover"  (info (cmdRecover <$> mnArgument)
@@ -419,6 +422,13 @@ cmdHeaders limit' filter' = do
   let messages = resultRows result
   liftIO $ mapM_ (uncurry printMessageSingle) messages
   liftIO $ printResultCount result
+
+cmdLs :: StoreM FilterExp -> StoreM ()
+cmdLs filter' = do
+  filter <- filter'
+  result <- queryStore (filterBy filter Nothing)
+  let messages = resultRows result
+  liftIO $ putStrLn $ intercalate " " $ map (show . fst) messages
 
 cmdTrash :: MessageNumber' -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."
