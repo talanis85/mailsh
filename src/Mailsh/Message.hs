@@ -31,7 +31,6 @@ import           Data.Monoid (Any (..), Last (..), (<>))
 import qualified Data.Text as T
 import           Data.Time.Calendar
 import           Data.Time.Clock
-import           Data.Time.Compat
 import           Text.Printf
 
 import           Mailsh.Fields

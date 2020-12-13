@@ -12,7 +12,6 @@ import           Data.Time.Calendar
 import           Data.Time.Clock
 import           Data.Time.Format
 import           Data.Time.LocalTime
-import qualified Data.RFC5322 as PB
 
 parseRfc5322Date :: String -> Maybe UTCTime
 parseRfc5322Date s = case parseOnly date_time (B8.pack s) of

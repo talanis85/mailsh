@@ -8,12 +8,11 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import Control.Lens hiding (argument)
 import Control.Monad.Except
 import Control.Monad.Logger
-import Data.Attoparsec.ByteString (maybeResult, parse, parseOnly)
+import Data.Attoparsec.ByteString (parseOnly)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
