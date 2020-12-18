@@ -55,7 +55,13 @@ readPBParts msg@(PB.Message headers body) = case body of
 readPBContentDisposition :: PB.ContentDisposition -> Disposition
 readPBContentDisposition cd = case cd ^. PB.dispositionType of
   PB.Inline -> DispositionInline
-  PB.Attachment -> DispositionAttachment (cd ^? PB.filename PB.defaultCharsets)
+  PB.Attachment ->
+    case cd ^. PB.filenameParameter of
+      Nothing -> DispositionAttachment Nothing
+      Just (PB.ParameterValue csname lang bs) ->
+        case csname of
+          Nothing -> DispositionAttachment (Just (defaultDecodeEncodedWords bs))
+          _ -> DispositionAttachment (cd ^? PB.filename PB.defaultCharsets)
 
 readPBFields :: PB.Headers -> Either String [Field]
 readPBFields (PB.Headers headers) = mapM readPBField headers
