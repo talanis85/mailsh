@@ -23,6 +23,7 @@ import Options.Applicative
 import System.Directory
 import System.Environment
 import System.FilePath
+import System.Process
 import System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Text.Printf
@@ -71,6 +72,8 @@ commandP = hsubparser
                               (progDesc "Output raw message data."))
   <> command "view"     (info (cmdView    <$> msgArgument)
                               (progDesc "View a message or part with mailcap."))
+  <> command "visual"   (info (cmdVisual  <$> msgArgument)
+                              (progDesc "View a message in the browser"))
   <> command "save"     (info (cmdSave    <$> msgArgument
                                           <*> option str (short 'd' <> metavar "DIR" <> help "Where to save the attachment."))
                               (progDesc "Save a part to disk using its given filename."))
@@ -289,6 +292,28 @@ cmdView mref = do
     Just filename -> case part ^. partBody of
       PartText _ s   -> liftIO $ runXdgOpen filename (T.encodeUtf8 s)
       PartBinary _ s -> liftIO $ runXdgOpen filename s
+
+cmdVisual :: MessageRef -> StoreM ()
+cmdVisual mref = do
+  bs <- getRawMessage mref
+  Message headers body <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
+  let htmlBody = fromMaybe "EMPTY" (snd <$> firstHtmlPart body)
+  liftIO $ do
+    tempdir <- getTemporaryDirectory
+    (tempf, temph) <- openTempFile tempdir "mailshvis.html"
+    T.hPutStr temph htmlBody
+    hClose temph
+    let cmd = printf "xdg-open \"file://%s\"" tempf
+    (_, _, _, procH) <- createProcess_ "xdg-open" (shell cmd)
+    waitForProcess procH
+    return ()
+  where
+    firstHtmlPart msg =
+      let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
+          textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
+          firstPlain   = msg ^? collapsedAlternatives textPlain . inlineParts . textPart
+          firstHtml    = msg ^? collapsedAlternatives textHtml . inlineParts . textPart
+      in firstHtml <|> firstPlain
 
 cmdSave :: MessageRef -> FilePath -> StoreM ()
 cmdSave mref path = do

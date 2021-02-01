@@ -84,6 +84,16 @@ Command reference
                                  accessed message.
         -h,--help                Show this help text
 
+* `mailsh visual [MESSAGE]`
+
+        View a message in the browser
+
+      Available options:
+        MESSAGE                  Either a message number (e.g. 123), a part reference
+                                 (e.g. 2#123) or '-' for stdin. Default is the last
+                                 accessed message.
+        -h,--help                Show this help text
+
 * `mailsh save [MESSAGE] -d DIR`
 
         Save a part to disk using its given filename.
