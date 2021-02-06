@@ -530,8 +530,32 @@ askYesNo prompt = do
 main :: IO ()
 main = do
   opts <- execParser options
-  maildirpath <- getCurrentDirectory
-  result <- runExceptT $ runStderrLoggingT $ filterLogger (logFilter (optDebug opts)) $ withStorePath (optCommand opts) maildirpath
+
+  result <- runExceptT $ do
+    maildirpath <- do
+      cwdMaildir <- do
+        x <- liftIO getCurrentDirectory
+        valid <- liftIO $ isMaildir x
+        if valid
+           then return (Just x)
+           else return Nothing
+
+      envMaildir <- do
+        x <- liftIO $ lookupEnv "MAILDIR"
+        case x of
+          Nothing -> return Nothing
+          Just x' -> do
+            valid <- liftIO $ isMaildir x'
+            if valid
+               then return (Just x')
+               else return Nothing
+
+      case cwdMaildir <|> envMaildir of
+        Nothing -> throwError "Neither MAILDIR nor CWD contain a valid maildir"
+        Just x -> return x
+
+    runStderrLoggingT $ filterLogger (logFilter (optDebug opts)) $ withStorePath (optCommand opts) maildirpath
+
   case result of
     Left err -> printf "Error: %s\n" err
     Right () -> return ()

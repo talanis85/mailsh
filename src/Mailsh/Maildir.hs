@@ -3,6 +3,7 @@
 module Mailsh.Maildir
   ( MID
   , MaildirM
+  , isMaildir
   , openMaildir
   , runMaildirM
   , withMaildirPath
@@ -146,7 +147,7 @@ midOf = fst . breakFlags
 --   spec requires.
 openMaildir :: FilePath -> IO (Either String Maildir)
 openMaildir fp = do
-  valid <- and <$> mapM (doesDirectoryExist . (fp </>)) ["cur", "new", "tmp"]
+  valid <- isMaildir fp
   if not valid
      then return (Left "This is not a valid maildir")
      else do
@@ -155,6 +156,9 @@ openMaildir fp = do
          { _maildirPath = fp
          }
        -- TODO remove old files from tmp
+
+isMaildir :: FilePath -> IO Bool
+isMaildir fp = and <$> mapM (doesDirectoryExist . (fp </>)) ["cur", "new", "tmp"]
 
 -- | Move messages from 'new' to 'cur'
 updateNew :: FilePath -> IO ()
