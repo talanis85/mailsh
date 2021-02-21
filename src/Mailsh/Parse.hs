@@ -51,6 +51,8 @@ readPBParts msg@(PB.Message headers body) = case body of
     in if mimeType mt == "text"
           then SinglePart <$> (Part <$> pure disposition <*> (PartText <$> pure (mimeSubtype mt) <*> (transferDecode headers bs >>= charsetDecode headers)))
           else SinglePart <$> (Part <$> pure disposition <*> (PartBinary <$> pure mt <*> transferDecode headers bs))
+  PB.Encapsulated _ -> Left "Encapsulated MIME Message not supported"
+  PB.FailedParse err _ -> Left $ "MIME parse error: " ++ (show err)
 
 readPBContentDisposition :: PB.ContentDisposition -> Disposition
 readPBContentDisposition cd = case cd ^. PB.dispositionType of
