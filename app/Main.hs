@@ -514,7 +514,7 @@ modifyMessage f notice mn' = do
 addSentMessage :: ComposedMessage -> StoreM ()
 addSentMessage cmsg = do
   bs <- renderComposedMessageRaw cmsg
-  maildirpath <- liftIO getCurrentDirectory
+  maildirpath <- liftMaildir getMaildirPath
   result <- liftIO $ runExceptT $ withMaildirPath (writeMaildirFile bs) (maildirpath </> ".sent")
   case result of
     Left err -> liftIO $ printf "Error: %s\n" err
