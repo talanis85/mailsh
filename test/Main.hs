@@ -1,6 +1,13 @@
 module Main where
 
-import Test.HUnit
+import Test.Tasty
+
+import qualified Types
 
 main :: IO ()
-main = return ()
+main = defaultMain tests
+
+tests :: TestTree
+tests = testGroup "Tests"
+  [ Types.tests
+  ]
