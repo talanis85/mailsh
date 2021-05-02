@@ -27,6 +27,9 @@ library
                      -- , Mailsh.Rfc5322Date
                      -- , Mailsh.Store
                      -- , Mailsh.Types
+                     , Mailsh.Message
+                     , Mailsh.Message.Mailbox
+                     , Mailsh.Types
                      , Mailsh.Types.FilterExp
                      , Mailsh.Types.Flag
                      , Mailsh.Types.Limit
@@ -113,13 +116,18 @@ test-suite mailsh-test
   main-is:             Main.hs
   other-modules:       Types
   build-depends:       base >=4.8 && <5
+                     , bytestring
+                     , case-insensitive
                      , generic-random
+                     , lens
                      , mailsh
                      , QuickCheck
                      , quickcheck-instances
                      , tasty
+                     , tasty-hunit
                      , tasty-quickcheck
                      , text
+                     , time
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings

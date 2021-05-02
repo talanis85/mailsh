@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE StandaloneDeriving #-}
-module Types where
+module Types ( tests ) where
 
 import qualified Data.Text as T
 import Generic.Random

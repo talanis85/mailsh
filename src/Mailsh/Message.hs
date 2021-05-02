@@ -1,183 +1,154 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 module Mailsh.Message
-  ( Message (..)
-  , PartTree (..)
-  , Part (..)
-  , PartBody (..)
-  , MultipartType (..)
-  , Disposition (..)
-  , allParts, attachmentParts, inlineParts, partType
-  , partBody, partFilename
-  , textPart, binaryPart
-  , collapsedAlternatives
-  , outline
-  , isSimpleMimeType
-  , anyF
+  (
+  -- * Re-exports
+    Message (..)
+  , MIME (..)
+  , MIMEMessage
+  , WireEntity
+  , ByteEntity
+  , TextEntity
+  , message
+  , mime
+  , parse
 
-  , DigestMessage (..)
-  , digestMessage
-  , messageAttachments, isAttachment
+  -- * Addresses
+  , Address (..)
+  , Mailbox (..)
+
+  -- * Charsets
+  , CharsetLookup
+  , defaultCharsets
+
+  -- * Decoding
+  , charsetDecoded
+  , charsetDecoded'
+  , transferDecoded
+  , transferDecoded'
+
+  -- * Manipulating messages
+  , body
+  , headers
+  , entities
+
+  -- * Message id
+  , MessageID
+  , messageIDParser
+  , messageIDsParser
+
+  -- * Keywords
+  , keywordParser
+  , keywordParser'
+  , keywordsParser
+  , keywordsParser'
+
+  -- * Headers
+  , headerTo
+  , headerFrom
+  , headerCC
+  , headerBCC
+  , headerSubject
+  , headerDate
+  , headerReplyTo
+  , headerInReplyTo
+  , headerReferences
+  , headerKeywords
+  , headerMessageID
+
+  , ContentType
+  , contentType
+  , defaultContentType
+
+  , headerText
+
+  , ContentDisposition (..)
+  , DispositionType (..)
+  , contentDisposition
+  , dispositionType
+  , filename
+
+  -- * Reparsers
+  , mailboxParser
+  , addressParser
+  , contentTypeParser
   ) where
 
-import           Control.Applicative
-import           Control.Lens
-import qualified Data.ByteString as B
-import           Data.CaseInsensitive (CI)
+import Control.Applicative (many)
+import Control.Lens
+import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec.ByteString
+import qualified Data.Attoparsec.Text as Attoparsec.Text
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
+import Data.Bifunctor
 import qualified Data.CaseInsensitive as CI
-import           Data.List
-import           Data.Maybe
-import           Data.Monoid (Any (..), Last (..), (<>))
+import Data.Either (fromRight)
+import Data.MIME
+import Data.MIME.EncodedWord
+import Data.Reparser
 import qualified Data.Text as T
-import           Data.Time.Calendar
-import           Data.Time.Clock
-import           Text.Printf
+import qualified Data.Text.Encoding as T
+import Data.Time
 
-import           Mailsh.Fields
-import           Mailsh.MimeType
+import Mailsh.Message.Mailbox
 
-data Message = Message [Field] PartTree
-data PartTree = SinglePart Part | MultiPart MultipartType [PartTree]
-data Part = Part Disposition PartBody
-data PartBody = PartText (CI T.Text) T.Text | PartBinary MimeType B.ByteString
-  deriving (Show)
-data Disposition = DispositionInline | DispositionAttachment (Maybe T.Text)
-
-data MultipartType = MultipartMixed | MultipartAlternative
-  deriving (Show)
-
-makePrisms ''PartBody
-
-textPart :: Prism' PartBody (CI T.Text, T.Text)
-textPart = _PartText
-
-binaryPart :: Prism' PartBody (MimeType, B.ByteString)
-binaryPart = _PartBinary
-
-partBody :: Getter Part PartBody
-partBody = to f
+contentTypeParser :: Reparser String T.Text ContentType
+contentTypeParser = reparser a b
   where
-    f (Part _ x) = x
+    a = first (("Error parsing content-type: " ++) . show) . Attoparsec.ByteString.parseOnly parseContentType . T.encodeUtf8
+    b = showContentType
 
-partFilename :: Fold Part T.Text
-partFilename = folding f
-  where f (Part (DispositionAttachment fn) _) = fn
-        f _ = Nothing
+-- * Message id
 
-allParts :: Traversal' PartTree Part
-allParts f (SinglePart part) = SinglePart <$> f part
-allParts f (MultiPart t parts) = MultiPart <$> pure t <*> sequenceA (map (allParts f) parts)
-
-attachmentPart :: Prism' Part (Maybe T.Text, PartBody)
-attachmentPart = prism' inj proj
+messageIDParser :: Reparser String T.Text MessageID
+messageIDParser = reparser a b
   where
-    inj (filename, body) = Part (DispositionAttachment filename) body
-    proj (Part (DispositionAttachment filename) body) = Just (filename, body)
-    proj _ = Nothing
+    a = first (("Invalid MessageID: " ++) . show) . Attoparsec.ByteString.parseOnly parseMessageID . T.encodeUtf8
+    b = T.decodeUtf8 . renderMessageID
 
-inlinePart :: Prism' Part PartBody
-inlinePart = prism' inj proj
+messageIDsParser :: Reparser String T.Text [MessageID]
+messageIDsParser = reparser a b
   where
-    inj body = Part DispositionInline body
-    proj (Part DispositionInline body) = Just body
-    proj _ = Nothing
+    a = first (("Invalid MessageID list: " ++) . show) . Attoparsec.ByteString.parseOnly (many parseMessageID) . T.encodeUtf8
+    b = T.decodeUtf8 . BS.intercalate " " . map renderMessageID
 
-attachmentParts :: Traversal' PartTree (Maybe T.Text, PartBody)
-attachmentParts = allParts . attachmentPart
+-- * Keywords
 
-inlineParts :: Traversal' PartTree PartBody
-inlineParts = allParts . inlinePart
-
-partType :: Getter PartBody MimeType
-partType = to f
+keywordParser :: CharsetLookup -> Reparser String T.Text T.Text
+keywordParser charsets = reparser a b
   where
-    f (PartText st _) = MimeType
-      { mimeType = "text"
-      , mimeSubtype = st
-      , mimeParams = mempty
-      }
-    f (PartBinary t _) = t
+    a = Right . decodeEncodedWords charsets . T.encodeUtf8
+    b = T.decodeUtf8 . renderKeyword
 
-collapsedAlternatives :: (MimeType -> Bool) -> Fold PartTree PartTree
-collapsedAlternatives types = folding f
+keywordsParser :: CharsetLookup -> Reparser String T.Text [T.Text]
+keywordsParser charsets = reparser a b
   where
-    f (MultiPart MultipartAlternative parts) = getLast $ mconcat $ map (Last . filterPart types) parts
-    f part = Just part
+    a = Right . T.words . decodeEncodedWords charsets . T.encodeUtf8
+    b = T.decodeUtf8 . renderKeywords
 
-    filterPart types (SinglePart (Part d (PartText t s)))
-      | types (MimeType "text" t mempty) = Just (SinglePart (Part d (PartText t s)))
-      | otherwise = Nothing
-    filterPart types (SinglePart (Part d (PartBinary t s)))
-      | types t   = Just (SinglePart (Part d (PartBinary t s)))
-      | otherwise = Nothing
-    filterPart types (MultiPart mt parts) =
-      f (MultiPart mt parts)
+keywordParser' :: Reparser String T.Text T.Text
+keywordParser' = keywordParser defaultCharsets
 
-outline :: PartTree -> String
-outline = outline' 0
-  where
-    outline' indent (SinglePart (Part _ (PartText t s)))
-      = replicate (indent * 2) ' ' ++ printf "%-15s: %s\n" ("text/" <> CI.foldedCase t) (condensed (T.unpack s))
-    outline' indent (SinglePart (Part _ (PartBinary t s)))
-      = replicate (indent * 2) ' ' ++ printf "%-15s: (binary)\n" (formatMimeTypeShort t)
-    outline' indent (MultiPart mt bodies)
-      = replicate (indent * 2) ' ' ++ printf "%s:\n" (show mt) ++ concatMap (outline' (indent+1)) bodies
-    condensed = (++ "...") . take 50 . filter (/= '\n')
+keywordsParser' :: Reparser String T.Text [T.Text]
+keywordsParser' = keywordsParser defaultCharsets
 
-isSimpleMimeType :: T.Text -> MimeType -> Bool
-isSimpleMimeType s t = s == formatMimeTypeShort t
+renderKeyword :: T.Text -> BS.ByteString
+renderKeyword = encodeEncodedWords
 
-anyF :: [a -> Bool] -> a -> Bool
-anyF fs = getAny . foldMap (Any .) fs
+renderKeywords :: [T.Text] -> BS.ByteString
+renderKeywords = BS.intercalate ", " . map renderKeyword
 
-data DigestMessage = DigestMessage
-  { messageDate        :: UTCTime
-  , messageMessageId   :: MsgID
-  , messageFrom        :: [Mailbox]
-  , messageTo          :: [Mailbox]
-  , messageCc          :: [Mailbox]
-  , messageBcc         :: [Mailbox]
-  , messageReferences  :: [MsgID]
-  , messageReplyTo     :: [Mailbox]
-  , messageSubject     :: T.Text
-  , messageKeywords    :: [T.Text]
-  , messageBody        :: T.Text
-  , messageBodyType    :: CI T.Text
-  , messageParts       :: [(Maybe T.Text, MimeType)]
-  }
+-- * Headers
 
-digestMessage :: Message -> DigestMessage
-digestMessage (Message headers msg) =
-  let defaultUTCTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = 0 }
-      (mainBodyType, mainBody) = fromMaybe ("plain", T.pack "NO TEXT") $ firstTextPart msg
-  in DigestMessage
-    { messageDate         = fromMaybe defaultUTCTime (listToMaybe (lookupField fDate headers))
-    , messageMessageId    = fromMaybe (MsgID "") (listToMaybe (lookupField fMessageID headers))
-    , messageFrom         = mconcat (lookupField fFrom headers)
-    , messageTo           = mconcat (lookupField fTo headers)
-    , messageCc           = mconcat (lookupField fCc headers)
-    , messageBcc          = mconcat (lookupField fBcc headers)
-    , messageReferences   = mconcat (lookupField fReferences headers) `union` mconcat (lookupField fInReplyTo headers)
-    , messageReplyTo      = mconcat (lookupField fReplyTo headers)
-    , messageSubject      = fromMaybe "" (listToMaybe (lookupField fSubject headers))
-    , messageKeywords     = mconcat (lookupField fKeywords headers)
-    , messageBody         = mainBody
-    , messageBodyType     = mainBodyType
-    , messageParts        = msg ^.. allParts . to (\x -> (x ^? partFilename, view (partBody . partType) x))
-    }
+headerSingleToList
+  :: (HasHeaders s)
+  => (BS.ByteString -> [a])
+  -> ([a] -> BS.ByteString)
+  -> CI.CI BS.ByteString
+  -> Lens' s [a]
+headerSingleToList f g k =
+  headers . at k . iso (maybe [] f) (\l -> if null l then Nothing else Just (g l))
 
--- | Get the first text/plain (preferred) or text/html part
-firstTextPart :: PartTree -> Maybe (CI T.Text, T.Text)
-firstTextPart msg =
-  let textPlain t  = mimeType t == "text" && mimeSubtype t == "plain"
-      textHtml t   = mimeType t == "text" && mimeSubtype t == "html"
-      firstPlain   = msg ^? collapsedAlternatives textPlain . inlineParts . textPart
-      firstHtml    = msg ^? collapsedAlternatives textHtml . inlineParts . textPart
-  in firstPlain <|> firstHtml
-
-messageAttachments :: DigestMessage -> [(T.Text, MimeType)]
-messageAttachments msg = mapMaybe isAttachment (messageParts msg)
-
-isAttachment :: (Maybe T.Text, MimeType) -> Maybe (T.Text, MimeType)
-isAttachment (Nothing, _) = Nothing
-isAttachment (Just fn, t) = Just (fn, t)
+headerKeywords :: HasHeaders a => CharsetLookup -> Lens' a [T.Text]
+headerKeywords cl = headerSingleToList
+  (T.words . decodeEncodedWords cl)
+  renderKeywords
+  "Keywords"
