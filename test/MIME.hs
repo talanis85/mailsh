@@ -41,6 +41,9 @@ toDate = maybe (error "Invalid date") id . parseTimeM False defaultTimeLocale rf
 toContentType :: T.Text -> ContentType
 toContentType = either error id . reparse contentTypeParser
 
+toAttachmentFile :: T.Text -> Maybe T.Text -> AttachmentFile
+toAttachmentFile path ct = attachmentFile path (toContentType <$> ct)
+
 assertFrom :: Message s a -> [T.Text] -> Assertion
 assertFrom msg expected = 
   assertEqual "From:" (map (reprint addressParser . toAddress) expected) $
@@ -107,6 +110,10 @@ assertBodyText wireEntity expected = do
   byteEntity <- either (assertFailure . show) return $ wireEntity ^. transferDecoded'
   textEntity <- either (assertFailure . show) return $ byteEntity ^. charsetDecoded' charsets
   assertEqual "Text body" expected $ textEntity ^. body
+
+assertAttachments :: Message s a -> [(T.Text, Maybe T.Text)] -> Assertion
+assertAttachments msg expected =
+  assertEqual "Attachment:" (map (uncurry toAttachmentFile) expected) $ msg ^. headerAttachments charsets
 
 -- * CPython tests
 
@@ -466,4 +473,10 @@ additionalTests = testGroup "misc"
   [ mimeTest "misc/encoded-words.txt" $ \msg -> do
       assertFrom msg ["György Sebők <gs@musicianslife.com>"]
       assertSubject msg (Just "おねがいします")
+  , mimeTest "misc/duplicate-headers.txt" $ \msg -> do
+      assertFrom msg ["xxx@yyy.zzz"]
+      assertTo msg ["aaa@bbb.ccc", "ddd@eee.fff"]
+      assertSubject msg (Just "Duplicate headers")
+  , mimeTest "composed/attachment.txt" $ \msg -> do
+      assertAttachments msg [("/path/to/file", Just "text/plain")]
   ]

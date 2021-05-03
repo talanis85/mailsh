@@ -1,0 +1,6 @@
+From: example@example.com
+To: example@example.com
+Subject: Message with attachment
+Attachment: /path/to/file; text/plain
+
+This is a message with an attachment.

@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Mailsh.Message
   (
   -- * Re-exports
@@ -14,6 +17,8 @@ module Mailsh.Message
   -- * Addresses
   , Address (..)
   , Mailbox (..)
+  , AddrSpec (..)
+  , Domain (..)
 
   -- * Charsets
   , CharsetLookup
@@ -53,10 +58,12 @@ module Mailsh.Message
   , headerReferences
   , headerKeywords
   , headerMessageID
+  , headerAttachments
 
-  , ContentType
+  , ContentType (..)
   , contentType
   , defaultContentType
+  , Parameters (..)
 
   , headerText
 
@@ -65,6 +72,13 @@ module Mailsh.Message
   , contentDisposition
   , dispositionType
   , filename
+
+  -- * Attachments
+  , AttachmentFile
+  , attachmentFile
+  , attachmentFilePath
+  , attachmentFileContentType
+  , attachmentFileParser
 
   -- * Reparsers
   , mailboxParser
@@ -75,13 +89,14 @@ module Mailsh.Message
 import Control.Applicative (many)
 import Control.Lens
 import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec.ByteString
-import qualified Data.Attoparsec.Text as Attoparsec.Text
+import Data.Attoparsec.Text hiding (parse)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import Data.Bifunctor
 import qualified Data.CaseInsensitive as CI
 import Data.Either (fromRight)
-import Data.MIME
+import Data.Maybe (mapMaybe)
+import Data.MIME hiding (headerFrom, headerReplyTo, headerTo, headerCC, headerBCC)
 import Data.MIME.EncodedWord
 import Data.Reparser
 import qualified Data.Text as T
@@ -147,8 +162,88 @@ headerSingleToList
 headerSingleToList f g k =
   headers . at k . iso (maybe [] f) (\l -> if null l then Nothing else Just (g l))
 
+headerMultiToList
+  :: (HasHeaders s)
+  => (BS.ByteString -> [a])
+  -> ([a] -> BS.ByteString)
+  -> CI.CI BS.ByteString
+  -> Lens' s [a]
+headerMultiToList f g k = lens a b
+  where
+    a headers = concatMap f (headers ^.. header k)
+    b headers values = (header k .~ g values) headers
+    -- TODO: define this more point-free
+
+headerMultiSingleToList
+  :: (HasHeaders s)
+  => (BS.ByteString -> Maybe a)
+  -> (a -> BS.ByteString)
+  -> CI.CI BS.ByteString
+  -> Lens' s [a]
+headerMultiSingleToList f g k = lens a b
+  where
+    a headers = mapMaybe f (headers ^.. header k)
+    b headers values =
+      (headerList .~ (headers ^.. headerList . traversed . filtered ((k /=) . fst)) ++ map (((,) k) . g) values) headers
+
+headerAddressList :: (HasHeaders a) => CI.CI BS.ByteString -> CharsetLookup -> Lens' a [Address]
+headerAddressList k charsets = headerMultiToList
+  (fromRight [] . Attoparsec.ByteString.parseOnly (addressList charsets))
+  renderAddresses
+  k
+
+headerFrom, headerReplyTo, headerTo, headerCC, headerBCC
+  :: HasHeaders a => CharsetLookup -> Lens' a [Address]
+headerFrom = headerAddressList "From"
+headerReplyTo = headerAddressList "Reply-To"
+headerTo = headerAddressList "To"
+headerCC = headerAddressList "Cc"
+headerBCC = headerAddressList "Bcc"
+
 headerKeywords :: HasHeaders a => CharsetLookup -> Lens' a [T.Text]
-headerKeywords cl = headerSingleToList
+headerKeywords cl = headerMultiToList
   (T.words . decodeEncodedWords cl)
   renderKeywords
   "Keywords"
+
+-- * Attachments
+
+data AttachmentFile = AttachmentFile
+  { _attachmentFilePath :: T.Text
+  , _attachmentFileContentType :: Maybe ContentType
+  }
+  deriving (Eq, Show)
+
+makeLenses ''AttachmentFile
+
+attachmentFile :: T.Text -> Maybe ContentType -> AttachmentFile
+attachmentFile = AttachmentFile
+
+attachmentFileParser :: Reparser String T.Text AttachmentFile
+attachmentFileParser = reparser a b
+  where
+    a = first (("Invalid attachment: " ++) . show) . parseOnly attachmentFileP
+    b x = case x ^. attachmentFileContentType of
+            Nothing -> x ^. attachmentFilePath
+            Just ct -> x ^. attachmentFilePath <> "; " <> reprint contentTypeParser ct
+
+attachmentFileP :: Parser AttachmentFile
+attachmentFileP = do
+  path <- takeWhile1 (notInClass ";")
+  ct <- option Nothing $ Just <$> do
+    char ';'
+    skipSpace
+    s <- takeText
+    case reparse contentTypeParser s of
+      Left err -> fail err
+      Right x -> return x
+  return AttachmentFile
+    { _attachmentFilePath = path
+    , _attachmentFileContentType = ct
+    }
+
+headerAttachments :: HasHeaders a => CharsetLookup -> Lens' a [AttachmentFile]
+headerAttachments charsets = headerMultiSingleToList
+  (preview _Right . reparse attachmentFileParser . decodeEncodedWords charsets)
+  (encodeEncodedWords . reprint attachmentFileParser)
+  "Attachment"
