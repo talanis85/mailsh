@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 module Message ( tests ) where
@@ -9,8 +8,6 @@ import qualified Data.CaseInsensitive as CI
 import Data.Char (isPrint, isSpace)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Text as T
-import Generic.Random
-import GHC.Generics
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
 import Test.Tasty
@@ -108,10 +105,21 @@ testsContentType = testGroup "ContentType"
 -- * AttachmentFile
 
 instance Arbitrary AttachmentFile where
-  arbitrary = attachmentFile <$> genAttachmentFilePath <*> arbitrary
+  arbitrary = attachmentFile <$> genAttachmentFilePath <*> genAttachmentFileName <*> arbitrary
 
 genAttachmentFilePath :: Gen T.Text
-genAttachmentFilePath = T.pack <$> listOf1 (elements (['a'..'z'] ++ ['/']))
+genAttachmentFilePath = do
+  first <- arbitrary `suchThat` (\c -> isPrint c && not (isSpace c) && c /= ';')
+  s <- T.strip <$> T.pack <$> (first :) <$>
+    listOf (arbitrary `suchThat` (\c -> isPrint c && c /= ';'))
+  return s
+
+genAttachmentFileName :: Gen (Maybe T.Text)
+genAttachmentFileName = do
+  s <- T.strip <$> T.pack <$> listOf (arbitrary `suchThat` (\c -> isPrint c && c /= ')'))
+  if T.null s
+    then return Nothing
+    else return (Just s)
 
 testsAttachmentFile :: TestTree
 testsAttachmentFile = testGroup "AttachmentFile"
