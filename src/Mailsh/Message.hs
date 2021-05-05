@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Mailsh.Message
   (
@@ -10,9 +11,14 @@ module Mailsh.Message
   , WireEntity
   , ByteEntity
   , TextEntity
+  , EncStateWire
+  , EncStateByte
+  , MessageContext
+  , Headers
   , message
   , mime
   , parse
+  , renderMessage
 
   -- * Addresses
   , Address (..)
@@ -29,11 +35,17 @@ module Mailsh.Message
   , charsetDecoded'
   , transferDecoded
   , transferDecoded'
+  , transferDecodedEmbedError
+  , charsetTransferDecoded
+  , EncodingError
 
   -- * Manipulating messages
+  , HasHeaders (..)
+  , headerList
   , body
-  , headers
   , entities
+  , ientities
+  , attachments
 
   -- * Message id
   , MessageID
@@ -61,15 +73,16 @@ module Mailsh.Message
   , headerAttachments
 
   , ContentType (..)
-  , contentType
-  , defaultContentType
+  , ContentDisposition (..)
   , Parameters (..)
+  , module Mailsh.Message.ContentType
+
+  , ctType, ctSubtype
+  , defaultContentType
 
   , headerText
 
-  , ContentDisposition (..)
   , DispositionType (..)
-  , contentDisposition
   , dispositionType
   , filename
 
@@ -80,36 +93,42 @@ module Mailsh.Message
   , attachmentFileContentType
   , attachmentFileParser
 
-  -- * Reparsers
-  , mailboxParser
-  , addressParser
-  , contentTypeParser
+  -- * Mailbox
+  , module Mailsh.Message.Mailbox
+
+  -- * Compose
+  , composed
+  , emptyMessage
+  , composedToMime
+
   ) where
 
 import Control.Applicative (many)
+import Control.Monad ((>=>))
 import Control.Lens
 import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec.ByteString
 import Data.Attoparsec.Text hiding (parse)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString.Builder as Builder
 import Data.Bifunctor
 import qualified Data.CaseInsensitive as CI
 import Data.Either (fromRight)
-import Data.Maybe (mapMaybe)
-import Data.MIME hiding (headerFrom, headerReplyTo, headerTo, headerCC, headerBCC)
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Maybe (mapMaybe, fromMaybe)
+import Data.MIME hiding
+  ( headerFrom, headerReplyTo, headerTo, headerCC, headerBCC
+  , defaultCharsets, contentType, contentDisposition, filename )
 import Data.MIME.EncodedWord
+import Data.MIME.Charset (charsetPrism)
 import Data.Reparser
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Time
+import Network.Mime (defaultMimeLookup)
 
+import Mailsh.Message.Charsets
+import Mailsh.Message.ContentType
 import Mailsh.Message.Mailbox
-
-contentTypeParser :: Reparser String T.Text ContentType
-contentTypeParser = reparser a b
-  where
-    a = first (("Error parsing content-type: " ++) . show) . Attoparsec.ByteString.parseOnly parseContentType . T.encodeUtf8
-    b = showContentType
 
 -- * Message id
 
@@ -153,6 +172,12 @@ renderKeywords = BS.intercalate ", " . map renderKeyword
 
 -- * Headers
 
+instance Semigroup Headers where
+  Headers a <> Headers b = Headers (a ++ b)
+
+instance Monoid Headers where
+  mempty = Headers []
+
 headerSingleToList
   :: (HasHeaders s)
   => (BS.ByteString -> [a])
@@ -171,7 +196,11 @@ headerMultiToList
 headerMultiToList f g k = lens a b
   where
     a headers = concatMap f (headers ^.. header k)
-    b headers values = (header k .~ g values) headers
+    b headers values =
+      let otherHeaders = filter ((/= k) . fst) (headers ^. headerList)
+          result = g values
+          newHeaders = if BS.null result then otherHeaders else (k, result) : otherHeaders
+      in headers & headerList .~ newHeaders
     -- TODO: define this more point-free
 
 headerMultiSingleToList
@@ -244,6 +273,81 @@ attachmentFileP = do
 
 headerAttachments :: HasHeaders a => CharsetLookup -> Lens' a [AttachmentFile]
 headerAttachments charsets = headerMultiSingleToList
-  (preview _Right . reparse attachmentFileParser . decodeEncodedWords charsets)
+  (reparse' attachmentFileParser . decodeEncodedWords charsets)
   (encodeEncodedWords . reprint attachmentFileParser)
   "Attachment"
+
+-- * Compose mails
+
+type instance MessageContext T.Text = ()
+
+instance RenderMessage T.Text where
+  tweakHeaders = id
+  buildBody headers body = Just (Builder.byteString (T.encodeUtf8 body))
+
+composed :: Headers -> BodyHandler T.Text
+composed headers = RequiredBody $ T.decodeUtf8 <$> Attoparsec.ByteString.takeByteString
+
+emptyMessage :: Message a ()
+emptyMessage = Message (Headers []) ()
+
+composedToMime :: TextEntity -> IO MIMEMessage
+composedToMime msg = do
+  let attachments = msg ^. headerAttachments defaultCharsets
+  let msg' = msg & headerAttachments defaultCharsets .~ []
+
+  if null attachments
+     then return (composeSinglePart msg')
+     else composeMultiPart msg' (NonEmpty.fromList attachments)
+
+composeSinglePart :: TextEntity -> MIMEMessage
+composeSinglePart msg = setTextPlainBody (msg ^. body) msg
+
+composeMultiPart :: TextEntity -> NonEmpty.NonEmpty AttachmentFile -> IO MIMEMessage
+composeMultiPart msg attachments = do
+  parts <- mapM createAttachmentFromFile' attachments
+  return $ createMultipartMixedMessage' (msg ^. headers) "FREESNOWDEN" parts
+
+createMultipartMixedMessage' :: Headers -> BS.ByteString -> NonEmpty.NonEmpty MIMEMessage -> MIMEMessage
+createMultipartMixedMessage' h b parts =
+  let hdrs = h & contentType .~ (contentTypeMultipartMixed b)
+  in Message hdrs (Multipart parts)
+
+createAttachmentFromFile' :: AttachmentFile -> IO MIMEMessage
+createAttachmentFromFile' a = createAttachmentFromFile t (T.unpack p)
+  where
+    t = fromMaybe (lookupContentType p) (a ^. attachmentFileContentType)
+    p = a ^. attachmentFilePath
+
+lookupContentType :: T.Text -> ContentType
+lookupContentType p =
+  fromMaybe contentTypeApplicationOctetStream (reparse' contentTypeParser (T.decodeUtf8 (defaultMimeLookup p)))
+
+-- * Manipulating messages
+
+charsetTransferDecoded :: CharsetLookup -> IndexPreservingGetter WireEntity (Either EncodingError TextEntity)
+charsetTransferDecoded charsets = to (view transferDecoded >=> view (charsetDecoded charsets))
+
+transferDecodedEmbedError :: IndexPreservingGetter WireEntity ByteEntity
+transferDecodedEmbedError = to f
+  where
+    f msg@(Message headers b) = case msg ^. transferDecoded' of
+      Left err -> Message headers (BS8.pack (show err))
+      Right msg' -> msg'
+
+ientities :: IndexedTraversal' Int MIMEMessage WireEntity
+ientities = indexing entities
+
+-- * Filenames with encoded words
+
+-- TODO: Fix this upstream in purebred-email. Should probably be fixed in
+-- Data.MIME.Parameters, instance HasCharset EncodedParameterValue
+
+utf8 :: Iso' T.Text BS.ByteString
+utf8 = iso T.encodeUtf8 T.decodeUtf8
+
+encodedWords :: CharsetLookup -> Iso' BS.ByteString T.Text
+encodedWords charsets = iso (decodeEncodedWords charsets) encodeEncodedWords
+
+filename :: (HasParameters a) => CharsetLookup -> Traversal' a T.Text
+filename m = filenameParameter . traversed . charsetPrism m . value . utf8 . encodedWords m

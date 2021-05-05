@@ -86,6 +86,7 @@ testsAddress :: TestTree
 testsAddress = testGroup "Address/Mailbox"
   [ testReparseRoundTrip "addressParser" addressParser
   , testReparseRoundTrip "mailboxParser" mailboxParser
+  , testReparseRoundTrip "addrSpecParser" addrSpecParser
   ]
 
 -- * ContentType

@@ -2,15 +2,18 @@ module Mailsh.Message.Mailbox
   ( mailboxParser
   , mailboxesParser
   , addressParser
+  , addressesParser
+  , addrSpecParser
   ) where
 
 import Data.Bifunctor
 import Control.Applicative
 import Data.Attoparsec.Text
 import Data.Char (isSpace)
-import Data.IMF.Text (renderMailbox, renderAddress, renderMailboxes)
+import Data.IMF.Text (renderMailbox, renderAddress, renderMailboxes, renderAddressSpec, renderAddresses)
 import Data.IMF.Syntax (mk, domainLiteral, dotAtom, localPart)
-import Data.MIME hiding (renderMailbox, renderAddress, renderMailboxes, mailbox, address, mailboxList)
+import Data.MIME hiding (renderMailbox, renderAddress, renderMailboxes, renderAddressSpec
+                        , renderAddresses, mailbox, address, mailboxList, addressList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
@@ -33,6 +36,18 @@ mailboxesParser = reparser a b
   where
     a = first (("Error parsing mailboxes: " ++) . show) . parseOnly mailboxList
     b = renderMailboxes
+
+addressesParser :: Reparser String T.Text [Address]
+addressesParser = reparser a b
+  where
+    a = first (("Error parsing addresses: " ++) . show) . parseOnly addressList
+    b = renderAddresses
+
+addrSpecParser :: Reparser String T.Text AddrSpec
+addrSpecParser = reparser a b
+  where
+    a = first (("Error parsing addr-spec: " ++) . show) . parseOnly addressSpec
+    b = renderAddressSpec
 
 tok :: Parser a -> Parser a
 tok p = skipSpace *> p <* skipSpace
@@ -70,6 +85,9 @@ address = choice
 
 mailboxList :: Parser [Mailbox]
 mailboxList = mailbox `sepBy` tok (char ',')
+
+addressList :: Parser [Address]
+addressList = address `sepBy` tok (char ',')
 
 addressSpec :: Parser AddrSpec
 addressSpec = AddrSpec <$> (T.encodeUtf8 <$> localPart) <*> (char '@' *> domain)

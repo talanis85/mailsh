@@ -1,10 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Mailsh.MimeRender
   ( renderType
   ) where
 
+import           Control.Lens
 import           Control.Monad.State
-import           Data.CaseInsensitive (CI)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -12,8 +11,10 @@ import           Text.HTML.DOM
 import           Text.PrettyPrint.Leijen hiding ((<$>))
 import qualified Text.XML as XML
 
-renderType :: CI T.Text -> T.Text -> T.Text
-renderType t = case t of
+import Mailsh.Message
+
+renderType :: ContentType -> T.Text -> T.Text
+renderType t = case t ^. ctType of
   "html" -> renderHtml
   _      -> renderText
 

@@ -8,6 +8,7 @@ module Mailsh.Maildir
   , runMaildirM
   , withMaildirPath
   , getMaildirPath
+  , getOtherMaildirFile
   , listMaildir
   , absoluteMaildirFile
   , purgeMaildir
@@ -175,6 +176,9 @@ getMaildirFile mid = do
   case Map.lookup mid m of
     Nothing -> throwError ("No such message: " ++ mid)
     Just x  -> return x
+
+getOtherMaildirFile :: FilePath -> MaildirM FilePath
+getOtherMaildirFile p = (</> p) <$> getMaildirPath
 
 ------------------------------------------------------------------------------
 

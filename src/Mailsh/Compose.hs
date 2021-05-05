@@ -1,19 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Mailsh.Compose
-  ( composedMessageP
-  , renderComposedMessage
-  , renderComposedMessageRaw
-  , ComposedMessage (..)
-  , emptyComposedMessage
-  , Attachment (..)
-
+  ( ReplyStrategy (..)
   , sendMessage
-
-  , mailboxP
-  , mailboxListP
+  , applyReplyStrategy
   ) where
 
+{-
 import Prelude hiding (takeWhile)
 
 import           Control.Applicative
@@ -30,28 +23,20 @@ import           Data.Text.Encoding
 import           Network.Mail.Mime
 import           Network.Mime hiding (MimeType)
 
-import           Mailsh.Fields
-import           Mailsh.MimeType
+import           Mailsh.Message
+-}
 
-data ComposedMessage = ComposedMessage
-  { cmessageFields :: [Field]
-  , cmessageAttachments :: [Attachment]
-  , cmessageText :: T.Text
-  }
+import Control.Lens
+import Data.Maybe (fromMaybe, maybeToList)
+import qualified Data.Text as T
+import Network.Mail.Mime
 
-emptyComposedMessage :: ComposedMessage
-emptyComposedMessage = ComposedMessage
-  { cmessageFields = []
-  , cmessageAttachments = []
-  , cmessageText = ""
-  }
+import Mailsh.Message
 
-data Attachment = Attachment
-  { attachmentContentType :: MimeType
-  , attachmentData :: BL.ByteString
-  , attachmentFilename :: T.Text
-  }
+data ReplyStrategy = SingleReply | GroupReply
+  deriving (Show)
 
+{-
 renderComposedMessage :: ComposedMessage -> T.Text
 renderComposedMessage msg =
   let renderedHeaders =
@@ -66,105 +51,41 @@ renderComposedMessage msg =
           , IsField (fOptionalField "Attachment")
           ] (cmessageFields msg)
   in (renderedHeaders <> "\n" <> cmessageText msg)
+-}
 
-composedHeadersP :: Parser [Field]
-composedHeadersP = catMaybes <$> many (headerP <* char '\n')
+sendmailPath :: FilePath
+sendmailPath = "sendmail"
 
-composedBodyP :: Parser T.Text
-composedBodyP = do
-  s <- takeByteString
-  return (decodeUtf8 s) -- TODO: decoding actually must depend on the locale
+sendMessage :: MIMEMessage -> IO ()
+sendMessage msg = sendmailCustom sendmailPath ["-t"] (renderMessage msg)
 
-composedMessageP :: Parser ComposedMessage
-composedMessageP = do
-  fields <- composedHeadersP
-  _ <- many space
-  body <- composedBodyP
-  return ComposedMessage
-    { cmessageFields = fields
-    , cmessageAttachments = []
-    , cmessageText = body
-    }
+applyReplyStrategy :: (HasHeaders a, HasHeaders b) => ReplyStrategy -> b -> a -> a
+applyReplyStrategy strat msg =
+  let from'   = case msg ^. headerReplyTo defaultCharsets of
+                  [] -> msg ^. headerFrom defaultCharsets
+                  xs -> xs
+      to      = case strat of
+                  GroupReply -> from' ++ msg ^. headerTo defaultCharsets
+                  SingleReply -> from'
+      cc      = case strat of
+                  GroupReply -> msg ^. headerCC defaultCharsets
+                  SingleReply -> []
+      subject' = fromMaybe "(no subject)" (msg ^. headerSubject defaultCharsets)
+      subject  = if "Re:" `T.isPrefixOf` subject'
+                    then subject'
+                    else "Re: " <> subject'
+  in
+      (headerTo defaultCharsets .~ to)
+    . (headerCC defaultCharsets .~ cc)
+    . (headerInReplyTo .~ (maybeToList $ msg ^. headerMessageID))
+    . (headerSubject defaultCharsets .~ Just subject)
+    . (headerReferences .~ ((maybeToList $ msg ^. headerMessageID) ++ (msg ^. headerReferences)))
 
-headerP :: Parser (Maybe Field)
-headerP = choice $ map try
-  [ Just . mkField fSubject <$> headerNameP "Subject" unstructuredP
-  , Just . mkField fFrom <$> headerNameP "From" mailboxListP
-  , Just . mkField fTo <$> headerNameP "To" mailboxListP
-  , Just . mkField fCc <$> headerNameP "Cc" mailboxListP
-  , Just . mkField fBcc <$> headerNameP "Bcc" mailboxListP
-  , Just . mkField fReplyTo <$> headerNameP "Reply-To" mailboxListP
-  , Just . mkField fInReplyTo <$> headerNameP "In-Reply-To" msgidsP
-  , Just . mkField fReferences <$> headerNameP "References" msgidsP
-  , Just . mkField (fOptionalField "Attachment") <$> headerNameP "Attachment" unstructuredP
-  , takeWhile1 (notInClass "\n") *> pure Nothing
-  ]
-
-tok :: Parser a -> Parser a
-tok p = try (p <* takeWhile (inClass "\t "))
-
-headerNameP :: String -> Parser a -> Parser a
-headerNameP s p = do
-  tok (string (B.pack s))
-  tok (char ':')
-  p
-
-unstructuredP :: Parser T.Text
-unstructuredP = T.decodeUtf8 <$> takeWhile (notInClass "\n")
-
-msgidP :: Parser MsgID
-msgidP = MsgID <$> T.decodeUtf8 <$> tok (char '<' *> takeWhile1 (notInClass (">")) <* char '>')
-
-msgidsP :: Parser [MsgID]
-msgidsP = tok msgidP `sepBy` tok (char ',')
-
-mailboxP :: Parser Mailbox
-mailboxP = try nameAddrP <|> fmap (Mailbox Nothing) addrSpecP
-           <?> "mailbox"
-
-nameAddrP :: Parser Mailbox
-nameAddrP = Mailbox <$> (Just <$> displayNameP) <*> angleAddrP
-
-maybeOption p = (Just <$> p) <|> pure Nothing
-
-mailboxListP :: Parser [Mailbox]
-mailboxListP = mailboxP `sepBy` tok (char ',')
-
-wordP :: String -> Parser T.Text
-wordP except = T.decodeUtf8 <$> tok (takeWhile1 (notInClass (" \n'" ++ except)))
-
-displayNameP :: Parser T.Text
-displayNameP = tok quotedWordP <|> (T.unwords <$> many1 (wordP "<,"))
-
-quotedWordP :: Parser T.Text
-quotedWordP = do
-  char '"'
-  r <- takeWhile1 (notInClass "\"")
-  char '"'
-  return (T.decodeUtf8 r)
-
-angleAddrP :: Parser T.Text
-angleAddrP = try (do _ <- tok (char '<')
-                     r <- tok addrSpecP
-                     _ <- tok (char '>')
-                     return r)
-                  <?> "angle address"
-
-addrSpecP :: Parser T.Text
-addrSpecP = T.decodeUtf8 <$> takeWhile1 (notInClass ">\n ,")
-
-sendMessage :: (MonadIO m, MonadError String m) => ComposedMessage -> m ()
-sendMessage cmsg = do
-  msg <- generateMessage (cmessageFields cmsg) (cmessageAttachments cmsg) (cmessageText cmsg)
-  liftIO $ renderSendMailCustom sendmailPath ["-t"] msg
-
+{-
 renderComposedMessageRaw :: (MonadIO m, MonadError String m) => ComposedMessage -> m BL.ByteString
 renderComposedMessageRaw cmsg = do
   msg <- generateMessage (cmessageFields cmsg) (cmessageAttachments cmsg) (cmessageText cmsg)
   liftIO $ renderMail' msg
-
-sendmailPath :: FilePath
-sendmailPath = "sendmail"
 
 maybeError :: (MonadError String m) => String -> Maybe a -> m a
 maybeError s m = case m of
@@ -229,3 +150,4 @@ mainPart bodyContent = return Part
 
 isPGPMessage :: T.Text -> Bool
 isPGPMessage content = T.pack "---BEGIN PGP MESSAGE---" `T.isInfixOf` content
+-}

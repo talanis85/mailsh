@@ -22,12 +22,9 @@ charsets = defaultCharsets
 
 withPart :: MIMEMessage -> Int -> (WireEntity -> Assertion) -> Assertion
 withPart msg part f = do
-  {- Ummm... why is this wrong??
-  case msg ^? partsOf entities . traversed . element part of
+  case msg ^? elementOf entities part of
     Nothing -> assertFailure ("Part " ++ show part ++ " missing")
     Just entity -> f entity
-  -}
-  f ((msg ^. partsOf entities) !! part)
 
 -- * Header assertions
 

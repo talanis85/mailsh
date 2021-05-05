@@ -2,8 +2,9 @@ resolver: lts-16.31
 packages:
 - '.'
 extra-deps:
-- git: https://github.com/purebred-mua/purebred-email
-  commit: a37730d790fbc6e0611764728fb6c08b14801e75
+# - git: https://github.com/purebred-mua/purebred-email
+#   commit: a37730d790fbc6e0611764728fb6c08b14801e75
+- ../purebred-email
 - concise-0.1.0.1
 - wl-pprint-1.2.1
 flags: {}
@@ -14,3 +15,4 @@ nix:
     - git
     - zlib
     - ssmtp
+    - icu

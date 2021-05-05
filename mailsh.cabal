@@ -14,29 +14,24 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.String.WordWrap
-                     , Data.Reparser
-                     -- , Mailsh.Compose
-                     -- , Mailsh.Fields
-                     -- , Mailsh.Filter
-                     -- , Mailsh.Maildir
-                     -- , Mailsh.Message
-                     -- , Mailsh.MimeRender
-                     -- , Mailsh.MimeType
-                     -- , Mailsh.Parse
-                     -- , Mailsh.Rfc5322Date
-                     -- , Mailsh.Store
-                     -- , Mailsh.Types
+  exposed-modules:     Data.Reparser
+                     , Mailsh.Compose
+                     , Mailsh.Maildir
+                     , Mailsh.MimeRender
+                     , Mailsh.Store
+                     , Mailsh.Store.Message
+                     , Mailsh.Store.PersistentInstances
+                     , Mailsh.Store.Schema
+                     , Mailsh.Store.Store
                      , Mailsh.Message
+                     , Mailsh.Message.Charsets
+                     , Mailsh.Message.ContentType
                      , Mailsh.Message.Mailbox
                      , Mailsh.Types
                      , Mailsh.Types.FilterExp
                      , Mailsh.Types.Flag
                      , Mailsh.Types.Limit
                      , Mailsh.Types.MessageRef
-  other-modules:       Data.Attoparsec.ByteString.Char8.Utils
-                     , Data.Attoparsec.ByteString.Utils
-                     -- , Mailsh.PersistentInstances
   build-depends:       base >=4.8 && <5
                      , attoparsec
                      , attoparsec-expr
@@ -66,6 +61,7 @@ library
                      , purebred-email
                      , safecopy
                      , text
+                     , text-icu
                      , time
                      , time-compat
                      , uuid
@@ -73,48 +69,55 @@ library
                      , xml-conduit
   default-language:    Haskell2010
   ghc-options:         -fwarn-unused-imports
-  default-extensions:  OverloadedStrings
+  default-extensions:  FlexibleContexts
+                     , OverloadedStrings
                      , RankNTypes
 
--- executable mailsh
---   hs-source-dirs:      app
---   main-is:             Main.hs
---   other-modules:       Compose
---                      , MessageRef
---                      , Render
---   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
---   build-depends:       base >=4.8 && <5
---                      , ansi-terminal
---                      , ansi-wl-pprint
---                      , attoparsec
---                      , bytestring
---                      , directory
---                      , filepath
---                      , gitrev
---                      , lens
---                      , mailsh
---                      , mime-mail
---                      , monad-logger
---                      , mtl
---                      , old-locale
---                      , old-time
---                      , optparse-applicative
---                      , parsec
---                      , process
---                      , tar
---                      , terminal-size
---                      , text
---                      , time
---                      , vector
---   default-language:    Haskell2010
---   default-extensions:  OverloadedStrings
---                      , RankNTypes
+executable mailsh
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  other-modules:       Commands
+                     , Render
+                     , Util
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
+  build-depends:       base >=4.8 && <5
+                     , ansi-terminal
+                     , ansi-wl-pprint
+                     , attoparsec
+                     , bytestring
+                     , case-insensitive
+                     , directory
+                     , filepath
+                     , gitrev
+                     , lens
+                     , mailsh
+                     , mime-mail
+                     , monad-logger
+                     , mtl
+                     , old-locale
+                     , old-time
+                     , optparse-applicative
+                     , parsec
+                     , process
+                     , tar
+                     , terminal-size
+                     , text
+                     , time
+                     , vector
+                     , wcwidth
+                     , word-wrap
+  default-language:    Haskell2010
+  default-extensions:  FlexibleContexts
+                     , OverloadedStrings
+                     , RankNTypes
 
 test-suite mailsh-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       Types
+  other-modules:       Message
+                     , MIME
+                     , Types
   build-depends:       base >=4.8 && <5
                      , bytestring
                      , case-insensitive
