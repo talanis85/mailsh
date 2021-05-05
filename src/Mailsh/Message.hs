@@ -305,8 +305,9 @@ composeSinglePart msg = setTextPlainBody (msg ^. body) msg
 
 composeMultiPart :: TextEntity -> NonEmpty.NonEmpty AttachmentFile -> IO MIMEMessage
 composeMultiPart msg attachments = do
+  let mainPart = createTextPlainMessage (msg ^. body)
   parts <- mapM createAttachmentFromFile' attachments
-  return $ createMultipartMixedMessage' (msg ^. headers) "FREESNOWDEN" parts
+  return $ createMultipartMixedMessage' (msg ^. headers) "FREESNOWDEN" (mainPart NonEmpty.<| parts)
 
 createMultipartMixedMessage' :: Headers -> BS.ByteString -> NonEmpty.NonEmpty MIMEMessage -> MIMEMessage
 createMultipartMixedMessage' h b parts =
