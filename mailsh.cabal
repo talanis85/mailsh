@@ -27,6 +27,7 @@ library
                      , Mailsh.Message.Charsets
                      , Mailsh.Message.ContentType
                      , Mailsh.Message.Mailbox
+                     , Mailsh.Message.Utf8
                      , Mailsh.Types
                      , Mailsh.Types.FilterExp
                      , Mailsh.Types.Flag

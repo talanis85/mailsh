@@ -316,7 +316,7 @@ dos2unix = BL8.filter ((/=) '\r')
 composeMessage :: TextEntity -> StoreM TextEntity
 composeMessage template = do
   bs <- liftIO $ composeWithEditor (dos2unix $ renderMessage template)
-  msg <- joinEither "Error parsing template message" $ return $ parse (message composed) bs
+  msg <- joinEither "Error parsing template message" $ return $ parse (messageUtf8 composed) bs
   currentTime <- liftIO $ getZonedTime
 
   let messageWithDate = msg & headerDate .~ Just currentTime

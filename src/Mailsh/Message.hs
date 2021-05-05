@@ -103,6 +103,8 @@ module Mailsh.Message
   , emptyMessage
   , composedToMime
 
+  , module Mailsh.Message.Utf8
+
   ) where
 
 import Control.Applicative (many)
@@ -132,6 +134,7 @@ import System.FilePath (takeFileName)
 import Mailsh.Message.Charsets
 import Mailsh.Message.ContentType
 import Mailsh.Message.Mailbox
+import Mailsh.Message.Utf8
 
 -- * Message id
 
@@ -293,7 +296,7 @@ attachmentFileP = do
 
 headerAttachments :: HasHeaders a => CharsetLookup -> Lens' a [AttachmentFile]
 headerAttachments charsets = headerMultiSingleToList
-  (reparse' attachmentFileParser . decodeEncodedWords charsets)
+  (reparse' attachmentFileParser . decodeEncodedWords defaultCharsets)
   (encodeEncodedWords . reprint attachmentFileParser)
   "Attachment"
 
