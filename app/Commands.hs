@@ -8,7 +8,7 @@ module Commands
   -- , cmdSave
   , cmdCompose
   , cmdReply
-  -- , cmdForward
+  , cmdForward
   , cmdLs
   , cmdLsn
   , cmdTrash
@@ -176,35 +176,31 @@ cmdReply dry strat attachments' mref = do
     addSentMessage msg''
     mapM_ (liftMaildir . setFlag 'R') (msg ^. body . storedMid)
 
-{-
-cmdForward :: Bool -> Recipient -> MessageRef -> StoreM ()
+cmdForward :: Bool -> T.Text -> MessageRef -> StoreM ()
 cmdForward dry mailboxes' mref = do
-  mailboxes <- joinEither "Error parsing recipients" $ return $ reparse mailboxesParser rcpt
+  mailboxes <- joinEither "Error parsing recipients" $ return $ reparse mailboxesParser mailboxes'
+  signature <- liftIO getSignature
+  from <- getSender
 
-  let templateHeaders = flip execStateT mempty $ do
-        headerTo .= Single <$> mailboxes
+  filename <- getMessageFilename mref
+  msg <- getMessage mref
+  let ct = ContentType "message" "rfc822" mempty
+      subject = "Fw: " <> fromMaybe "(no subject)" (msg ^. headerSubject defaultCharsets)
 
-  msg <- composeMessage headers text
-  part <- getPart mref
-  let original = case part ^. partBody of
-        PartBinary t s -> Attachment
-          { attachmentContentType = t
-          , attachmentFilename = "original"
-          , attachmentData = BL.fromStrict s
-          }
-        PartText t s -> Attachment
-          { attachmentContentType = withMimeParam "charset" "utf-8" (mkMimeType "text" t)
-          , attachmentFilename = "original"
-          , attachmentData = BL.fromStrict (T.encodeUtf8 s)
-          }
-  let msg' = msg { cmessageAttachments = original : cmessageAttachments msg }
+  let templateHeaders = mempty
+        & (headerFrom defaultCharsets .~ [Single from])
+        & (headerTo defaultCharsets .~ (Single <$> mailboxes))
+        & (headerAttachments defaultCharsets .~ [attachmentFile filename (Just "message.eml") (Just ct)])
+        & (headerSubject defaultCharsets .~ Just subject)
+      templateBody = signature
+      template = Message templateHeaders templateBody
 
-  liftIO $ T.putStr $ renderComposedMessage msg'
+  msg' <- composeMessage template
 
-  ifSend dry $ do
-    sendMessage msg'
-    addSentMessage msg'
--}
+  askAboutMessage dry msg' $ do
+    msg'' <- liftIO $ composedToMime msg'
+    liftIO $ sendMessage msg''
+    addSentMessage msg''
 
 cmdLs :: Limit -> FilterExp -> StoreM ()
 cmdLs limit' filterExp = do
@@ -380,6 +376,25 @@ getMessage mref = case mref of
   MessageRefStdin -> do
     let reader = BS.getContents
     joinEither "Error parsing stdin" (liftIO $ readStoredMessage Nothing Nothing "" reader)
+
+getMessageFilename :: MessageRef -> StoreM T.Text
+getMessageFilename mref = case mref of
+  MessageRefNumber n' -> do
+    n <- getMessageNumber n'
+    msg <- queryStore' (lookupStoreNumber n)
+    case msg ^. body ^. storedMid of
+      Nothing -> liftIO $ (msg ^. body . storedSource) >>= temporaryFile
+      Just mid -> T.pack <$> liftMaildir (absoluteMaildirFile mid)
+  MessageRefPath path -> return path
+  MessageRefStdin -> liftIO $ BS.getContents >>= temporaryFile
+
+temporaryFile :: BS.ByteString -> IO T.Text
+temporaryFile bs = do
+  tempdir <- getTemporaryDirectory
+  (tempf, temph) <- openTempFile tempdir "mime-message"
+  BS.hPutStr temph bs
+  hClose temph
+  return (T.pack tempf)
 
 getMIMEMessage :: StoredMessage -> StoreM MIMEMessage
 getMIMEMessage msg = do

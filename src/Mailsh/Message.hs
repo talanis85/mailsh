@@ -90,7 +90,9 @@ module Mailsh.Message
   , AttachmentFile
   , attachmentFile
   , attachmentFilePath
+  , attachmentFileName
   , attachmentFileContentType
+  , attachmentFileDefaultName
   , attachmentFileParser
 
   -- * Mailbox
@@ -125,6 +127,7 @@ import Data.Reparser
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.Mime (defaultMimeLookup)
+import System.FilePath (takeFileName)
 
 import Mailsh.Message.Charsets
 import Mailsh.Message.ContentType
@@ -239,25 +242,41 @@ headerKeywords cl = headerMultiToList
 
 data AttachmentFile = AttachmentFile
   { _attachmentFilePath :: T.Text
+  , _attachmentFileName :: Maybe T.Text
   , _attachmentFileContentType :: Maybe ContentType
   }
   deriving (Eq, Show)
 
 makeLenses ''AttachmentFile
 
-attachmentFile :: T.Text -> Maybe ContentType -> AttachmentFile
+attachmentFile :: T.Text -> Maybe T.Text -> Maybe ContentType -> AttachmentFile
 attachmentFile = AttachmentFile
 
 attachmentFileParser :: Reparser String T.Text AttachmentFile
 attachmentFileParser = reparser a b
   where
     a = first (("Invalid attachment: " ++) . show) . parseOnly attachmentFileP
-    b x = case x ^. attachmentFileContentType of
-            Nothing -> x ^. attachmentFilePath
-            Just ct -> x ^. attachmentFilePath <> "; " <> reprint contentTypeParser ct
+    b x =
+      let k = case x ^. attachmentFileName of
+                Nothing -> ""
+                Just name -> "(" <> name <> ") "
+          l = case x ^. attachmentFileContentType of
+                Nothing -> ""
+                Just ct -> "; " <> reprint contentTypeParser ct
+      in k <> (x ^. attachmentFilePath) <> l
 
 attachmentFileP :: Parser AttachmentFile
 attachmentFileP = do
+  skipSpace
+
+  filename <- option Nothing $ Just <$> do
+    char '('
+    skipSpace
+    name <- takeWhile1 (notInClass ")")
+    char ')'
+    skipSpace
+    return name
+
   path <- takeWhile1 (notInClass ";")
   ct <- option Nothing $ Just <$> do
     char ';'
@@ -268,6 +287,7 @@ attachmentFileP = do
       Right x -> return x
   return AttachmentFile
     { _attachmentFilePath = path
+    , _attachmentFileName = filename
     , _attachmentFileContentType = ct
     }
 
@@ -276,6 +296,12 @@ headerAttachments charsets = headerMultiSingleToList
   (reparse' attachmentFileParser . decodeEncodedWords charsets)
   (encodeEncodedWords . reprint attachmentFileParser)
   "Attachment"
+
+attachmentFileDefaultName :: Getter AttachmentFile T.Text
+attachmentFileDefaultName = to f
+  where
+    f a = fromMaybe (fromPath (a ^. attachmentFilePath)) (a ^. attachmentFileName)
+    fromPath p = T.pack $ takeFileName $ T.unpack p
 
 -- * Compose mails
 
@@ -315,7 +341,10 @@ createMultipartMixedMessage' h b parts =
   in Message hdrs (Multipart parts)
 
 createAttachmentFromFile' :: AttachmentFile -> IO MIMEMessage
-createAttachmentFromFile' a = createAttachmentFromFile t (T.unpack p)
+createAttachmentFromFile' a = do
+  attachment <- createAttachmentFromFile t (T.unpack p)
+  return $ attachment
+    & (contentDisposition . traversed . filename defaultCharsets .~ (a ^. attachmentFileDefaultName))
   where
     t = fromMaybe (lookupContentType p) (a ^. attachmentFileContentType)
     p = a ^. attachmentFilePath

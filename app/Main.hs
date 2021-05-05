@@ -69,10 +69,10 @@ commandP = hsubparser
                                           <*> attachmentOptions
                                           <*> messageRefArgument)
                               (progDesc "Reply to a message using your EDITOR."))
---  <> command "forward"  (info (cmdForward <$> dryFlag
---                                          <*> recipientArgument
---                                          <*> messageRefArgument)
---                              (progDesc "Forward a message."))
+  <> command "forward"  (info (cmdForward <$> dryFlag
+                                          <*> recipientArgument
+                                          <*> messageRefArgument)
+                              (progDesc "Forward a message."))
   <> command "ls"       (info (cmdLs      <$> limitOption NoLimit
                                           <*> filterArgument FilterUnseen)
                               (filterHelp <> progDesc "List all headers given a filter expression."))
