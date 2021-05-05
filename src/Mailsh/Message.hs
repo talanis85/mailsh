@@ -75,6 +75,8 @@ module Mailsh.Message
   , ContentType (..)
   , ContentDisposition (..)
   , Parameters (..)
+  , contentType
+  , contentDisposition
   , module Mailsh.Message.ContentType
 
   , ctType, ctSubtype
@@ -122,7 +124,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (mapMaybe, fromMaybe)
 import Data.MIME hiding
   ( headerFrom, headerReplyTo, headerTo, headerCC, headerBCC
-  , defaultCharsets, contentType, contentDisposition, filename )
+  , defaultCharsets, filename )
 import Data.MIME.EncodedWord
 import Data.MIME.Charset (charsetPrism)
 import Data.Reparser
