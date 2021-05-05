@@ -27,10 +27,11 @@ import Render
 data Options = Options
   { optCommand :: StoreM ()
   , optDebug :: Bool
+  , optNoUpdate :: Bool
   }
 
 options :: ParserInfo Options
-options = info (helper <*> (Options <$> commandP <*> debugOption))
+options = info (helper <*> (Options <$> commandP <*> debugOption <*> noUpdateOption))
   (  fullDesc
   <> progDesc "Manage maildirs from the shell"
   <> header "mailsh - A console maildir tool"
@@ -38,6 +39,7 @@ options = info (helper <*> (Options <$> commandP <*> debugOption))
   )
 
 debugOption = flag False True (short 'd' <> long "debug")
+noUpdateOption = flag False True (short 'u' <> long "noupdate")
 
 version :: String
 version = $(gitBranch) ++ "@" ++ $(gitHash)
@@ -363,7 +365,10 @@ main = do
         Nothing -> throwError "Neither MAILDIR nor CWD contain a valid maildir"
         Just x -> return x
 
-    runStderrLoggingT $ filterLogger (logFilter (optDebug opts)) $ withStorePath (optCommand opts) maildirpath
+    let doUpdate = if optNoUpdate opts then return () else updateStore
+
+    runStderrLoggingT $ filterLogger (logFilter (optDebug opts)) $
+      withStorePath (doUpdate >> optCommand opts) maildirpath
 
   case result of
     Left err -> printf "Error: %s\n" err

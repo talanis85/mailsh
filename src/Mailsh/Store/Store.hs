@@ -24,6 +24,7 @@ module Mailsh.Store.Store
   , FilterResult (..)
   , Limit
   , withStorePath
+  , updateStore
   , liftMaildir
   , queryStore
   , queryStore'
@@ -100,7 +101,7 @@ withStorePath m fp = do
         let store = Store
               { _storeCache = db
               }
-        LoggingT $ \x -> runExceptT $ runLoggingT (hoist (runMaildirM md) $ runStoreM (updateStore >> m) store) x
+        LoggingT $ \x -> runExceptT $ runLoggingT (hoist (runMaildirM md) $ runStoreM m store) x
       case ret of
         Left err -> throwError err
         Right ret -> return ret
