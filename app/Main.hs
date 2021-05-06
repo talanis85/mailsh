@@ -28,10 +28,11 @@ data Options = Options
   { optCommand :: StoreM ()
   , optDebug :: Bool
   , optNoUpdate :: Bool
+  , optMaildirPath :: Maybe FilePath
   }
 
 options :: ParserInfo Options
-options = info (helper <*> (Options <$> commandP <*> debugOption <*> noUpdateOption))
+options = info (helper <*> (Options <$> commandP <*> debugOption <*> noUpdateOption <*> maildirPathOption))
   (  fullDesc
   <> progDesc "Manage maildirs from the shell"
   <> header "mailsh - A console maildir tool"
@@ -40,6 +41,7 @@ options = info (helper <*> (Options <$> commandP <*> debugOption <*> noUpdateOpt
 
 debugOption = flag False True (short 'd' <> long "debug")
 noUpdateOption = flag False True (short 'u' <> long "noupdate")
+maildirPathOption = maybeOption str (short 'm' <> long "maildir")
 
 version :: String
 version = $(gitBranch) ++ "@" ++ $(gitHash)
@@ -361,7 +363,7 @@ main = do
                then return (Just x')
                else return Nothing
 
-      case cwdMaildir <|> envMaildir of
+      case optMaildirPath opts <|> cwdMaildir <|> envMaildir of
         Nothing -> throwError "Neither MAILDIR nor CWD contain a valid maildir"
         Just x -> return x
 
