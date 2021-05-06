@@ -39,11 +39,11 @@ import Text.Parsec
 import Text.Printf
 import Text.Wrap
 import qualified Data.ByteString.Char8 as BSC
-import System.Console.ANSI
 import System.Directory
 import System.IO
 import System.Process
 
+import ANSI
 import Data.Reparser
 import Mailsh.Message hiding (parse)
 import Mailsh.MimeRender
@@ -58,19 +58,15 @@ printPlain :: T.Text -> StoreM ()
 printPlain = liftIO . T.putStrLn
 
 printStatusMessage :: T.Text -> StoreM ()
-printStatusMessage x = liftIO $ do
-  setSGR [SetColor Foreground Vivid Green]
-  T.putStrLn x
-  setSGR [Reset]
+printStatusMessage x = liftIO $ runANSI $
+  withForegroundColor Vivid Green $ liftIO $ T.putStrLn x
 
 printMessageLine :: StoredMessage -> StoreM ()
 printMessageLine = liftIO . printMessageSingle False
 
 printError :: T.Text -> StoreM ()
 printError x = liftIO $ do
-  setSGR [SetColor Foreground Vivid Red]
-  T.putStrLn x
-  setSGR [Reset]
+  runANSI $ withForegroundColor Vivid Red $ liftIO $ T.putStrLn x
 
 printMessageLines :: FilterResult StoredMessage -> StoreM ()
 printMessageLines r = do
@@ -89,13 +85,13 @@ printHeaders :: Message a b -> StoreM ()
 printHeaders msg = do
   mapM_ (liftIO . printHeader) (msg ^. headerList)
   where
-    printHeader (key, value) = do
-      setSGR [SetConsoleIntensity BoldIntensity]
-      BSC.putStr (CI.foldedCase key)
-      BSC.putStr ": "
-      setSGR [Reset]
-      BSC.putStr value
-      BSC.putStrLn ""
+    printHeader (key, value) = runANSI $ do
+      withIntensity BoldIntensity $ liftIO $ do
+        BSC.putStr (CI.foldedCase key)
+        BSC.putStr ": "
+      liftIO $ do
+        BSC.putStr value
+        BSC.putStrLn ""
 
 flagSummary :: String -> Char
 flagSummary flags
@@ -165,39 +161,31 @@ messageRenderer flt msg = do
           . fromMaybe "(no date)"
           . fmap (formatTime defaultTimeLocale dateTimeFormat)
 
-    setSGR [SetConsoleIntensity BoldIntensity]
+    runANSI $ do
+      withIntensity BoldIntensity $ liftIO $ do
+        headerName "From" >> addressHeader (msg ^. headerFrom defaultCharsets)
+        headerName "To" >> addressHeader (msg ^. headerTo defaultCharsets)
+        headerName "Subject" >> subjectHeader (msg ^. headerSubject defaultCharsets)
+        headerName "Date" >> dateHeader localDate
 
-    headerName "From" >> addressHeader (msg ^. headerFrom defaultCharsets)
-    headerName "To" >> addressHeader (msg ^. headerTo defaultCharsets)
-    headerName "Subject" >> subjectHeader (msg ^. headerSubject defaultCharsets)
-    headerName "Date" >> dateHeader localDate
+      liftIO $ putStrLn ""
 
-    setSGR [Reset]
+      liftIO $ case msg ^. body . storedMainBody . charsetDecoded' defaultCharsets of
+        Left err -> putStrLn (show err)
+        Right msg' -> putStrLn $ flt $ T.unpack $ wrapText defaultWrapSettings windowWidth $
+          renderType (msg ^. contentType) (msg' ^. body)
 
-    putStrLn ""
+      when (not $ null refs) $ do
+        withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced messages:"
+        liftIO $ mapM_ (printMessageSingle False) refs
 
-    case msg ^. body . storedMainBody . charsetDecoded' defaultCharsets of
-      Left err -> putStrLn (show err)
-      Right msg' -> putStrLn $ flt $ T.unpack $ wrapText defaultWrapSettings windowWidth $
-        renderType (msg ^. contentType) (msg' ^. body)
+      when (not $ null refby) $ do
+        withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced by:"
+        liftIO $ mapM_ (printMessageSingle False) refby
 
-    when (not $ null refs) $ do
-      setSGR [SetConsoleIntensity BoldIntensity]
-      putStrLn "Referenced messages:"
-      setSGR [Reset]
-      mapM_ (printMessageSingle False) refs
-
-    when (not $ null refby) $ do
-      setSGR [SetConsoleIntensity BoldIntensity]
-      putStrLn "Referenced by:"
-      setSGR [Reset]
-      mapM_ (printMessageSingle False) refby
-
-    when (not $ null (msg ^.. body . storedAttachments)) $ do
-      setSGR [SetConsoleIntensity BoldIntensity]
-      putStrLn "Attachments:"
-      setSGR [Reset]
-      imapMOf_ (body . storedAttachments) printAttachment msg
+      when (not $ null (msg ^.. body . storedAttachments)) $ do
+        withIntensity BoldIntensity $ liftIO $ putStrLn "Attachments:"
+        liftIO $ imapMOf_ (body . storedAttachments) printAttachment msg
 
 printOutline :: StoredMessage -> StoreM ()
 printOutline msg = do
@@ -205,29 +193,25 @@ printOutline msg = do
   liftIO $ imapMOf_ (body . storedParts . traversed) printPartInfo msg
 
 printPartInfo :: Int -> (Maybe ContentDisposition, ContentType) -> IO ()
-printPartInfo i (cd, ct) = do
+printPartInfo i (cd, ct) = runANSI $ do
   let h = printf "#%2d: " i
       indent = replicate (length h) ' '
-      printHeader s = putStr indent >> printHeader' s
-      printHeader' s = do
-        setSGR [SetConsoleIntensity BoldIntensity]
-        putStr (printf "%-20s " (s :: String))
-        setSGR [Reset]
+      printHeader s = liftIO (putStr indent) >> printHeader' s
+      printHeader' s = withIntensity BoldIntensity $
+        liftIO $ putStr (printf "%-20s " (s :: String))
 
-  putStrLn ""
+  liftIO $ putStrLn ""
 
-  setSGR [SetColor Foreground Vivid Yellow]
-  putStr h
-  setSGR [Reset]
+  withForegroundColor Vivid Yellow $ liftIO $ putStr h
 
   printHeader' "Content-Type:"
-  T.putStrLn (reprint contentTypeParser ct)
+  liftIO $ T.putStrLn (reprint contentTypeParser ct)
 
   printHeader "Disposition:"
-  T.putStrLn (fromMaybe "none" (reprint contentDispositionParser <$> cd))
+  liftIO $ T.putStrLn (fromMaybe "none" (reprint contentDispositionParser <$> cd))
 
   printHeader "Filename:"
-  T.putStrLn (fromMaybe "none" (cd ^? traversed . filename defaultCharsets))
+  liftIO $ T.putStrLn (fromMaybe "none" (cd ^? traversed . filename defaultCharsets))
 
 outlineRenderer :: Renderer
 outlineRenderer msg = return ()
@@ -267,28 +251,19 @@ printMessageSingle underline msg = do
         - length (nameInfo)
         - length (dateInfo)
 
-  when underline $ setSGR [SetUnderlining SingleUnderline]
+  runANSI $ do
+    withForegroundColor Vivid Yellow $
+      liftIO $ putStr flagsAndNumber
 
-  setSGR [SetColor Foreground Vivid Yellow]
+    withIntensity BoldIntensity $
+      liftIO $ putStr nameInfo
 
-  putStr flagsAndNumber
+    withIntensity FaintIntensity $
+      liftIO $ putStr dateInfo
 
-  setSGR [SetColor Foreground Vivid White]
-  setSGR [SetConsoleIntensity BoldIntensity]
+    liftIO $ putStr (trimUniString subjectWidth subject)
 
-  putStr nameInfo
-
-  setSGR [SetConsoleIntensity NormalIntensity]
-  setSGR [SetConsoleIntensity FaintIntensity]
-
-  putStr dateInfo
-
-  setSGR [SetConsoleIntensity NormalIntensity]
-
-  putStr (trimUniString subjectWidth subject)
   putStr "\n"
-
-  setSGR [Reset]
 
   where
     flags = flagSummary (msg ^. body . storedFlags)
@@ -306,10 +281,9 @@ formatAddressShort (Single (Mailbox Nothing addr)) = reprint addrSpecParser addr
 formatAddressShort (Group name _) = name
 
 printResultCount :: FilterResult a -> IO ()
-printResultCount r = do
-  setSGR [SetConsoleIntensity BoldIntensity]
-  printf "%d/%d messages\n" (length (resultRows r)) (resultTotal r)
-  setSGR [Reset]
+printResultCount r = runANSI $
+  withIntensity BoldIntensity $
+    liftIO $ printf "%d/%d messages\n" (length (resultRows r)) (resultTotal r)
 
 withWidth :: (Int -> IO a) -> IO a
 withWidth f = do

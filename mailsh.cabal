@@ -77,7 +77,8 @@ library
 executable mailsh
   hs-source-dirs:      app
   main-is:             Main.hs
-  other-modules:       Commands
+  other-modules:       ANSI
+                     , Commands
                      , Render
                      , Util
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
