@@ -20,6 +20,7 @@ import Mailsh.Types
 import Mailsh.Store
 
 import Commands
+import Format
 import Render
 
 -----------------------------------------------------------------------------
@@ -78,7 +79,8 @@ commandP = hsubparser
                                           <*> messageRefArgument)
                               (progDesc "Forward a message."))
   <> command "ls"       (info (cmdLs      <$> limitOption NoLimit
-                                          <*> filterArgument FilterUnseen)
+                                          <*> filterArgument FilterUnseen
+                                          <*> formatOption)
                               (filterHelp <> progDesc "List all headers given a filter expression."))
   <> command "lsn"      (info (cmdLsn     <$> filterArgument FilterAll)
                               (filterHelp <> progDesc "List all message numbers given a filter expression."))
@@ -100,7 +102,7 @@ commandP = hsubparser
                               (progDesc "Display an outline of a message."))
 --  <> command "tar"      (info (cmdTar     <$> messageNumberArgument)
 --                              (progDesc "Output all attachments of a message to stdout as a tar archive."))
-  ) <|> (cmdLs <$> limitOption NoLimit <*> filterArgument FilterUnseen)
+  ) <|> (cmdLs <$> limitOption NoLimit <*> filterArgument FilterUnseen <*> formatOption)
 
 filterHelp :: InfoMod a
 filterHelp = footerDoc $ Just $ PP.vcat $ map PP.string
@@ -159,6 +161,13 @@ rendererOption def = option rendererReader $
       "preview" -> Right previewRenderer
       "noquote" -> Right noquoteRenderer
       _         -> Left "Invalid renderer"
+
+formatOption :: Parser (Maybe ConsoleFormat)
+formatOption = maybeOption (eitherReader parseConsoleFormat) $
+     short 'f'
+  <> long "format"
+  <> metavar "FORMAT"
+  <> help "Printf-style formatting for header lines"
 
 maybeOption :: ReadM a -> Mod OptionFields (Maybe a) -> Parser (Maybe a)
 maybeOption r m = option (Just <$> r) (m <> value Nothing)

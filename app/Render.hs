@@ -44,7 +44,9 @@ import System.IO
 import System.Process
 
 import ANSI
+import Format
 import Data.Reparser
+import Mailsh.Maildir
 import Mailsh.Message hiding (parse)
 import Mailsh.MimeRender
 import Mailsh.Store
@@ -62,15 +64,15 @@ printStatusMessage x = liftIO $ runANSI $
   withForegroundColor Vivid Green $ liftIO $ T.putStrLn x
 
 printMessageLine :: StoredMessage -> StoreM ()
-printMessageLine = liftIO . printMessageSingle False
+printMessageLine = liftIO . printMessageSingle defaultMessageFormat
 
 printError :: T.Text -> StoreM ()
 printError x = liftIO $ do
   runANSI $ withForegroundColor Vivid Red $ liftIO $ T.putStrLn x
 
-printMessageLines :: FilterResult StoredMessage -> StoreM ()
-printMessageLines r = do
-  mapM_ (liftIO . printMessageSingle False) (resultRows r)
+printMessageLines :: ConsoleFormat -> FilterResult StoredMessage -> StoreM ()
+printMessageLines format r = do
+  mapM_ (liftIO . printMessageSingle format) (resultRows r)
   liftIO $ printResultCount r
 
 printStoreNumbers :: FilterResult StoredMessage -> StoreM ()
@@ -177,11 +179,11 @@ messageRenderer flt msg = do
 
       when (not $ null refs) $ do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced messages:"
-        liftIO $ mapM_ (printMessageSingle False) refs
+        liftIO $ mapM_ (printMessageSingle defaultMessageFormat) refs
 
       when (not $ null refby) $ do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced by:"
-        liftIO $ mapM_ (printMessageSingle False) refby
+        liftIO $ mapM_ (printMessageSingle defaultMessageFormat) refby
 
       when (not $ null (msg ^.. body . storedAttachments)) $ do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Attachments:"
@@ -235,50 +237,14 @@ padUniStringRight n c s
   | uniStringWidth s >= n = s
   | otherwise = s ++ replicate (n - uniStringWidth s) c
 
-printMessageSingle :: Bool -> StoredMessage -> IO ()
-printMessageSingle underline msg = do
+printMessageSingle :: ConsoleFormat -> StoredMessage -> IO ()
+printMessageSingle format msg = do
   (Window windowHeight windowWidth) <- fromMaybe (Window 80 80) <$> size
-
-  localDate <- mapM utcToLocalZonedTime (zonedTimeToUTC <$> msg ^. headerDate)
-  let date = fromMaybe "(no date)" $ formatTime defaultTimeLocale dateTimeFormat <$> localDate
-
-  let flagsAndNumber = printf "%c %c %5s" flags attachmentSymbol number
-      nameInfo = printf " %s" (padUniStringRight 26 ' ' (trimUniString 26 from))
-      dateInfo = printf " %21s " (take 21 date)
-
-  let subjectWidth = windowWidth
-        - length (flagsAndNumber)
-        - length (nameInfo)
-        - length (dateInfo)
-
-  runANSI $ do
-    withForegroundColor Vivid Yellow $
-      liftIO $ putStr flagsAndNumber
-
-    withIntensity BoldIntensity $
-      liftIO $ putStr nameInfo
-
-    withIntensity FaintIntensity $
-      liftIO $ putStr dateInfo
-
-    liftIO $ putStr (trimUniString subjectWidth subject)
-
+  runANSI $ formatStoredMessage format msg windowWidth
   putStr "\n"
-
-  where
-    flags = flagSummary (msg ^. body . storedFlags)
-    attachmentSymbol = if null (msg ^.. body . storedAttachments) then ' ' else '§'
-    number = fromMaybe "" (show <$> msg ^. body . storedNumber)
-    from = T.unpack $ fromMaybe "(nobody)" $ formatAddressShort <$> msg ^? headerFrom defaultCharsets . traversed
-    subject = T.unpack $ fromMaybe "(no subject)" $ msg ^. headerSubject defaultCharsets
 
 dateTimeFormat :: String
 dateTimeFormat = "%a %b %d %Y %H:%M"
-
-formatAddressShort :: Address -> T.Text
-formatAddressShort (Single (Mailbox (Just name) _)) = name
-formatAddressShort (Single (Mailbox Nothing addr)) = reprint addrSpecParser addr
-formatAddressShort (Group name _) = name
 
 printResultCount :: FilterResult a -> IO ()
 printResultCount r = runANSI $

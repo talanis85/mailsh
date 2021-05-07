@@ -22,6 +22,7 @@ module Commands
   -- , cmdTar
   ) where
 
+import Control.Applicative
 import Control.Lens
 import Control.Monad.Except
 
@@ -55,6 +56,7 @@ import Mailsh.MimeRender
 import Mailsh.Store
 import Mailsh.Types
 
+import Format
 import Render
 import Util
 
@@ -202,14 +204,19 @@ cmdForward dry mailboxes' mref = do
     liftIO $ sendMessage msg''
     addSentMessage msg''
 
-cmdLs :: Limit -> FilterExp -> StoreM ()
-cmdLs limit' filterExp = do
+cmdLs :: Limit -> FilterExp -> Maybe ConsoleFormat -> StoreM ()
+cmdLs limit' filterExp argumentFormat = do
+  maildirFormat <- getMaildirFormat
+  let format = fromMaybe defaultMessageFormat $ argumentFormat <|> maildirFormat
+
   limit <- case limit' of
     Limit x -> return (Limit x)
     NoLimit -> Limit <$> subtract 2 <$> fromIntegral <$> liftIO terminalHeight
+
   filter <- makeStoreFilter filterExp
+
   result <- queryStore (filterBy filter limit)
-  printMessageLines result
+  printMessageLines format result
 
 cmdLsn :: FilterExp -> StoreM ()
 cmdLsn filterExp = do
@@ -426,3 +433,14 @@ getMessageNumber :: MessageNumber -> StoreM StoreNumber
 getMessageNumber n' = case n' of
   MessageNumberDefault -> storeNumber <$> getCurrentMessage
   MessageNumber n -> return (storeNumber n)
+
+getMaildirFormat :: StoreM (Maybe ConsoleFormat)
+getMaildirFormat = do
+  formatPath <- liftMaildir (getOtherMaildirFile ".format")
+  formatString <- liftIO $ readFileIfExists formatPath
+  case formatString of
+    Nothing -> return Nothing
+    Just "" -> return Nothing
+    Just formatString' -> case parseConsoleFormat (head (lines formatString')) of
+      Left err -> throwError ("Error parsing format string: " ++ err)
+      Right format -> return (Just format)
