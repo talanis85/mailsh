@@ -11,6 +11,7 @@ module Commands
   , cmdForward
   , cmdLs
   , cmdLsn
+  , cmdBrowse
   , cmdTrash
   , cmdRecover
   , cmdPurge
@@ -60,6 +61,7 @@ import Mailsh.MimeRender
 import Mailsh.Store
 import Mailsh.Types
 
+import Browse
 import Format
 import Render
 import Util
@@ -254,6 +256,15 @@ cmdLsn filterExp = do
   filter <- makeStoreFilter filterExp
   result <- queryStore (filterBy filter NoLimit)
   printStoreNumbers result
+
+cmdBrowse :: Limit -> FilterExp -> Maybe RichFormat -> StoreM ()
+cmdBrowse limit filterExp argumentFormat = do
+  maildirFormat <- getMaildirFormat
+  let format = fromMaybe defaultMessageFormat $ argumentFormat <|> maildirFormat
+
+  filter <- makeStoreFilter filterExp
+  result <- queryStore (filterBy filter limit)
+  liftIO $ browseStoredMessages format (resultRows result)
 
 cmdTrash :: MessageNumber -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."

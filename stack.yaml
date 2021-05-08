@@ -5,8 +5,16 @@ extra-deps:
 # - git: https://github.com/purebred-mua/purebred-email
 #   commit: a37730d790fbc6e0611764728fb6c08b14801e75
 - ../purebred-email
+- ../disguise-gtk
+- ../disguise
 - concise-0.1.0.1
 - wl-pprint-1.2.1
+- cairo-0.13.8.1
+- gio-0.13.8.1
+- glib-0.13.8.1
+- gtk2hs-buildtools-0.13.8.0
+- gtk3-0.15.5
+- pango-0.13.8.1
 flags: {}
 extra-package-dbs: []
 nix:
@@ -16,3 +24,9 @@ nix:
     - zlib
     - ssmtp
     - icu
+    - cairo
+    - gnome3.gtk
+    - pango
+    - pkgconfig
+    - xlibs.xorgproto
+    - xorg.libX11
