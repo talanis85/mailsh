@@ -187,7 +187,7 @@ padToFieldSize (FormatFieldSize True (Just n)) = padUniStringLeft n ' ' . trimUn
 
 defaultMessageFormat :: RichFormat
 defaultMessageFormat = fromRight (error "error in Format.defaultMessageFormat") $
-  parseRichFormat "%{(yellow)%x %a} %{(blue)%n} %{(faint)%d} %{(bold)%30f} %s"
+  parseRichFormat "%{(yellow)%x %a} %{(blue)%5n} %{(faint)%d} %{(bold)%30f} %s"
 
 uniStringWidth :: String -> Int
 uniStringWidth = sum . map wcwidth
