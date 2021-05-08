@@ -158,7 +158,7 @@ messageRenderer flt msg = do
           . wrapTextToLines defaultWrapSettings (windowWidth - 15)
           . fromMaybe "(no subject)"
         alignHeaderValue x = case x of
-          [] -> ""
+          [] -> "\n"
           (x:xs) -> T.unlines (x : map (T.pack (replicate 15 ' ') <>) xs)
         dateHeader = putStrLn
           . fromMaybe "(no date)"
