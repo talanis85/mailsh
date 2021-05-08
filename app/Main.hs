@@ -162,8 +162,8 @@ rendererOption def = option rendererReader $
       "noquote" -> Right noquoteRenderer
       _         -> Left "Invalid renderer"
 
-formatOption :: Parser (Maybe ConsoleFormat)
-formatOption = maybeOption (eitherReader parseConsoleFormat) $
+formatOption :: Parser (Maybe RichFormat)
+formatOption = maybeOption (eitherReader parseRichFormat) $
      short 'f'
   <> long "format"
   <> metavar "FORMAT"

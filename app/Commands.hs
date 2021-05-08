@@ -204,7 +204,7 @@ cmdForward dry mailboxes' mref = do
     liftIO $ sendMessage msg''
     addSentMessage msg''
 
-cmdLs :: Limit -> FilterExp -> Maybe ConsoleFormat -> StoreM ()
+cmdLs :: Limit -> FilterExp -> Maybe RichFormat -> StoreM ()
 cmdLs limit' filterExp argumentFormat = do
   maildirFormat <- getMaildirFormat
   let format = fromMaybe defaultMessageFormat $ argumentFormat <|> maildirFormat
@@ -434,13 +434,13 @@ getMessageNumber n' = case n' of
   MessageNumberDefault -> storeNumber <$> getCurrentMessage
   MessageNumber n -> return (storeNumber n)
 
-getMaildirFormat :: StoreM (Maybe ConsoleFormat)
+getMaildirFormat :: StoreM (Maybe RichFormat)
 getMaildirFormat = do
   formatPath <- liftMaildir (getOtherMaildirFile ".format")
   formatString <- liftIO $ readFileIfExists formatPath
   case formatString of
     Nothing -> return Nothing
     Just "" -> return Nothing
-    Just formatString' -> case parseConsoleFormat (head (lines formatString')) of
+    Just formatString' -> case parseRichFormat (head (lines formatString')) of
       Left err -> throwError ("Error parsing format string: " ++ err)
       Right format -> return (Just format)

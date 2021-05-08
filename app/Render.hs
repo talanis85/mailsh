@@ -44,6 +44,7 @@ import System.IO
 import System.Process
 
 import ANSI
+import RichString
 import Format
 import Data.Reparser
 import Mailsh.Maildir
@@ -70,7 +71,7 @@ printError :: T.Text -> StoreM ()
 printError x = liftIO $ do
   runANSI $ withForegroundColor Vivid Red $ liftIO $ T.putStrLn x
 
-printMessageLines :: ConsoleFormat -> FilterResult StoredMessage -> StoreM ()
+printMessageLines :: RichFormat -> FilterResult StoredMessage -> StoreM ()
 printMessageLines format r = do
   mapM_ (liftIO . printMessageSingle format) (resultRows r)
   liftIO $ printResultCount r
@@ -237,10 +238,11 @@ padUniStringRight n c s
   | uniStringWidth s >= n = s
   | otherwise = s ++ replicate (n - uniStringWidth s) c
 
-printMessageSingle :: ConsoleFormat -> StoredMessage -> IO ()
+printMessageSingle :: RichFormat -> StoredMessage -> IO ()
 printMessageSingle format msg = do
   (Window windowHeight windowWidth) <- fromMaybe (Window 80 80) <$> size
-  runANSI $ formatStoredMessage format msg windowWidth
+  tz <- getCurrentTimeZone
+  printRichString (formatStoredMessage tz format windowWidth msg)
   putStr "\n"
 
 dateTimeFormat :: String

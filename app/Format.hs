@@ -1,15 +1,14 @@
 module Format
-  ( ConsoleFormat (..)
-  , parseConsoleFormat
+  ( RichFormat (..)
+  , parseRichFormat
 
-  , formatConsole
   , formatStoredMessage
   , defaultMessageFormat
   ) where
 
-import ANSI
 import Control.Lens hiding (noneOf)
 import Control.Monad
+import Control.Monad.State
 import Control.Monad.Trans
 import Data.Bifunctor
 import Data.Char.WCWidth
@@ -18,50 +17,53 @@ import Data.Maybe (fromMaybe)
 import Data.String (IsString (..))
 import qualified Data.Text as T
 import Data.Time
-import Text.Parsec
+import Text.Parsec hiding (State)
 import Text.Parsec.String
 
 import Data.Reparser
 import Mailsh.Message hiding (parse)
 import Mailsh.Store.Message
 
+import ANSI
+import RichString
+
 data FormatFieldSize = FormatFieldSize Bool (Maybe Int)
   deriving (Eq, Show)
 
-data ConsoleFormat
-  = ConsoleFormatEmpty
-  | ConsoleFormatField Char FormatFieldSize
-  | ConsoleFormatForegroundColor ColorIntensity Color ConsoleFormat
-  | ConsoleFormatBackgroundColor ColorIntensity Color ConsoleFormat
-  | ConsoleFormatIntensity ConsoleIntensity ConsoleFormat
-  | ConsoleFormatCat ConsoleFormat ConsoleFormat
-  | ConsoleFormatString String
+data RichFormat
+  = RichFormatEmpty
+  | RichFormatField Char FormatFieldSize
+  | RichFormatForegroundColor ColorIntensity Color RichFormat
+  | RichFormatBackgroundColor ColorIntensity Color RichFormat
+  | RichFormatIntensity ConsoleIntensity RichFormat
+  | RichFormatCat RichFormat RichFormat
+  | RichFormatString String
   deriving (Eq, Show)
 
-instance Semigroup ConsoleFormat where
-  (<>) = ConsoleFormatCat
+instance Semigroup RichFormat where
+  (<>) = RichFormatCat
 
-instance Monoid ConsoleFormat where
-  mempty = ConsoleFormatEmpty
+instance Monoid RichFormat where
+  mempty = RichFormatEmpty
 
-instance IsString ConsoleFormat where
-  fromString = ConsoleFormatString
+instance IsString RichFormat where
+  fromString = RichFormatString
 
-parseConsoleFormat :: String -> Either String ConsoleFormat
-parseConsoleFormat s = first (("Format string parse error: " ++) . show) $
-  parse (consoleFormatP <* eof) "<formatstring>" s
+parseRichFormat :: String -> Either String RichFormat
+parseRichFormat s = first (("Format string parse error: " ++) . show) $
+  parse (richFormatP <* eof) "<formatstring>" s
 
-consoleFormatP :: Parser ConsoleFormat
-consoleFormatP = foldr ConsoleFormatCat ConsoleFormatEmpty <$> many consoleFormatTokenP
+richFormatP :: Parser RichFormat
+richFormatP = foldr RichFormatCat RichFormatEmpty <$> many richFormatTokenP
 
-consoleFormatTokenP :: Parser ConsoleFormat
-consoleFormatTokenP = choice $ map try
-  [ ConsoleFormatString <$> many1 (noneOf "%}")
+richFormatTokenP :: Parser RichFormat
+richFormatTokenP = choice $ map try
+  [ RichFormatString <$> many1 (noneOf "%}")
   , do
       string "%{("
       modifiers <- modifierP `sepBy1` char ','
       char ')'
-      rest <- consoleFormatP
+      rest <- richFormatP
       char '}'
       return (foldr ($) rest modifiers)
   , do
@@ -69,23 +71,73 @@ consoleFormatTokenP = choice $ map try
       rightAlign <- option False (char '-' >> return True)
       size <- optionMaybe (read <$> many1 digit)
       c <- letter
-      return (ConsoleFormatField c (FormatFieldSize rightAlign size))
+      return (RichFormatField c (FormatFieldSize rightAlign size))
   ]
 
-modifierP :: Parser (ConsoleFormat -> ConsoleFormat)
+modifierP :: Parser (RichFormat -> RichFormat)
 modifierP = choice $ map try
-  [ string "bold" >> return (ConsoleFormatIntensity BoldIntensity)
-  , string "faint" >> return (ConsoleFormatIntensity FaintIntensity)
-  , string "black" >> return (ConsoleFormatForegroundColor Vivid Black)
-  , string "red" >> return (ConsoleFormatForegroundColor Vivid Red)
-  , string "green" >> return (ConsoleFormatForegroundColor Vivid Green)
-  , string "yellow" >> return (ConsoleFormatForegroundColor Vivid Yellow)
-  , string "blue" >> return (ConsoleFormatForegroundColor Vivid Blue)
-  , string "magenta" >> return (ConsoleFormatForegroundColor Vivid Magenta)
-  , string "cyan" >> return (ConsoleFormatForegroundColor Vivid Cyan)
-  , string "white" >> return (ConsoleFormatForegroundColor Vivid White)
+  [ string "bold" >> return (RichFormatIntensity BoldIntensity)
+  , string "faint" >> return (RichFormatIntensity FaintIntensity)
+  , string "black" >> return (RichFormatForegroundColor Vivid Black)
+  , string "red" >> return (RichFormatForegroundColor Vivid Red)
+  , string "green" >> return (RichFormatForegroundColor Vivid Green)
+  , string "yellow" >> return (RichFormatForegroundColor Vivid Yellow)
+  , string "blue" >> return (RichFormatForegroundColor Vivid Blue)
+  , string "magenta" >> return (RichFormatForegroundColor Vivid Magenta)
+  , string "cyan" >> return (RichFormatForegroundColor Vivid Cyan)
+  , string "white" >> return (RichFormatForegroundColor Vivid White)
   ]
 
+formatRichString
+  :: (Char -> FormatFieldSize -> a -> State Int RichString)
+  -> RichFormat
+  -> a
+  -> State Int RichString
+formatRichString formatField format x = case format of
+  RichFormatEmpty -> return ""
+  RichFormatForegroundColor intensity color format' ->
+    mapAttributes (attrForeground .~ Just (intensity, color)) <$> formatRichString formatField format' x
+  RichFormatBackgroundColor intensity color format' ->
+    mapAttributes (attrBackground .~ Just (intensity, color)) <$> formatRichString formatField format' x
+  RichFormatIntensity intensity format' ->
+    mapAttributes (attrIntensity .~ intensity) <$> formatRichString formatField format' x
+  RichFormatField f fieldSize ->
+    formatField f fieldSize x
+  RichFormatCat a b -> do
+    cols <- get
+    if cols <= 0
+       then return ""
+       else (<>) <$> formatRichString formatField a x <*> formatRichString formatField b x
+  RichFormatString s ->
+    richStringWithSize (FormatFieldSize False Nothing) s
+
+richStringWithSize :: FormatFieldSize -> String -> State Int RichString
+richStringWithSize size s = do
+  cols <- get
+  let s' = trimUniString cols $ padToFieldSize size s
+  modify $ subtract (length s')
+  return (richString s')
+
+formatStoredMessage :: TimeZone -> RichFormat -> Int -> StoredMessage  -> RichString
+formatStoredMessage tz format cols msg = evalState (formatRichString f format msg) cols
+  where
+    localDate = utcToZonedTime tz <$> zonedTimeToUTC <$> msg ^. headerDate
+
+    f 'd' size msg = richStringWithSize size $
+      fromMaybe "(no date)" $ formatTime defaultTimeLocale dateTimeFormat <$> localDate
+    f c size msg = richStringWithSize size (f' c msg)
+
+    f' 'x' msg = pure (flagSummary (msg ^. body . storedFlags))
+    f' 'a' msg = if null (msg ^.. body . storedAttachments) then " " else "§"
+    f' 'n' msg = fromMaybe "" (show <$> msg ^. body . storedNumber)
+    f' 'f' msg = T.unpack $ fromMaybe "(nobody)" $
+      formatAddressShort <$> msg ^? headerFrom defaultCharsets . traversed
+    f' 't' msg = T.unpack $ fromMaybe "(nobody)" $
+      formatAddressShort <$> msg ^? headerTo defaultCharsets . traversed
+    f' 's' msg = T.unpack $ fromMaybe "(no subject)" $ msg ^. headerSubject defaultCharsets
+    f' _ msg = ""
+
+{-
 formatConsole :: (Char -> FormatFieldSize -> a -> Int -> ANSI Int) -> ConsoleFormat -> a -> Int -> ANSI Int
 formatConsole formatField ConsoleFormatEmpty x cols = return cols
 formatConsole formatField (ConsoleFormatForegroundColor intensity color format) x cols =
@@ -127,14 +179,15 @@ putStrWithSize size cols s = liftIO $ do
   let s' = trimUniString cols $ padToFieldSize size s
   putStr s'
   return (cols - length s')
+-}
 
 padToFieldSize (FormatFieldSize _ Nothing) = id
 padToFieldSize (FormatFieldSize False (Just n)) = padUniStringRight n ' ' . trimUniString n
 padToFieldSize (FormatFieldSize True (Just n)) = padUniStringLeft n ' ' . trimUniString n
 
-defaultMessageFormat :: ConsoleFormat
+defaultMessageFormat :: RichFormat
 defaultMessageFormat = fromRight (error "error in Format.defaultMessageFormat") $
-  parseConsoleFormat "%{(yellow)%x %a} %{(blue)%n} %{(faint)%d} %{(bold)%30f} %s"
+  parseRichFormat "%{(yellow)%x %a} %{(blue)%n} %{(faint)%d} %{(bold)%30f} %s"
 
 uniStringWidth :: String -> Int
 uniStringWidth = sum . map wcwidth
