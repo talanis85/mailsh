@@ -13,6 +13,7 @@ module Mailsh.Store.Message
   , partStoreInfo
 
   , storedAttachments
+  , storedFiles
   ) where
 
 import Control.Applicative
@@ -67,5 +68,19 @@ storedAttachments = (storedParts . traversed) <. folding isAttachment
     isAttachment (Nothing, _) = Nothing
     isAttachment (Just dis, ct)
       | dis ^. dispositionType == Attachment =
+          Just ((dis ^? filename defaultCharsets) <|> (ct ^? filename defaultCharsets), ct)
+      | otherwise = Nothing
+
+-- | Variant of 'storedAttachments' that also traverses inline parts
+--   that have a filename.
+storedFiles :: IndexedFold Int Stored (Maybe T.Text, ContentType)
+storedFiles = (storedParts . traversed) <. folding isAttachment
+  where
+    isAttachment :: (Maybe ContentDisposition, ContentType) -> Maybe (Maybe T.Text, ContentType)
+    isAttachment (Nothing, _) = Nothing
+    isAttachment (Just dis, ct)
+      | dis ^. dispositionType == Attachment ||
+        dis ^? filename defaultCharsets /= Nothing ||
+        ct ^? filename defaultCharsets /= Nothing =
           Just ((dis ^? filename defaultCharsets) <|> (ct ^? filename defaultCharsets), ct)
       | otherwise = Nothing

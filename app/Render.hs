@@ -186,9 +186,9 @@ messageRenderer flt msg = do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced by:"
         liftIO $ mapM_ (printMessageSingle defaultMessageFormat) refby
 
-      when (not $ null (msg ^.. body . storedAttachments)) $ do
+      when (not $ null (msg ^.. body . storedFiles)) $ do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Attachments:"
-        liftIO $ imapMOf_ (body . storedAttachments) printAttachment msg
+        liftIO $ imapMOf_ (body . storedFiles) printAttachment msg
 
 printOutline :: StoredMessage -> StoreM ()
 printOutline msg = do
