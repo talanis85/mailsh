@@ -7,6 +7,8 @@ import           Control.Monad.State
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TL
+import           HTMLEntities.Decoder
 import           Text.HTML.DOM
 import           Text.PrettyPrint.Leijen hiding ((<$>))
 import qualified Text.XML as XML
@@ -22,7 +24,7 @@ renderType t = case t ^. ctType of
   _ -> const ""
 
 renderText :: T.Text -> T.Text
-renderText = id
+renderText = TL.toStrict . TL.toLazyText . htmlEncodedText
 
 renderHtml :: T.Text -> T.Text
 renderHtml s = T.pack $ displayS (renderPretty 1.0 100 $ printXML (XML.documentRoot (parseLT (TL.fromStrict s)))) ""

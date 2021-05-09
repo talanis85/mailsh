@@ -44,6 +44,7 @@ library
                      , esqueleto
                      , filepath
                      , html-conduit
+                     , html-entities
                      , hostname
                      , iconv
                      , lens
