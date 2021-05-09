@@ -11,12 +11,15 @@ import           Text.HTML.DOM
 import           Text.PrettyPrint.Leijen hiding ((<$>))
 import qualified Text.XML as XML
 
+import Data.Reparser
 import Mailsh.Message
 
 renderType :: ContentType -> T.Text -> T.Text
 renderType t = case t ^. ctType of
-  "html" -> renderHtml
-  _      -> renderText
+  "text" -> case t ^. ctSubtype of
+    "html" -> renderHtml
+    _      -> renderText
+  _ -> const ""
 
 renderText :: T.Text -> T.Text
 renderText = id
