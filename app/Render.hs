@@ -176,7 +176,7 @@ messageRenderer flt msg = do
       liftIO $ case msg ^. body . storedMainBody . charsetDecoded' defaultCharsets of
         Left err -> putStrLn (show err)
         Right msg' -> putStrLn $ flt $ T.unpack $ wrapText defaultWrapSettings windowWidth $
-          renderType (msg ^. contentType) (msg' ^. body)
+          renderType (msg' ^. contentType) (msg' ^. body)
 
       when (not $ null refs) $ do
         withIntensity BoldIntensity $ liftIO $ putStrLn "Referenced messages:"
