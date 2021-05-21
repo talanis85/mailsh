@@ -49,7 +49,7 @@ version = $(gitBranch) ++ "@" ++ $(gitHash)
 
 commandP :: Parser (StoreM ())
 commandP = hsubparser
-  (  command "read"     (info (cmdRead    <$> messageRefArgument
+  (  command "read"     (info (cmdRead    <$> messageOrPartRefArgument
                                           <*> rendererOption noquoteRenderer)
                               (progDesc "Read a message."))
   <> command "cat"      (info (cmdCat     <$> messageOrPartRefArgument)

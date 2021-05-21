@@ -4,6 +4,7 @@ module Mailsh.Store.Message
   ( Stored (..)
   , StoredMessage
   , readStoredMessage
+  , withMainPart
   , storedMainBody
   , storedMid
   , storedNumber
@@ -57,6 +58,9 @@ readStoredMessage mid num flags reader = do
       , _storedSource = reader
       }
     defaultMessage headers = Message headers (BS.empty)
+
+withMainPart :: StoredMessage -> ByteEntity -> StoredMessage
+withMainPart msg be = Message (msg ^. headers) $ (msg ^. body) { _storedMainBody = be }
 
 partStoreInfo :: Getter WireEntity (Maybe ContentDisposition, ContentType)
 partStoreInfo = to (\x -> (x ^. contentDisposition, x ^. contentType))
