@@ -1,7 +1,0 @@
-MIME-Version: 1
-From: xxx@yyy.zzz
-To: aaa@bbb.ccc
-To: ddd@eee.fff
-Subject: Duplicate headers
-
-This is a message to multiple recipients.

@@ -470,10 +470,6 @@ additionalTests = testGroup "misc"
   [ mimeTest "misc/encoded-words.txt" $ \msg -> do
       assertFrom msg ["György Sebők <gs@musicianslife.com>"]
       assertSubject msg (Just "おねがいします")
-  , mimeTest "misc/duplicate-headers.txt" $ \msg -> do
-      assertFrom msg ["xxx@yyy.zzz"]
-      assertTo msg ["aaa@bbb.ccc", "ddd@eee.fff"]
-      assertSubject msg (Just "Duplicate headers")
   , mimeTest "composed/attachment.txt" $ \msg -> do
       assertAttachments msg [("/path/to/file", Nothing, Just "text/plain")]
   ]

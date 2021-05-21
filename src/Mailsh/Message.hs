@@ -122,9 +122,7 @@ import qualified Data.CaseInsensitive as CI
 import Data.Either (fromRight)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (mapMaybe, fromMaybe)
-import Data.MIME hiding
-  ( headerFrom, headerReplyTo, headerTo, headerCC, headerBCC
-  , defaultCharsets, filename )
+import Data.MIME hiding ( defaultCharsets, filename )
 import Data.MIME.EncodedWord
 import Data.MIME.Charset (charsetPrism)
 import Data.Reparser
@@ -223,6 +221,10 @@ headerMultiSingleToList f g k = lens a b
     b headers values =
       (headerList .~ (headers ^.. headerList . traversed . filtered ((k /=) . fst)) ++ map (((,) k) . g) values) headers
 
+{-
+-- I thought it would be a good idea to support multiple header fields
+-- of the same name. Turns out it does not adhere to the rfc :(
+
 headerAddressList :: (HasHeaders a) => CI.CI BS.ByteString -> CharsetLookup -> Lens' a [Address]
 headerAddressList k charsets = headerMultiToList
   (fromRight [] . Attoparsec.ByteString.parseOnly (addressList charsets))
@@ -236,6 +238,7 @@ headerReplyTo = headerAddressList "Reply-To"
 headerTo = headerAddressList "To"
 headerCC = headerAddressList "Cc"
 headerBCC = headerAddressList "Bcc"
+-}
 
 headerKeywords :: HasHeaders a => CharsetLookup -> Lens' a [T.Text]
 headerKeywords cl = headerMultiToList
