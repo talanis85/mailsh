@@ -175,8 +175,8 @@ maybeOption r m = option (Just <$> r) (m <> value Nothing)
 replyStrategyFlag :: Parser ReplyStrategy
 replyStrategyFlag = flag SingleReply GroupReply (short 'g' <> long "group" <> help "Group reply")
 
-recipientArgument :: Parser T.Text
-recipientArgument = argument str (metavar "RECIPIENT" <> help "The recipient's address")
+recipientArgument :: Parser (Maybe T.Text)
+recipientArgument = argument (Just <$> str) (metavar "RECIPIENT" <> help "The recipient's address" <> value Nothing)
 
 attachmentOptions :: Parser [T.Text]
 attachmentOptions = many $ option str $
