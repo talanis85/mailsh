@@ -60,21 +60,21 @@ import Format
 import Render
 import Util
 
-cmdRead :: Either MessageRef PartRef -> Renderer -> StoreM ()
-cmdRead (Left mref) renderer = do
+cmdRead :: Either MessageRef PartRef -> Renderer -> Bool -> StoreM ()
+cmdRead (Left mref) renderer quiet = do
   msg <- getMessage mref
-  printMessage renderer msg
+  when (not quiet) $ printMessage renderer msg
   mapM_ (liftMaildir . setFlag 'S') (msg ^. body . storedMid)
   setCurrentMessageRef mref
-cmdRead (Right pref@(PartRef mref partnum)) renderer = do
+cmdRead (Right pref@(PartRef mref partnum)) renderer quiet = do
   part <- getPart pref
   msg <- getMessage mref
-  printMessage renderer (msg `withMainPart` part)
+  when (not quiet) $ printMessage renderer (msg `withMainPart` part)
 
 cmdNext :: Renderer -> StoreM ()
 cmdNext renderer = do
   mref <- getNextMessageRef
-  cmdRead (Left mref) renderer
+  cmdRead (Left mref) renderer False
 
 cmdCat :: Either MessageRef PartRef -> StoreM ()
 cmdCat (Left mref) = do

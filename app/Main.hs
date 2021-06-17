@@ -50,7 +50,8 @@ version = $(gitBranch) ++ "@" ++ $(gitHash)
 commandP :: Parser (StoreM ())
 commandP = hsubparser
   (  command "read"     (info (cmdRead    <$> messageOrPartRefArgument
-                                          <*> rendererOption noquoteRenderer)
+                                          <*> rendererOption noquoteRenderer
+                                          <*> quietFlag)
                               (progDesc "Read a message."))
   <> command "cat"      (info (cmdCat     <$> messageOrPartRefArgument)
                               (progDesc "Output raw message data."))
@@ -129,6 +130,9 @@ filterHelp = footerDoc $ Just $ PP.vcat $ map PP.string
 
 dryFlag :: Parser Bool
 dryFlag = flag False True (long "dry" <> help "Dont actually send the message")
+
+quietFlag :: Parser Bool
+quietFlag = flag False True (short 'q' <> long "quiet" <> help "Dont display anything")
 
 reparserReader :: Reparser String T.Text b -> ReadM b
 reparserReader r = eitherReader (reparse r . T.pack)
