@@ -23,8 +23,13 @@ icuCharsets k = lookup k icuCharsetList
 icuCharsetList :: [(CI.CI BS.ByteString, Charset)]
 icuCharsetList =
   [ ("windows-1257", windows_1257)
+  , ("windows-1252", windows_1252)
   , ("iso-8859-15", iso_8859_15)
   ]
+
+windows_1252 :: Charset
+{-# NOINLINE windows_1252 #-}
+windows_1252 = ICU.toUnicode (unsafePerformIO (ICU.open "windows-1252" Nothing))
 
 windows_1257 :: Charset
 {-# NOINLINE windows_1257 #-}
