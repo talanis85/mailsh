@@ -73,8 +73,15 @@ cmdRead (Right pref@(PartRef mref partnum)) renderer quiet = do
 
 cmdNext :: Renderer -> StoreM ()
 cmdNext renderer = do
-  mref <- getNextMessageRef
-  cmdRead (Left mref) renderer False
+  filter <- makeStoreFilter FilterUnseen
+  result <- queryStore (filterBy filter NoLimit)
+
+  case resultRows result of
+    [] -> printStatusMessage "No new messages."
+    (msg:_) -> do
+      printMessage renderer msg
+      mapM_ (liftMaildir . setFlag 'S') (msg ^. body . storedMid)
+      mapM_ (setCurrentMessage . storeNumberToNatural) (msg ^. body . storedNumber)
 
 cmdCat :: Either MessageRef PartRef -> StoreM ()
 cmdCat (Left mref) = do
