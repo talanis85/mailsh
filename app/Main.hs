@@ -101,8 +101,8 @@ commandP = hsubparser
                               (progDesc "Get the filename of a message."))
   <> command "outline"  (info (cmdOutline <$> messageRefArgument)
                               (progDesc "Display an outline of a message."))
---  <> command "tar"      (info (cmdTar     <$> messageNumberArgument)
---                              (progDesc "Output all attachments of a message to stdout as a tar archive."))
+  <> command "tar"      (info (cmdTar     <$> messageRefArgument)
+                              (progDesc "Output all attachments of a message to stdout as a tar archive."))
   ) <|> (cmdLs <$> limitOption NoLimit <*> filterArgument FilterUnseen <*> formatOption)
 
 filterHelp :: InfoMod a

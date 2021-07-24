@@ -19,19 +19,23 @@ module Commands
   , cmdUnflag
   , cmdFilename
   , cmdOutline
-  -- , cmdTar
+  , cmdTar
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Except
+import Control.Monad.Logger
+
+import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Archive.Tar.Entry as Tar
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -270,21 +274,24 @@ cmdOutline mref = do
   msg <- getMessage mref
   printOutline msg
 
-{-
 cmdTar :: MessageRef -> StoreM ()
 cmdTar mref = do
-  bs <- getRawMessage mref
-  Message headers parts <- throwEither "Could not parse Message" $ pure $ parseOnly messageP (BL.toStrict bs)
-  let mkAttachmentEntry (filename, body) = case filename of
+  msg <- getMessage mref
+
+  let atts = msg ^.. body . storedAttachments . withIndex
+  let mkTarEntry (partnum, (filename', ct)) = case filename' of
         Nothing -> return Nothing
-        Just fn -> case Tar.toTarPath False (T.unpack fn) of
-          Left err -> throwError $ printf "Invalid path '%s': %s" fn err
-          Right tp -> case body of
-            PartText _ text -> return $ Just $ Tar.fileEntry tp (BL.fromStrict (T.encodeUtf8 text))
-            PartBinary _ bs -> return $ Just $ Tar.fileEntry tp (BL.fromStrict bs)
-  attachments <- catMaybes <$> mapM mkAttachmentEntry (parts ^.. attachmentParts)
-  liftIO $ BL.putStr (Tar.write attachments)
--}
+        Just filename -> case Tar.toTarPath False (T.unpack filename) of
+          Left err -> do
+            logWarnN $ T.pack $ printf "Invalid filename '%s': %s" filename err
+            return Nothing
+          Right tp -> do
+            msg' <- getMIMEMessage msg
+            part <- getPartByIndex partnum msg'
+            return $ Just $ Tar.fileEntry tp (BL.fromStrict (part ^. body))
+
+  tarentries <- catMaybes <$> mapM mkTarEntry atts
+  liftIO $ BL.putStr (Tar.write tarentries)
 
 ---
 
@@ -381,6 +388,11 @@ getPart pr@(PartRef msgref partnum) = do
   storedMsg <- getMessage msgref
   msg <- getMIMEMessage storedMsg
   joinMaybe ("Part " ++ T.unpack (reprint partRefParser pr) ++ " not found") $
+    return (msg ^? ientities . transferDecodedEmbedError . index (fromIntegral partnum))
+
+getPartByIndex :: Int -> MIMEMessage -> StoreM ByteEntity
+getPartByIndex partnum msg = do
+  joinMaybe ("Part " ++ show partnum ++ " not found") $
     return (msg ^? ientities . transferDecodedEmbedError . index (fromIntegral partnum))
 
 getMessage :: MessageRef -> StoreM StoredMessage
