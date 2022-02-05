@@ -61,9 +61,9 @@ commandP = hsubparser
                               (progDesc "Print all headers of a message or part"))
 --  <> command "visual"   (info (cmdVisual  <$> messageOrPartRefArgument)
 --                              (progDesc "View a message in the browser"))
---  <> command "save"     (info (cmdSave    <$> messag
---                                          <*> option str (short 'd' <> metavar "DIR" <> help "Where to save the attachment."))
---                              (progDesc "Save a part to disk using its given filename."))
+  <> command "save"     (info (cmdSave    <$> messageOrPartRefArgument
+                                          <*> maybeOption str (short 'd' <> metavar "DIR" <> help "Where to save the attachment(s)."))
+                              (progDesc "Save one or all attachments to disk."))
   <> command "next"     (info (cmdNext    <$> rendererOption previewRenderer)
                               (progDesc "Read the next unread message."))
   <> command "compose"  (info (cmdCompose <$> dryFlag

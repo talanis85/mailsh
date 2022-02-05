@@ -5,7 +5,7 @@ module Commands
   , cmdView
   , cmdHeaders
   -- , cmdVisual
-  -- , cmdSave
+  , cmdSave
   , cmdCompose
   , cmdReply
   , cmdForward
@@ -140,16 +140,32 @@ cmdVisual mref = do
       in firstHtml <|> firstPlain
 -}
 
-{-
-cmdSave :: MessageRef -> FilePath -> StoreM ()
-cmdSave mref path = do
-  part <- getPart mref
-  case part ^. partBody of
-    PartBinary t s -> case part ^? partFilename of
-      Nothing -> throwError "Part has no filename"
-      Just fn -> liftIO $ BS.writeFile (path </> T.unpack fn) s
-    PartText t s -> throwError "Cannot save text parts"
--}
+joinMaybeDir :: Maybe FilePath -> FilePath -> FilePath
+joinMaybeDir Nothing b = b
+joinMaybeDir (Just a) b = a </> b
+
+cmdSave :: Either MessageRef PartRef -> Maybe FilePath -> StoreM ()
+cmdSave (Left mref) dir = do
+  msg <- getMessage mref
+  src <- liftIO $ msg ^. body . storedSource
+  srcmsg <- joinEither "Error parsing message" $ return $ parse (message mime) src
+  forM_ (srcmsg ^.. entities . transferDecoded') $ \e -> do
+    case e of
+      Left err -> throwError $ "Error: " ++ show err
+      Right e' -> case e' ^? contentDisposition . traversed . filename defaultCharsets of
+        Nothing -> return ()
+        Just fn -> do
+          let fn' = joinMaybeDir dir (T.unpack fn)
+          liftIO $ BS8.writeFile fn' $ e' ^. body
+          printStatusMessage $ "Written " <> T.pack fn'
+cmdSave (Right pref) dir = do
+  part <- getPart pref
+  case part ^? contentDisposition . traversed . filename defaultCharsets of
+    Nothing -> throwError "Part has no file name"
+    Just fn -> do
+      let fn' = joinMaybeDir dir (T.unpack fn)
+      liftIO $ BS8.writeFile fn' $ part ^. body
+      printStatusMessage $ "Written " <> T.pack fn'
 
 cmdCompose :: Bool -> [T.Text] -> Maybe T.Text -> StoreM ()
 cmdCompose dry attachments' mailboxes' = do
