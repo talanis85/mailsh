@@ -53,6 +53,7 @@ instance Arbitrary FilterExp where
     , FilterString <$> T.pack <$> getAlphaString <$> arbitrary
     , FilterReferencedByID <$> T.pack <$> getAlphaString <$> arbitrary
     , FilterReferencedByNumber <$> arbitrary
+    -- TODO: Test FilterDate
     , FilterNot <$> arbitrary
     , FilterAnd <$> arbitrary <*> arbitrary
     , FilterOr <$> arbitrary <*> arbitrary

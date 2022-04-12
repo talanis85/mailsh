@@ -4,7 +4,9 @@ module Mailsh.Types.FilterExp
   ) where
 
 import Data.Bifunctor (first)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import Data.Time
 import Numeric.Natural
 import Text.Parsec
 import Text.Parsec.Text
@@ -23,6 +25,7 @@ data FilterExp
   | FilterString T.Text
   | FilterReferencedByID T.Text
   | FilterReferencedByNumber Natural
+  | FilterDate (Maybe LocalTime) (Maybe LocalTime)
   | FilterNot FilterExp
   | FilterAnd FilterExp FilterExp
   | FilterOr FilterExp FilterExp
@@ -60,6 +63,15 @@ filterTermP = (choice $ map try
   , char '/' >> FilterString <$> T.pack <$> many1 (noneOf "/") <* char '/'
   , char '[' >> FilterReferencedByNumber <$> read <$> many1 digit <* char ']'
   , char '<' >> FilterReferencedByID <$> T.pack <$> many1 (noneOf ">") <* char '>'
+  , do
+    char '@'
+    from <- optionMaybe (many1 (noneOf "@-"))
+    char '-'
+    to <- optionMaybe (many1 (noneOf "@"))
+    from' <- sequence (fmap (parseTimeM False defaultTimeLocale dateFormat) from)
+    to' <- sequence (fmap (parseTimeM False defaultTimeLocale dateFormat) to)
+    char '@'
+    return (FilterDate from' to')
   ]) <?> "filter term"
 
 printFilterExp :: FilterExp -> T.Text
@@ -76,9 +88,16 @@ printFilterExp x = case x of
   FilterString s             -> "/" <> s <> "/"
   FilterReferencedByID mid   -> "<" <> mid <> ">"
   FilterReferencedByNumber n -> "[" <> T.pack (show n) <> "]"
+  FilterDate from to         ->
+    let from' = fromMaybe "" $ formatTime defaultTimeLocale dateFormat <$> from
+        to' = fromMaybe "" $ formatTime defaultTimeLocale dateFormat <$> to
+    in "@" <> T.pack from' <> "-" <> T.pack to' <> "@"
   FilterNot a                -> "~(" <> printFilterExp a <> ")"
   FilterOr a b               -> "(" <> printFilterExp a <> ")|(" <> printFilterExp b <> ")"
   FilterAnd a b              -> "(" <> printFilterExp a <> ")&(" <> printFilterExp b <> ")"
+
+dateFormat :: String
+dateFormat = "%Y/%m/%d"
 
 {-
 filterExpP :: Parser FilterExp

@@ -109,18 +109,23 @@ withStorePath m fp = do
 --------------------------------------------------------------------------------
 
 makeStoreFilter :: FilterExp -> StoreM StoreFilter
-makeStoreFilter f = case f of
-  FilterFlag flag -> return (filterFlag (flagChar flag))
-  FilterUnseen -> return filterUnseen
-  FilterUntrashed -> return filterUntrashed
-  FilterAll -> return filterAll
-  FilterKeyword x -> return (filterKeyword x)
-  FilterString x -> return (filterString x)
-  FilterReferencedByID x -> return (filterReferencedBy x)
-  FilterReferencedByNumber x -> return filterAll -- TODO: Implement
-  FilterNot a -> filterNot <$> makeStoreFilter a
-  FilterAnd a b -> filterAnd <$> makeStoreFilter a <*> makeStoreFilter b
-  FilterOr a b -> filterOr <$> makeStoreFilter a <*> makeStoreFilter b
+makeStoreFilter f = do
+  tz <- liftIO getCurrentTimeZone
+  case f of
+    FilterFlag flag -> return (filterFlag (flagChar flag))
+    FilterUnseen -> return filterUnseen
+    FilterUntrashed -> return filterUntrashed
+    FilterAll -> return filterAll
+    FilterKeyword x -> return (filterKeyword x)
+    FilterString x -> return (filterString x)
+    FilterReferencedByID x -> return (filterReferencedBy x)
+    FilterReferencedByNumber x -> return filterAll -- TODO: Implement
+    FilterDate from to ->
+      let zoned x = ZonedTime { zonedTimeToLocalTime = x, zonedTimeZone = tz }
+      in return (filterDate (zoned <$> from) (zoned <$> to))
+    FilterNot a -> filterNot <$> makeStoreFilter a
+    FilterAnd a b -> filterAnd <$> makeStoreFilter a <*> makeStoreFilter b
+    FilterOr a b -> filterOr <$> makeStoreFilter a <*> makeStoreFilter b
 
 type StoreFilter
   = ( E.SqlExpr (Entity MessageE)
@@ -173,6 +178,14 @@ filterString s (msg, addr, _, _, _) =
 
 filterKeyword :: T.Text -> StoreFilter
 filterKeyword s (msg, _, _, _, keyw) = keyw E.^. KeywordEKeyword `E.like` E.val ("%" <> s <> "%")
+
+filterDate :: Maybe ZonedTime -> Maybe ZonedTime -> StoreFilter
+filterDate Nothing Nothing _ = E.val True
+filterDate Nothing to (msg, _, _, _, _) = (msg E.^. MessageEDate E.<=. E.val to)
+filterDate from Nothing (msg, _, _, _, _) = (msg E.^. MessageEDate E.>=. E.val from)
+filterDate from to (msg, _, _, _, _) =
+        (msg E.^. MessageEDate E.>=. E.val from)
+  E.&&. (msg E.^. MessageEDate E.<=. E.val to)
 
 --------------------------------------------------------------------------------
 
