@@ -5,8 +5,10 @@ extra-deps:
 # - git: https://github.com/purebred-mua/purebred-email
 #   commit: a37730d790fbc6e0611764728fb6c08b14801e75
 - ../purebred-email
-- ../disguise-gtk
-- ../disguise
+- git: "https://github.com/talanis85/disguise.git"
+  commit: "8840e025f34469efd930f461a39a8d7177660626"
+- git: "https://github.com/talanis85/disguise-gtk.git"
+  commit: "7d16df0c9f830accc28374455c6897f57e50df95"
 - concise-0.1.0.1
 - wl-pprint-1.2.1
 - cairo-0.13.8.1
