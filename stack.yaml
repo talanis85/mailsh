@@ -21,14 +21,4 @@ flags: {}
 extra-package-dbs: []
 nix:
   enable: true
-  packages:
-    - git
-    - zlib
-    - ssmtp
-    - icu
-    - cairo
-    - gnome3.gtk
-    - pango
-    - pkgconfig
-    - xlibs.xorgproto
-    - xorg.libX11
+  shell-file: stack.nix
