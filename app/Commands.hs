@@ -264,7 +264,7 @@ cmdBrowse limit filterExp argumentFormat = do
 
   filter <- makeStoreFilter filterExp
   result <- queryStore (filterBy filter limit)
-  liftIO $ browseStoredMessages format (resultRows result)
+  liftIO $ browseStoredMessages format (reverse $ resultRows result)
 
 cmdTrash :: MessageNumber -> StoreM ()
 cmdTrash = modifyMessage (liftMaildir . setFlag 'T') "Trashed message."

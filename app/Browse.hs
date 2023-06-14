@@ -40,6 +40,7 @@ type ListZipper a = Top :>> [a] :>> a
 
 data Model = Model
   { _modelMessageZipper :: Maybe (ListZipper StoredMessage)
+  , _modelMessageScroll :: Int
   }
 
 makeLenses ''Model
@@ -53,14 +54,25 @@ browseStoredMessages format msgs = do
 initModel :: [StoredMessage] -> Model
 initModel messages = Model
   { _modelMessageZipper = within traversed (zipper messages)
+  , _modelMessageScroll = 0
   }
 
 updateModel :: Event -> Model -> Model
 updateModel ev = case ev of
   LoadEvent -> id
   KeyEvent k -> case keyName k of
-    "Up" -> modelMessageZipper . traversed %~ tug leftward
-    "Down" -> modelMessageZipper . traversed %~ tug rightward
+    "Up" ->
+      (modelMessageZipper . traversed %~ tug leftward) .
+      (modelMessageScroll .~ 0)
+    "Down" ->
+      (modelMessageZipper . traversed %~ tug rightward) .
+      (modelMessageScroll .~ 0)
+    "Page_Up" ->
+      (modelMessageZipper . traversed %~ tugs leftward 10) .
+      (modelMessageScroll .~ 0)
+    "Page_Down" ->
+      (modelMessageZipper . traversed %~ tugs rightward 10) .
+      (modelMessageScroll .~ 0)
     _ -> id
 
 ui :: TimeZone -> RichFormat -> Model -> CairoWidget (V Dim) (V Dim) IO
