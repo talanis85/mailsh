@@ -472,4 +472,6 @@ additionalTests = testGroup "misc"
       assertSubject msg (Just "おねがいします")
   , mimeTest "composed/attachment.txt" $ \msg -> do
       assertAttachments msg [("/path/to/file", Nothing, Just "text/plain")]
+  , mimeTest "misc/itchio.txt" $ \msg -> do
+      assertFrom msg ["itch.io <postmaster@itch.io>"]
   ]

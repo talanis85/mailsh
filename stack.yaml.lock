@@ -5,6 +5,17 @@
 
 packages:
 - completed:
+    commit: 6b63dd23d6de86b131e04308e217e09978bace56
+    git: https://github.com/purebred-mua/purebred-email
+    name: purebred-email
+    pantry-tree:
+      sha256: cac721093e10da49255db581aa5af2abd84c3d4fc2695e474e27076b43211fd7
+      size: 2836
+    version: 0.6.0.1
+  original:
+    commit: 6b63dd23d6de86b131e04308e217e09978bace56
+    git: https://github.com/purebred-mua/purebred-email
+- completed:
     commit: 8840e025f34469efd930f461a39a8d7177660626
     git: https://github.com/talanis85/disguise.git
     name: disguise
@@ -84,7 +95,7 @@ packages:
     hackage: pango-0.13.8.1
 snapshots:
 - completed:
-    sha256: 637fb77049b25560622a224845b7acfe81a09fdb6a96a3c75997a10b651667f6
-    size: 534126
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/31.yaml
-  original: lts-16.31
+    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
+    size: 590100
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
+  original: lts-18.28

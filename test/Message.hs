@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 module Message ( tests ) where
@@ -88,7 +89,7 @@ testsAddress = testGroup "Address/Mailbox"
 
 -- * ContentType
 
-instance Arbitrary ContentType where
+instance Arbitrary (ContentTypeWith Parameters) where
   arbitrary = ContentType <$> genSubType <*> genSubType <*> genParameters
 
 genSubType :: Gen (CI.CI BS.ByteString)

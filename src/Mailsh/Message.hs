@@ -72,7 +72,8 @@ module Mailsh.Message
   , headerMessageID
   , headerAttachments
 
-  , ContentType (..)
+  , ContentType
+  , ContentTypeWith (..)
   , ContentDisposition (..)
   , Parameters (..)
   , contentType
@@ -130,6 +131,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.Mime (defaultMimeLookup)
 import System.FilePath (takeFileName)
+import System.Random (getStdRandom, uniform)
 
 import Mailsh.Message.Charsets
 import Mailsh.Message.ContentType
@@ -316,7 +318,7 @@ attachmentFileDefaultName = to f
 type instance MessageContext T.Text = ()
 
 instance RenderMessage T.Text where
-  tweakHeaders = id
+  tweakHeaders _ = id
   buildBody headers body = Just (Builder.byteString (T.encodeUtf8 body))
 
 composed :: Headers -> BodyHandler T.Text
@@ -341,12 +343,13 @@ composeMultiPart :: TextEntity -> NonEmpty.NonEmpty AttachmentFile -> IO MIMEMes
 composeMultiPart msg attachments = do
   let mainPart = createTextPlainMessage (msg ^. body)
   parts <- mapM createAttachmentFromFile' attachments
-  return $ createMultipartMixedMessage' (msg ^. headers) "FREESNOWDEN" (mainPart NonEmpty.<| parts)
+  boundary <- getStdRandom uniform
+  return $ createMultipartMixedMessage' (msg ^. headers) boundary (mainPart NonEmpty.<| parts)
 
-createMultipartMixedMessage' :: Headers -> BS.ByteString -> NonEmpty.NonEmpty MIMEMessage -> MIMEMessage
+createMultipartMixedMessage' :: Headers -> Boundary -> NonEmpty.NonEmpty MIMEMessage -> MIMEMessage
 createMultipartMixedMessage' h b parts =
   let hdrs = h & contentType .~ (contentTypeMultipartMixed b)
-  in Message hdrs (Multipart parts)
+  in Message hdrs (Multipart Mixed b parts)
 
 createAttachmentFromFile' :: AttachmentFile -> IO MIMEMessage
 createAttachmentFromFile' a = do

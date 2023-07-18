@@ -1,10 +1,9 @@
-resolver: lts-16.31
+resolver: lts-18.28
 packages:
 - '.'
 extra-deps:
-# - git: https://github.com/purebred-mua/purebred-email
-#   commit: a37730d790fbc6e0611764728fb6c08b14801e75
-- ../purebred-email
+- git: https://github.com/purebred-mua/purebred-email
+  commit: "6b63dd23d6de86b131e04308e217e09978bace56"
 - git: "https://github.com/talanis85/disguise.git"
   commit: "8840e025f34469efd930f461a39a8d7177660626"
 - git: "https://github.com/talanis85/disguise-gtk.git"
