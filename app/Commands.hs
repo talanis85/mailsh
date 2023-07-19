@@ -381,7 +381,7 @@ quotedMessage :: StoredMessage -> T.Text
 quotedMessage msg =
   let decoded = either (T.pack . show) (view body) $
         msg ^. body . storedMainBody . charsetDecoded' defaultCharsets
-      rendered = renderType (msg ^. contentType) decoded
+      rendered = renderType (msg ^. body . storedMainBody . contentType) decoded
       quoted = T.unlines $ map ("> " <>) $ T.lines rendered
   in quoted
 
