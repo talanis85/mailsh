@@ -88,6 +88,7 @@ module Mailsh.Message
   , DispositionType (..)
   , dispositionType
   , filename
+  , filenameAlt
 
   -- * Attachments
   , AttachmentFile
@@ -392,3 +393,6 @@ encodedWords charsets = iso (decodeEncodedWords charsets) encodeEncodedWords
 
 filename :: (HasParameters a) => CharsetLookup -> Traversal' a T.Text
 filename m = filenameParameter . traversed . charsetPrism m . value . utf8 . encodedWords m
+
+filenameAlt :: (HasParameters a) => CharsetLookup -> Traversal' a T.Text
+filenameAlt m = parameter "name" . traversed . charsetPrism m . value . utf8 . encodedWords m

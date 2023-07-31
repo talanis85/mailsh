@@ -36,7 +36,9 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
 
+import Data.Foldable (fold)
 import Data.Maybe (catMaybes, fromMaybe)
+import Data.Monoid
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -105,7 +107,16 @@ cmdView (Left mref) = do
   setCurrentMessageRef mref
 cmdView (Right pref) = do
   part <- getPart pref
-  case part ^? contentDisposition . traversed . filename defaultCharsets of
+  case getFirst $ fold
+    [ First $ part ^? contentDisposition . traversed . filename defaultCharsets
+    , First $ part ^? contentType . filenameAlt defaultCharsets
+    -- TODO: we need the filename at several locations. unify this.
+    --       unfortunately, the filename can be in several locations, including:
+    --       * content-disposition, "filename" parameter
+    --       * content-type, "filename" parameter
+    --       * content-type, "name" parameter
+    --       * ... ?
+    ] of
     Nothing -> throwError "Part has no file name"
     Just filename -> liftIO $ runXdgOpen filename (part ^. body)
 
