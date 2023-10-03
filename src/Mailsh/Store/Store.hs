@@ -45,7 +45,8 @@ import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as T
 import Data.Time
-import qualified Database.Esqueleto as E
+import qualified Database.Esqueleto.Legacy as E
+import qualified Database.Esqueleto.Internal.Internal as EI
 import Database.Persist.Sqlite hiding (FilterAnd, FilterOr, Single)
 import System.Directory
 import System.FilePath
@@ -140,6 +141,12 @@ data FilterResult a = FilterResult
   , resultTotal :: Int
   } deriving (Functor, Foldable, Traversable)
 
+-- TODO: This seems to be a bug in esqueleto/persistent.
+--       `not_` should parenthesize its argument in the resulting
+--       SQL.
+forceParens :: E.SqlExpr a -> E.SqlExpr a
+forceParens (EI.ERaw meta f) = EI.ERaw meta (\_ -> f EI.Parens)
+
 filterAll :: StoreFilter
 filterAll _ = E.val True
 
@@ -150,7 +157,7 @@ filterOr :: StoreFilter -> StoreFilter -> StoreFilter
 filterOr a b x = a x E.||. b x
 
 filterNot :: StoreFilter -> StoreFilter
-filterNot f x = E.not_ (f x)
+filterNot f x = E.not_ (forceParens (f x))
 
 filterFlag :: Char -> StoreFilter
 filterFlag c (msg, _, _, _, _) = msg E.^. MessageEFlags `E.like` E.val ("%" ++ [c] ++ "%")
