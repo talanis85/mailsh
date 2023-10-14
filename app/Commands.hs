@@ -180,7 +180,7 @@ cmdSave (Right pref) dir = do
       liftIO $ BS8.writeFile fn' $ part ^. body
       printStatusMessage $ "Written " <> T.pack fn'
 
-cmdCompose :: Bool -> [T.Text] -> Maybe T.Text -> StoreM ()
+cmdCompose :: Bool -> [T.Text] -> [T.Text] -> StoreM ()
 cmdCompose dry attachments' mailboxes' = do
   mailboxes <- concat <$> mapM (joinEither "Error parsing recipients" . return . reparse mailboxesParser) mailboxes'
   attachments <- joinEither "Error parsing attachments" $ return $ mapM (reparse attachmentFileParser) attachments'
@@ -222,7 +222,7 @@ cmdReply dry strat attachments' mref = do
     addSentMessage msg''
     mapM_ (liftMaildir . setFlag 'R') (msg ^. body . storedMid)
 
-cmdForward :: Bool -> Maybe T.Text -> MessageRef -> StoreM ()
+cmdForward :: Bool -> [T.Text] -> MessageRef -> StoreM ()
 cmdForward dry mailboxes' mref = do
   mailboxes <- concat <$> mapM (joinEither "Error parsing recipients" . return . reparse mailboxesParser) mailboxes'
   signature <- liftIO getSignature
