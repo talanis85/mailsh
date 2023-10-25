@@ -160,15 +160,16 @@ rendererOption def = option rendererReader $
      short 'r'
   <> long "render"
   <> metavar "RENDERER"
-  <> help "Available renderers are: full, outline, preview, noquote"
+  <> help "Available renderers are: full, outline, preview, noquote, plaintext"
   <> value def
   where
     rendererReader = eitherReader $ \s -> case s of
-      "full"    -> Right fullRenderer
-      "outline" -> Right outlineRenderer
-      "preview" -> Right previewRenderer
-      "noquote" -> Right noquoteRenderer
-      _         -> Left "Invalid renderer"
+      "full"      -> Right fullRenderer
+      "outline"   -> Right outlineRenderer
+      "preview"   -> Right previewRenderer
+      "noquote"   -> Right noquoteRenderer
+      "plaintext" -> Right plaintextRenderer
+      _           -> Left "Invalid renderer"
 
 formatOption :: Parser (Maybe RichFormat)
 formatOption = maybeOption (eitherReader parseRichFormat) $

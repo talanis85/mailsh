@@ -7,6 +7,7 @@ module Render
   , previewRenderer
   , noquoteRenderer
   , outlineRenderer
+  , plaintextRenderer
 
   , printMessage
   , printPlain
@@ -121,6 +122,14 @@ previewRenderer = messageRenderer (unlines . take 10 . lines)
 
 noquoteRenderer :: Renderer
 noquoteRenderer = messageRenderer (removeBlankLines . parseFilter noquoteParser)
+
+plaintextRenderer :: Renderer
+plaintextRenderer msg = do
+  (Window windowHeight windowWidth) <- fromMaybe (Window 80 80) <$> liftIO size
+  liftIO $ case msg ^. body . storedMainBody . charsetDecoded' defaultCharsets of
+    Left err -> putStrLn (show err)
+    Right msg' -> putStrLn $ removeBlankLines $ T.unpack $ wrapText defaultWrapSettings windowWidth $
+      renderType (msg' ^. contentType) (msg' ^. body)
 
 parseFilter p s = case parse p "<message>" s of
                     Left _   -> s
