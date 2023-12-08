@@ -429,7 +429,7 @@ addSentMessage :: MIMEMessage -> StoreM ()
 addSentMessage msg = do
   let bs = renderMessage msg
   maildirpath <- liftMaildir getMaildirPath
-  sentdir <- fromMaybe "Sent" <$> lookupEnv "MAILSENT"
+  sentdir <- liftIO $ fromMaybe "Sent" <$> lookupEnv "MAILSENT"
   result <- liftIO $ runExceptT $ withMaildirPath (writeMaildirFile bs) (maildirpath </> sentdir)
   case result of
     Left err -> printError "Could not write sent message"
