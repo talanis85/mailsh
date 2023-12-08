@@ -18,6 +18,8 @@ module Mailsh.Maildir
   , hasFlag
   , getFlags
   , writeMaildirFile
+  , moveIntoMaildirNew
+  , moveIntoMaildirCur
   ) where
 
 import Control.Lens
@@ -266,3 +268,19 @@ writeMaildirFile bs = do
   liftIO $ BL.writeFile (newPath </> name) bs
   invalidateMIDCache
   return name
+
+moveIntoMaildirNew :: FilePath -> MaildirM String
+moveIntoMaildirNew fp = do
+  newFilename <- liftIO generateMaildirFile
+  newPath <- newOf <$> view maildirPath
+  liftIO $ renameFile fp (newPath </> newFilename)
+  invalidateMIDCache
+  return newFilename
+
+moveIntoMaildirCur :: FilePath -> String -> MaildirM String
+moveIntoMaildirCur fp flags = do
+  newFilename <- liftIO generateMaildirFile
+  curPath <- curOf <$> view maildirPath
+  liftIO $ renameFile fp (curPath </> (newFilename ++ "," ++ flags))
+  invalidateMIDCache
+  return newFilename

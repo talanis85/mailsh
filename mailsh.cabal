@@ -32,6 +32,7 @@ library
                      , Mailsh.Types.FilterExp
                      , Mailsh.Types.Flag
                      , Mailsh.Types.Limit
+                     , Mailsh.Types.MailboxRef
                      , Mailsh.Types.MessageRef
   build-depends:       base >=4.8 && <5
                      , attoparsec

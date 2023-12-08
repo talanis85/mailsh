@@ -18,6 +18,7 @@ module Commands
   , cmdUnread
   , cmdFlag
   , cmdUnflag
+  , cmdMv
   , cmdFilename
   , cmdOutline
   , cmdTar
@@ -296,6 +297,20 @@ cmdFlag = modifyMessage (liftMaildir . setFlag 'F') "Flagged message."
 
 cmdUnflag :: MessageNumber -> StoreM ()
 cmdUnflag = modifyMessage (liftMaildir . unsetFlag 'F') "Unflagged message."
+
+cmdMv :: MessageNumber -> MailboxRef -> StoreM ()
+cmdMv mn' (MailboxRef target) = do
+  mn <- getMessageNumber mn'
+  msg <- queryStore' (lookupStoreNumber mn)
+  case msg ^. body ^. storedMid of
+    Nothing -> throwError "This message has no filename"
+    Just mid -> do
+      filename <- liftMaildir $ absoluteMaildirFile mid
+      flags <- liftMaildir $ getFlags mid
+      result <- liftIO $ runExceptT $ withMaildirPath (moveIntoMaildirCur filename flags) target
+      case result of
+        Left err -> printError ("Could not move message: " <> T.pack err)
+        Right name -> printStatusMessage $ T.pack $ printf "Moved message to %s." (target </> "cur" </> name)
 
 cmdFilename :: MessageNumber -> StoreM ()
 cmdFilename mn' = do

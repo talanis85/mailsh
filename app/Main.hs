@@ -101,6 +101,9 @@ commandP = hsubparser
                               (progDesc "Mark a message as flagged."))
   <> command "unflag"   (info (cmdUnflag  <$> messageNumberArgument)
                               (progDesc "Mark a message as unflagged."))
+  <> command "mv"       (info (cmdMv      <$> messageNumberArgument
+                                          <*> mailboxRefArgument)
+                              (progDesc "Move a message to a given mailbox."))
   <> command "filename" (info (cmdFilename <$> messageNumberArgument)
                               (progDesc "Get the filename of a message."))
   <> command "outline"  (info (cmdOutline <$> messageRefArgument)
@@ -216,6 +219,11 @@ messageNumberArgument = argument (reparserReader messageNumberParser) $
      metavar "MESSAGE"
   <> help "Message number. Default is the last accessed message."
   <> value MessageNumberDefault
+
+mailboxRefArgument :: Parser MailboxRef
+mailboxRefArgument = argument (reparserReader mailboxRefParser) $
+     metavar "MAILBOX"
+  <> help "A mailbox."
 
 -----------------------------------------------------------------------------
 
