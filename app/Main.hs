@@ -70,6 +70,9 @@ commandP = hsubparser
                                           <*> attachmentOptions
                                           <*> recipientArgument)
                               (progDesc "Compose a new message using your EDITOR"))
+  <> command "mailto"   (info (cmdMailto  <$> dryFlag
+                                          <*> argument str (metavar "MAILTO"))
+                              (progDesc "Compose a new message from a mailto link"))
   <> command "reply"    (info (cmdReply   <$> dryFlag
                                           <*> replyStrategyFlag
                                           <*> attachmentOptions

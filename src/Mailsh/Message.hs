@@ -107,6 +107,9 @@ module Mailsh.Message
   , emptyMessage
   , composedToMime
 
+  -- * Mailto links
+  , parseMailto
+
   , module Mailsh.Message.Utf8
 
   ) where
@@ -116,6 +119,7 @@ import Control.Monad ((>=>))
 import Control.Lens
 import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec.ByteString
 import Data.Attoparsec.Text hiding (parse)
+import qualified Data.Attoparsec.Text
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Builder as Builder
@@ -131,6 +135,7 @@ import Data.Reparser
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.Mime (defaultMimeLookup)
+import qualified Network.URL as URL
 import System.FilePath (takeFileName)
 import System.Random (getStdRandom, uniform)
 
@@ -396,3 +401,17 @@ filename m = filenameParameter . traversed . charsetPrism m . value . utf8 . enc
 
 filenameAlt :: (HasParameters a) => CharsetLookup -> Traversal' a T.Text
 filenameAlt m = parameter "name" . traversed . charsetPrism m . value . utf8 . encodedWords m
+
+-- * Parsing messages from mailto-links
+
+parseMailto :: T.Text -> Either String TextEntity
+parseMailto s' = do
+  s <- first (("Invalid mailto link" ++) . show) $ Data.Attoparsec.Text.parseOnly (string "mailto:" >> many1 anyChar) s'
+  url <- maybe (Left "Invalid URL") Right $ URL.importURL s
+  to <- map Single <$> reparse mailboxesParser (T.pack (URL.url_path url))
+  subject <- case lookup "subject" (URL.url_params url) of
+          Nothing -> return id
+          Just sub -> return (headerSubject defaultCharsets .~ Just (T.pack sub))
+  let headers = mempty & (headerTo defaultCharsets .~ to) & subject
+  let body = fromMaybe "" (lookup "body" (URL.url_params url))
+  return (Message headers (T.pack body))

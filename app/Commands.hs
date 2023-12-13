@@ -7,6 +7,7 @@ module Commands
   -- , cmdVisual
   , cmdSave
   , cmdCompose
+  , cmdMailto
   , cmdReply
   , cmdForward
   , cmdLs
@@ -194,6 +195,20 @@ cmdCompose dry attachments' mailboxes' = do
         & (headerAttachments defaultCharsets .~ attachments)
       templateBody = signature
       template = Message templateHeaders templateBody
+
+  msg' <- composeMessage template
+
+  askAboutMessage dry msg' $ do
+    msg'' <- liftIO $ composedToMime msg'
+    liftIO $ sendMessage msg''
+    addSentMessage msg''
+
+cmdMailto :: Bool -> T.Text -> StoreM ()
+cmdMailto dry mailto = do
+  from <- getSender
+  template' <- joinEither "Invalid mailto link" $ return $ parseMailto mailto
+  let template = template'
+        & (headerFrom defaultCharsets .~ [Single from])
 
   msg' <- composeMessage template
 
