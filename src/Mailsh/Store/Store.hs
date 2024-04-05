@@ -452,10 +452,10 @@ deleteMessage mid = deleteCascadeWhere [MessageEMid ==. mid]
 ---
 
 getReferencedMessages :: Message a b -> StoreM [StoredMessage]
-getReferencedMessages msg =
+getReferencedMessages msg = do
   let referencedIds = msg ^. headerReferences
-      filter = foldr (filterOr . filterMessageId. reprint messageIDParser) (filterNot filterAll) referencedIds
-  in resultRows <$> queryStore (filterBy filter NoLimit)
+  concat <$> map resultRows <$>
+    mapM (queryStore . flip filterBy NoLimit . filterMessageId . reprint messageIDParser) referencedIds
 
 getReferencingMessages :: Message a b -> StoreM [StoredMessage]
 getReferencingMessages msg = case msg ^. headerMessageID of
