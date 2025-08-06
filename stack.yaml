@@ -3,7 +3,7 @@ packages:
 - '.'
 extra-deps:
 - git: https://github.com/purebred-mua/purebred-email
-  commit: "6b63dd23d6de86b131e04308e217e09978bace56"
+  commit: "3eca2d262f347941b0b1e72e02e85d27cea16518"
 - git: "https://github.com/talanis85/disguise.git"
   commit: "8840e025f34469efd930f461a39a8d7177660626"
 - git: "https://github.com/talanis85/disguise-gtk.git"

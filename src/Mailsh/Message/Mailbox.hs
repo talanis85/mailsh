@@ -13,7 +13,7 @@ import Data.Char (isSpace)
 import Data.IMF.Text (renderMailbox, renderAddress, renderMailboxes, renderAddressSpec, renderAddresses)
 import Data.IMF.Syntax (mk, domainLiteral, dotAtom, localPart)
 import Data.MIME hiding (renderMailbox, renderAddress, renderMailboxes, renderAddressSpec
-                        , renderAddresses, mailbox, address, mailboxList, addressList)
+                        , renderAddresses, mailbox, address, mailboxList, addressList, addressSpec)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
