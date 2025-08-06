@@ -147,6 +147,14 @@ test-suite mailsh-test
   default-extensions:  OverloadedStrings
                      , RankNTypes
 
+executable mailsh-roundtrip
+  hs-source-dirs:      test
+  main-is:             Roundtrip.hs
+  build-depends:       base >=4.8 && <5
+                     , attoparsec
+                     , bytestring
+                     , mailsh
+
 source-repository head
   type:     git
   location: https://github.com/talanis85/mailsh
