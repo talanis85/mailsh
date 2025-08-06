@@ -434,7 +434,7 @@ editFile fp = do
 composeWithEditor :: BL.ByteString -> IO BS.ByteString
 composeWithEditor msg = do
   tempdir <- getTemporaryDirectory
-  (tempf, temph) <- openTempFile tempdir "message"
+  (tempf, temph) <- openTempFile tempdir "message.eml"
   BL8.hPutStr temph msg
   hClose temph
   editFile tempf
