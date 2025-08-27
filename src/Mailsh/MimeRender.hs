@@ -3,6 +3,7 @@ module Mailsh.MimeRender
   ) where
 
 import           Control.Lens
+import           Control.Monad
 import           Control.Monad.State
 import qualified Data.Map as Map
 import qualified Data.Text as T

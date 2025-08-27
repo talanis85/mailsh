@@ -27,8 +27,10 @@ module Commands
 
 import Control.Applicative
 import Control.Lens
+import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Logger
+import Control.Monad.Trans
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar

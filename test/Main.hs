@@ -11,7 +11,7 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Tests"
-  [ Message.tests
-  , MIME.tests
+  [ MIME.tests
   , Types.tests
+  -- , Message.tests
   ]

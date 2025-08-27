@@ -447,7 +447,7 @@ updateMessage t msg = do
       }
 
 -- deleteMessage :: MID -> Update ()
-deleteMessage mid = deleteCascadeWhere [MessageEMid ==. mid]
+deleteMessage mid = deleteWhere [MessageEMid ==. mid]
 
 ---
 

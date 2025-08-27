@@ -1,21 +1,16 @@
-resolver: lts-18.28
+resolver: lts-22.44
 packages:
 - '.'
 extra-deps:
 - git: https://github.com/purebred-mua/purebred-email
-  commit: "3eca2d262f347941b0b1e72e02e85d27cea16518"
-- git: "https://github.com/talanis85/disguise.git"
-  commit: "8840e025f34469efd930f461a39a8d7177660626"
-- git: "https://github.com/talanis85/disguise-gtk.git"
-  commit: "7d16df0c9f830accc28374455c6897f57e50df95"
-- concise-0.1.0.1
+  commit: 54db94d36a71614c6d077b8c14b0be63abd66acf
+# - ../purebred-email
+- git: https://github.com/talanis85/disguise.git
+  commit: 8840e025f34469efd930f461a39a8d7177660626
+- git: https://github.com/talanis85/disguise-gtk.git
+  commit: 53f8ec5d7b0c358dd595218dc2dca98da4579e05
+# - ../disguise-gtk
 - wl-pprint-1.2.1
-- cairo-0.13.8.1
-- gio-0.13.8.1
-- glib-0.13.8.1
-- gtk2hs-buildtools-0.13.8.0
-- gtk3-0.15.5
-- pango-0.13.8.1
 flags: {}
 extra-package-dbs: []
 nix:

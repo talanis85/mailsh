@@ -5,6 +5,7 @@ module Main
 
 import Control.Monad.Except
 import Control.Monad.Logger
+import Control.Monad.Trans
 import qualified Data.Text as T
 import Development.GitRev
 import Options.Applicative

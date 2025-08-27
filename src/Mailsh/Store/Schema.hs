@@ -24,7 +24,7 @@ import Mailsh.Store.PersistentInstances ()
 
 --------------------------------------------------------------------------------
 
-share [mkPersist sqlSettings, mkDeleteCascade sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
+share [mkPersist sqlSettings, mkMigrate "migrateTables"] [persistLowerCase|
 MessageE
   mid         MID
   date        ZonedTime Maybe
@@ -35,23 +35,23 @@ MessageE
   flags       String
   MessageEUniqueMid mid
 ModifiedE
-  messageRef  MessageEId
+  messageRef  MessageEId OnDeleteCascade
   date        UTCTime
   ModifiedEUniqueMessageRef messageRef
 AddressE
-  messageRef  MessageEId
+  messageRef  MessageEId OnDeleteCascade
   type        String
   name        T.Text Maybe
   address     T.Text
 ReferenceE
-  messageRef  MessageEId
+  messageRef  MessageEId OnDeleteCascade
   msgId       T.Text
 PartE
-  messageRef  MessageEId
+  messageRef  MessageEId OnDeleteCascade
   disposition T.Text Maybe
   type        T.Text
 KeywordE
-  messageRef  MessageEId
+  messageRef  MessageEId OnDeleteCascade
   keyword     T.Text
   |]
 

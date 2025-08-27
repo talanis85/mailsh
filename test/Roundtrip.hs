@@ -11,4 +11,5 @@ main = do
   case parse (message mime) i of
     Left err -> error ("Error parsing message: " ++ err)
     Right msg -> do
-      BL.putStrLn (renderMessage msg)
+      BL.putStr (renderMessage msg)
+      putStr "\n"

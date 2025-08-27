@@ -15,6 +15,7 @@ module RichString
   ) where
 
 import Control.Lens
+import Control.Monad
 import Control.Monad.State
 import Data.Bifunctor
 import Data.String
