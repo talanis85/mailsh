@@ -1,0 +1,108 @@
+name:                mailsh
+version:             0.2.0
+github:              "talanis85/mailsh"
+synopsis:            Mail at the shell.
+category:            Network
+description:         Command line mail user agent for maildirs.
+homepage:            https://github.com/talanis85/mailsh#readme
+license:             BSD3
+author:              Philip Kranz
+maintainer:          philip.kranz@googlemail.com
+copyright:           2016 Philip Kranz
+
+extra-source-files:
+  - README.md
+
+dependencies:
+  - base
+  - attoparsec
+  - attoparsec-expr
+  - base64-string
+  - bytestring
+  - case-insensitive
+  - containers
+  - directory
+  - esqueleto
+  - filepath
+  - html-conduit
+  - html-entities
+  - hostname
+  - iconv
+  - lens
+  - mime-mail
+  - mime-types
+  - mmorph
+  - monad-logger
+  - mtl
+  - old-locale
+  - old-time
+  - parsec
+  - persistent
+  - persistent-sqlite
+  - persistent-template
+  - process
+  - purebred-email
+  - random
+  - safecopy
+  - text
+  - text-icu
+  - time
+  - time-compat
+  - url
+  - uuid
+  - wl-pprint
+  - xml-conduit
+
+default-extensions:
+  - FlexibleContexts
+  - OverloadedStrings
+  - RankNTypes
+
+ghc-options:
+  - -fwarn-unused-imports
+
+library:
+  source-dirs: src
+
+executables:
+  mailsh:
+    main:         Main.hs
+    source-dirs:  app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - mailsh
+      - ansi-terminal
+      - ansi-wl-pprint
+      - directory
+      - disguise-gtk
+      - gitrev
+      - optparse-applicative
+      - tar
+      - terminal-size
+      - vector
+      - wcwidth
+      - word-wrap
+      - zippers
+
+tests:
+  mailsh-test:
+    main:         Main.hs
+    source-dirs:  test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - mailsh
+      - generic-random
+      - QuickCheck
+      - quickcheck-instances
+      - tasty
+      - tasty-hunit
+      - tasty-quickcheck
+    default-extensions:
+      - OverloadedStrings
+      - RankNTypes

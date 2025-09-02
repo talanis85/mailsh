@@ -5,17 +5,6 @@
 
 packages:
 - completed:
-    commit: 54db94d36a71614c6d077b8c14b0be63abd66acf
-    git: https://github.com/purebred-mua/purebred-email
-    name: purebred-email
-    pantry-tree:
-      sha256: f66db373e3a4f6b10c7cad9168c1efe2806a4c273583cdf2b9ef021b5835a10b
-      size: 2889
-    version: 0.6.0.2
-  original:
-    commit: 54db94d36a71614c6d077b8c14b0be63abd66acf
-    git: https://github.com/purebred-mua/purebred-email
-- completed:
     commit: 8840e025f34469efd930f461a39a8d7177660626
     git: https://github.com/talanis85/disguise.git
     name: disguise
@@ -37,6 +26,13 @@ packages:
   original:
     commit: 53f8ec5d7b0c358dd595218dc2dca98da4579e05
     git: https://github.com/talanis85/disguise-gtk.git
+- completed:
+    hackage: purebred-email-0.7@sha256:168a313a67402cae8c8bb03546d1b024d301b6f426552164fd603172870ebd7b,4353
+    pantry-tree:
+      sha256: 69edeaefb7ce2e887dae60c00077cc5988f400826f9b72b2b38b585ca23ea3a1
+      size: 2676
+  original:
+    hackage: purebred-email-0.7
 - completed:
     hackage: wl-pprint-1.2.1@sha256:aea676cff4a062d7d912149d270e33f5bb0c01b68a9db46ff13b438141ff4b7c,734
     pantry-tree:

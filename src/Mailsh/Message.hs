@@ -44,6 +44,7 @@ module Mailsh.Message
   , headerList
   , body
   , entities
+  , entities'
   , ientities
   , attachments
 

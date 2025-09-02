@@ -1,160 +1,235 @@
-name:                mailsh
-version:             0.1.0
-synopsis:            Mail at the shell.
-description:         Command line mail user agent for maildirs.
-homepage:            https://github.com/talanis85/mailsh#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Philip Kranz
-maintainer:          philip.kranz@googlemail.com
-copyright:           2016 Philip Kranz
-category:            Network
-build-type:          Simple
-cabal-version:       >=1.10
+cabal-version: 1.12
 
-library
-  hs-source-dirs:      src
-  exposed-modules:     Data.Reparser
-                     , Mailsh.Compose
-                     , Mailsh.Maildir
-                     , Mailsh.MimeRender
-                     , Mailsh.Store
-                     , Mailsh.Store.Message
-                     , Mailsh.Store.PersistentInstances
-                     , Mailsh.Store.Schema
-                     , Mailsh.Store.Store
-                     , Mailsh.Message
-                     , Mailsh.Message.Charsets
-                     , Mailsh.Message.ContentType
-                     , Mailsh.Message.Mailbox
-                     , Mailsh.Message.Utf8
-                     , Mailsh.Types
-                     , Mailsh.Types.FilterExp
-                     , Mailsh.Types.Flag
-                     , Mailsh.Types.Limit
-                     , Mailsh.Types.MailboxRef
-                     , Mailsh.Types.MessageRef
-  build-depends:       base >=4.8 && <5
-                     , attoparsec
-                     , attoparsec-expr
-                     , base64-string
-                     , bytestring
-                     , case-insensitive
-                     , containers
-                     , directory
-                     , esqueleto
-                     , filepath
-                     , html-conduit
-                     , html-entities
-                     , hostname
-                     , iconv
-                     , lens
-                     , mime-mail
-                     , mime-types
-                     , mmorph
-                     , monad-logger
-                     , mtl
-                     , old-locale
-                     , old-time
-                     , parsec
-                     , persistent
-                     , persistent-sqlite
-                     , persistent-template
-                     , process
-                     , purebred-email
-                     , random
-                     , safecopy
-                     , text
-                     , text-icu
-                     , time
-                     , time-compat
-                     , url
-                     , uuid
-                     , wl-pprint
-                     , xml-conduit
-  default-language:    Haskell2010
-  ghc-options:         -fwarn-unused-imports
-  default-extensions:  FlexibleContexts
-                     , OverloadedStrings
-                     , RankNTypes
+-- This file has been generated from package.yaml by hpack version 0.38.0.
+--
+-- see: https://github.com/sol/hpack
 
-executable mailsh
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  other-modules:       ANSI
-                     , Browse
-                     , Commands
-                     , Format
-                     , Render
-                     , RichString
-                     , Util
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
-  build-depends:       base >=4.8 && <5
-                     , ansi-terminal
-                     , ansi-wl-pprint
-                     , attoparsec
-                     , bytestring
-                     , case-insensitive
-                     , directory
-                     , disguise-gtk
-                     , filepath
-                     , gitrev
-                     , lens
-                     , mailsh
-                     , mime-mail
-                     , monad-logger
-                     , mtl
-                     , old-locale
-                     , old-time
-                     , optparse-applicative
-                     , parsec
-                     , process
-                     , tar
-                     , terminal-size
-                     , text
-                     , time
-                     , vector
-                     , wcwidth
-                     , word-wrap
-                     , zippers
-  default-language:    Haskell2010
-  default-extensions:  FlexibleContexts
-                     , OverloadedStrings
-                     , RankNTypes
-
-test-suite mailsh-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Main.hs
-  other-modules:       Message
-                     , MIME
-                     , Types
-  build-depends:       base >=4.8 && <5
-                     , bytestring
-                     , case-insensitive
-                     , generic-random
-                     , lens
-                     , mailsh
-                     , QuickCheck
-                     , quickcheck-instances
-                     , tasty
-                     , tasty-hunit
-                     , tasty-quickcheck
-                     , text
-                     , time
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-unused-imports
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
-                     , RankNTypes
-
-executable mailsh-roundtrip
-  hs-source-dirs:      test
-  main-is:             Roundtrip.hs
-  build-depends:       base >=4.8 && <5
-                     , attoparsec
-                     , bytestring
-                     , mailsh
+name:           mailsh
+version:        0.2.0
+synopsis:       Mail at the shell.
+description:    Command line mail user agent for maildirs.
+category:       Network
+homepage:       https://github.com/talanis85/mailsh#readme
+bug-reports:    https://github.com/talanis85/mailsh/issues
+author:         Philip Kranz
+maintainer:     philip.kranz@googlemail.com
+copyright:      2016 Philip Kranz
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
 
 source-repository head
-  type:     git
+  type: git
   location: https://github.com/talanis85/mailsh
+
+library
+  exposed-modules:
+      Data.Reparser
+      Mailsh.Compose
+      Mailsh.Maildir
+      Mailsh.Message
+      Mailsh.Message.Charsets
+      Mailsh.Message.ContentType
+      Mailsh.Message.Mailbox
+      Mailsh.Message.Utf8
+      Mailsh.MimeRender
+      Mailsh.Store
+      Mailsh.Store.Message
+      Mailsh.Store.PersistentInstances
+      Mailsh.Store.Schema
+      Mailsh.Store.Store
+      Mailsh.Types
+      Mailsh.Types.FilterExp
+      Mailsh.Types.Flag
+      Mailsh.Types.Limit
+      Mailsh.Types.MailboxRef
+      Mailsh.Types.MessageRef
+  other-modules:
+      Paths_mailsh
+  hs-source-dirs:
+      src
+  default-extensions:
+      FlexibleContexts
+      OverloadedStrings
+      RankNTypes
+  ghc-options: -fwarn-unused-imports
+  build-depends:
+      attoparsec
+    , attoparsec-expr
+    , base
+    , base64-string
+    , bytestring
+    , case-insensitive
+    , containers
+    , directory
+    , esqueleto
+    , filepath
+    , hostname
+    , html-conduit
+    , html-entities
+    , iconv
+    , lens
+    , mime-mail
+    , mime-types
+    , mmorph
+    , monad-logger
+    , mtl
+    , old-locale
+    , old-time
+    , parsec
+    , persistent
+    , persistent-sqlite
+    , persistent-template
+    , process
+    , purebred-email
+    , random
+    , safecopy
+    , text
+    , text-icu
+    , time
+    , time-compat
+    , url
+    , uuid
+    , wl-pprint
+    , xml-conduit
+  default-language: Haskell2010
+
+executable mailsh
+  main-is: Main.hs
+  other-modules:
+      ANSI
+      Browse
+      Commands
+      Debug
+      Format
+      Render
+      RichString
+      Util
+      Paths_mailsh
+  hs-source-dirs:
+      app
+  default-extensions:
+      FlexibleContexts
+      OverloadedStrings
+      RankNTypes
+  ghc-options: -fwarn-unused-imports -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      ansi-terminal
+    , ansi-wl-pprint
+    , attoparsec
+    , attoparsec-expr
+    , base
+    , base64-string
+    , bytestring
+    , case-insensitive
+    , containers
+    , directory
+    , disguise-gtk
+    , esqueleto
+    , filepath
+    , gitrev
+    , hostname
+    , html-conduit
+    , html-entities
+    , iconv
+    , lens
+    , mailsh
+    , mime-mail
+    , mime-types
+    , mmorph
+    , monad-logger
+    , mtl
+    , old-locale
+    , old-time
+    , optparse-applicative
+    , parsec
+    , persistent
+    , persistent-sqlite
+    , persistent-template
+    , process
+    , purebred-email
+    , random
+    , safecopy
+    , tar
+    , terminal-size
+    , text
+    , text-icu
+    , time
+    , time-compat
+    , url
+    , uuid
+    , vector
+    , wcwidth
+    , wl-pprint
+    , word-wrap
+    , xml-conduit
+    , zippers
+  default-language: Haskell2010
+
+test-suite mailsh-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Message
+      MIME
+      Roundtrip
+      Types
+      Paths_mailsh
+  hs-source-dirs:
+      test
+  default-extensions:
+      FlexibleContexts
+      OverloadedStrings
+      RankNTypes
+      OverloadedStrings
+      RankNTypes
+  ghc-options: -fwarn-unused-imports -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , attoparsec
+    , attoparsec-expr
+    , base
+    , base64-string
+    , bytestring
+    , case-insensitive
+    , containers
+    , directory
+    , esqueleto
+    , filepath
+    , generic-random
+    , hostname
+    , html-conduit
+    , html-entities
+    , iconv
+    , lens
+    , mailsh
+    , mime-mail
+    , mime-types
+    , mmorph
+    , monad-logger
+    , mtl
+    , old-locale
+    , old-time
+    , parsec
+    , persistent
+    , persistent-sqlite
+    , persistent-template
+    , process
+    , purebred-email
+    , quickcheck-instances
+    , random
+    , safecopy
+    , tasty
+    , tasty-hunit
+    , tasty-quickcheck
+    , text
+    , text-icu
+    , time
+    , time-compat
+    , url
+    , uuid
+    , wl-pprint
+    , xml-conduit
+  default-language: Haskell2010
