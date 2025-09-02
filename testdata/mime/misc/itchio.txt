@@ -1,0 +1,6 @@
+MIME-Version: 1
+From: itch.de <postmaster@itch.io>
+To: foo@welt.de
+Subject: xxx
+
+hallo welt
