@@ -2,10 +2,6 @@ resolver: lts-22.44
 packages:
 - '.'
 extra-deps:
-- git: https://github.com/talanis85/disguise.git
-  commit: 8840e025f34469efd930f461a39a8d7177660626
-- git: https://github.com/talanis85/disguise-gtk.git
-  commit: 53f8ec5d7b0c358dd595218dc2dca98da4579e05
 - purebred-email-0.7
 - wl-pprint-1.2.1
 flags: {}

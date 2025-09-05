@@ -15,27 +15,6 @@ in
       zlib
       system-sendmail
       icu
-      cairo
-      gtk3
-      pango
       pkg-config
-      xorg.xorgproto
-      xorg.libX11
-
-      libdatrie
-      libepoxy
-      libthai
-      libselinux
-      libsepol
-      libxkbcommon
-      libsysprof-capture
-      pcre
-      pcre2
-      glib
-      xorg.libXdmcp
-      xorg.libxcb
-      xorg.libXtst
-      util-linux
-      lerc
     ];
   }

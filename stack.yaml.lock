@@ -5,28 +5,6 @@
 
 packages:
 - completed:
-    commit: 8840e025f34469efd930f461a39a8d7177660626
-    git: https://github.com/talanis85/disguise.git
-    name: disguise
-    pantry-tree:
-      sha256: 1ba641440ab5a61982c6a2952501ede1039aee90bc5a2f4dcb2db68a98bd502e
-      size: 514
-    version: 0.1.0.0
-  original:
-    commit: 8840e025f34469efd930f461a39a8d7177660626
-    git: https://github.com/talanis85/disguise.git
-- completed:
-    commit: 53f8ec5d7b0c358dd595218dc2dca98da4579e05
-    git: https://github.com/talanis85/disguise-gtk.git
-    name: disguise-gtk
-    pantry-tree:
-      sha256: 96e01cc8359aa9b680a4c501bc68f05021c2063a51e50f01bb13aab60153b345
-      size: 1131
-    version: 0.1.0.0
-  original:
-    commit: 53f8ec5d7b0c358dd595218dc2dca98da4579e05
-    git: https://github.com/talanis85/disguise-gtk.git
-- completed:
     hackage: purebred-email-0.7@sha256:168a313a67402cae8c8bb03546d1b024d301b6f426552164fd603172870ebd7b,4353
     pantry-tree:
       sha256: 69edeaefb7ce2e887dae60c00077cc5988f400826f9b72b2b38b585ca23ea3a1

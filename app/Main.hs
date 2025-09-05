@@ -89,10 +89,6 @@ commandP = hsubparser
                               (filterHelp <> progDesc "List all headers given a filter expression."))
   <> command "lsn"      (info (cmdLsn     <$> filterArgument FilterAll)
                               (filterHelp <> progDesc "List all message numbers given a filter expression."))
-  <> command "browse"   (info (cmdBrowse  <$> limitOption (Limit 1000)
-                                          <*> filterArgument FilterAll
-                                          <*> formatOption)
-                              (filterHelp <> progDesc "Browse messages interactively."))
   <> command "trash"    (info (cmdTrash   <$> messageNumberArgument)
                               (progDesc "Trash a message."))
   <> command "recover"  (info (cmdRecover <$> messageNumberArgument)

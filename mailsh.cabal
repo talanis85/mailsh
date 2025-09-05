@@ -100,7 +100,6 @@ executable mailsh
   main-is: Main.hs
   other-modules:
       ANSI
-      Browse
       Commands
       Debug
       Format
@@ -126,7 +125,6 @@ executable mailsh
     , case-insensitive
     , containers
     , directory
-    , disguise-gtk
     , esqueleto
     , filepath
     , gitrev

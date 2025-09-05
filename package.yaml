@@ -77,7 +77,6 @@ executables:
       - ansi-terminal
       - ansi-wl-pprint
       - directory
-      - disguise-gtk
       - gitrev
       - optparse-applicative
       - tar
